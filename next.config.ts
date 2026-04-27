@@ -1,6 +1,7 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  output: "export",
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  // пусто
 };
 
 export default nextConfig;

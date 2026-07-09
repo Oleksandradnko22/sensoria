@@ -5,33 +5,50 @@ type Props = {
   onFinish: () => void;
 };
 
-const steps = [
-  "Аналізуємо ваші відповіді...",
-  "Визначаємо емоційні патерни...",
-  "Формуємо персональний профіль...",
-  "Підбираємо рекомендації...",
-];
-
 export default function LoadingScreen({
   onFinish,
 }: Props) {
-  const [active, setActive] = useState(0);
+  const [progress, setProgress] = useState(0);
+
+const loadingTexts = [
+  "Аналізуємо взаємозв'язки між відповідями",
+  "Визначаємо основні закономірності",
+  "Формуємо емоційний профіль",
+  "Підбираємо персональні рекомендації",
+];
 
   useEffect(() => {
-    if (active >= steps.length - 1) {
-      const final = setTimeout(() => {
-        onFinish();
-      }, 1200);
 
-      return () => clearTimeout(final);
-    }
+  const timer = setInterval(() => {
 
-    const timer = setTimeout(() => {
-      setActive((prev) => prev + 1);
-    }, 1400);
+    setProgress((prev) => {
 
-    return () => clearTimeout(timer);
-  }, [active]);
+      if (prev >= 100) {
+
+  console.log("100%");
+
+  clearInterval(timer);
+
+  setTimeout(() => {
+
+    console.log("CALLING onFinish");
+
+    onFinish();
+
+  }, 400);
+
+  return 100;
+}
+
+      return prev + 2;
+
+    });
+
+  }, 80);
+
+  return () => clearInterval(timer);
+
+}, []);
 
   return (
     <motion.div
@@ -83,7 +100,7 @@ export default function LoadingScreen({
         ></div>
 
        {/* CONTENT */}
-<div className="relative z-10"/>
+<div className="relative z-10">
 
 <div
     className="
@@ -133,52 +150,68 @@ export default function LoadingScreen({
       Формуємо ваш результат
     </h1>
 
-    {/* STEPS */}
-    <div className="flex flex-col gap-4">
+    <div className="text-center">
 
-      {steps.map((step, i) => {
-        const completed = i <= active;
+  <p
+    className="
+      text-white/70
+      text-lg
+      leading-relaxed
+      mb-8
+      max-w-xl
+      mx-auto
+    "
+  >
+    {
+      loadingTexts[
+        Math.min(
+          Math.floor(progress / 25),
+          3
+        )
+      ]
+    }
+  </p>
 
-        return (
-          <div
-            key={i}
-            className={`
-              flex items-center gap-4
-              px-5 py-4
-              rounded-2xl
+  <div
+    className="
+      h-3
+      rounded-full
+      bg-white/10
+      overflow-hidden
+      mb-4
+    "
+  >
 
-              border transition-all duration-500
+    <div
+      className="
+        h-full
+        rounded-full
 
-              ${
-                completed
-                  ? "bg-white/10 border-white/20 text-white"
-                  : "bg-white/5 border-white/5 text-white/40"
-              }
-            `}
-          >
-            <div
-              className={`
-                w-7 h-7 rounded-full
-                flex items-center justify-center
-                text-sm
+        bg-gradient-to-r
+        from-cyan-400
+        via-blue-400
+        to-purple-400
 
-                ${
-                  completed
-                    ? "bg-white text-black"
-                    : "bg-white/10"
-                }
-              `}
-            >
-              {completed ? "✓" : ""}
-            </div>
+        transition-all
+        duration-300
+      "
+      style={{
+        width: `${progress}%`,
+      }}
+    />
 
-            <span className="text-sm md:text-base">
-              {step}
-            </span>
+  </div>
 
-          </div>
-        );
-      })}
+  <div
+    className="
+      text-white/60
+      text-sm
+    "
+  >
+    {progress}%
+  </div>
+
+</div>
 
     </div>
 

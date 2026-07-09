@@ -36,13 +36,6 @@ const programs: any[] = [
     price: "1100",
     createdAt: "2026-05-01",
   },
-   {
-    title: "Контроль емоцій",
-    author: "Світлана Бондар",
-    meta: "5 модулів • 20 уроків",
-    price: "1100",
-    createdAt: "2026-05-01",
-  },
 ];
 
 export default function ProgramsSection({ onOpen = () => {} }: any) {

@@ -1,5 +1,11 @@
 import logo from '../assets/logo.png';
-export default function Footer({ onopentest }: any) {
+type Props = {
+  onOpenTest: () => void;
+};
+
+export default function Footer({
+  onOpenTest,
+}: Props) {
   return (
     <footer className="relative z-10 bg-white text-black mt-24">
       <div className="max-w-7xl mx-auto px-6 py-16">
@@ -38,7 +44,7 @@ export default function Footer({ onopentest }: any) {
               <li>Медитації</li>
               <li>
                 <button 
-                  onClick={onopentest}
+                  onClick={onOpenTest}
                   className="cursor-pointer hover:text-black transition"
                 >
                   Психологічний тест

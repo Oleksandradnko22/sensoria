@@ -11,12 +11,37 @@ export type FunnelAnswer = {
 
 export type FunnelInsight = {
   primaryCategory: string;
+
   secondaryCategories: string[];
+
+  intensity:
+    | "low"
+    | "moderate"
+    | "high"
+    | "critical";
+
+  resultType:
+    | "positive"
+    | "neutral"
+    | "negative";
 };
 
-export type FunnelRecommendation = {
-  programId: string;
+export type FunnelUser = {
+  name: string;
+  email: string;
+  password: string;
 };
+
+export type FunnelProgram = {
+  id: string;
+  title: string;
+};
+
+export type FunnelResults = Record<
+  string,
+  number
+>;
+
 
 type FunnelStore = {
   selectedState: FunnelState | null;
@@ -25,9 +50,11 @@ type FunnelStore = {
 
   insight: FunnelInsight | null;
 
-  recommendation: FunnelRecommendation | null;
+  user: FunnelUser | null;
 
-  email: string | null;
+program: FunnelProgram | null;
+
+results: FunnelResults | null;
 
   setSelectedState: (
     state: FunnelState
@@ -41,13 +68,17 @@ type FunnelStore = {
     insight: FunnelInsight
   ) => void;
 
-  setRecommendation: (
-    recommendation: FunnelRecommendation
-  ) => void;
+  setUser: (
+  user: FunnelUser
+) => void;
 
-  setEmail: (
-    email: string
-  ) => void;
+setProgram: (
+  program: FunnelProgram
+) => void;
+
+setResults: (
+  results: FunnelResults
+) => void;
 
   reset: () => void;
 };
@@ -59,9 +90,11 @@ const store: FunnelStore = {
 
   insight: null,
 
-  recommendation: null,
+  user: null,
 
-  email: null,
+program: null,
+
+results: null,
 
   setSelectedState(state) {
     store.selectedState = state;
@@ -75,13 +108,17 @@ const store: FunnelStore = {
     store.insight = insight;
   },
 
-  setRecommendation(recommendation) {
-    store.recommendation = recommendation;
-  },
+  setUser(user) {
+  store.user = user;
+},
 
-  setEmail(email) {
-    store.email = email;
-  },
+setProgram(program) {
+  store.program = program;
+},
+
+setResults(results) {
+  store.results = results;
+},
 
   reset() {
     store.selectedState = null;
@@ -90,10 +127,14 @@ const store: FunnelStore = {
 
     store.insight = null;
 
-    store.recommendation = null;
+    store.user = null;
 
-    store.email = null;
+store.program = null;
+
+store.results = null;
   },
 };
 
 export default store;
+
+console.log("STORE CREATED", Math.random());

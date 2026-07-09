@@ -1,8 +1,11 @@
 import { useState } from "react";
+import funnelStore
+from "../store/funnelStore";
 
 type Props = {
   stateTitle: string;
   recommendationTitle: string;
+
   onContinue: () => void;
 };
 
@@ -11,15 +14,20 @@ export default function RegisterPage({
   recommendationTitle,
   onContinue,
 }: Props) {
-  const [email, setEmail] =
-    useState("");
+  
+  const [name, setName] =
+  useState("");
 
-  const [password, setPassword] =
-    useState("");
+const [email, setEmail] =
+  useState("");
+
+const [password, setPassword] =
+  useState("");
 
   const canContinue =
-    email.trim().length > 0 &&
-    password.trim().length >= 6;
+  name.trim().length > 1 &&
+  email.trim().length > 0 &&
+  password.trim().length >= 6;
 
   return (
     <div
@@ -34,45 +42,6 @@ export default function RegisterPage({
       "
     >
       <div className="max-w-2xl w-full">
-
-        {/* RESULT REMINDER */}
-
-        <div
-          className="
-            mb-8
-
-            rounded-3xl
-
-            bg-white/10
-            backdrop-blur-2xl
-
-            border border-white/20
-
-            p-8
-
-            text-white
-          "
-        >
-          <div className="text-white/60 mb-3">
-            Ваш результат
-          </div>
-
-          <div className="text-2xl font-bold mb-5">
-            {stateTitle}
-          </div>
-
-          <div className="space-y-2 text-white/75">
-
-            <div>
-              Поточний фокус:
-            </div>
-
-            <div className="font-medium">
-              {recommendationTitle}
-            </div>
-
-          </div>
-        </div>
 
         {/* SAVE PLAN */}
 
@@ -116,34 +85,53 @@ export default function RegisterPage({
           <div className="space-y-5">
 
             <input
-              type="email"
-              placeholder="Email"
+  type="text"
+  placeholder="Ім'я"
 
-              value={email}
+  value={name}
 
-              onChange={(e) =>
-                setEmail(
-                  e.target.value
-                )
-              }
+  onChange={(e) =>
+    setName(
+      e.target.value
+    )
+  }
 
-              className="
-                w-full
+  className="
+    w-full
 
-                px-5
-                py-4
+    px-5
+    py-4
 
-                rounded-2xl
+    rounded-2xl
 
-                bg-white/5
-                border border-white/15
+    bg-white/5
+    border border-white/15
 
-                placeholder-white/40
+    placeholder-white/40
 
-                focus:outline-none
-                focus:border-white/40
-              "
-            />
+    focus:outline-none
+    focus:border-white/40
+  "
+/>
+
+<input
+  type="email"
+  value={email}
+  onChange={(e) =>
+    setEmail(e.target.value)
+  }
+  placeholder="Email"
+  className="
+    w-full
+    px-6
+    py-5
+    rounded-2xl
+    bg-white/10
+    border border-white/20
+    text-white
+    placeholder:text-white/40
+  "
+/>
 
             <input
               type="password"
@@ -195,7 +183,16 @@ export default function RegisterPage({
           <button
             disabled={!canContinue}
 
-            onClick={onContinue}
+            onClick={() => {
+
+  funnelStore.setUser({
+    name,
+    email,
+    password,
+  });
+
+  onContinue();
+}}
 
             className={`
               w-full

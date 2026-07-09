@@ -474,7 +474,7 @@ export default function GuidesCatalogPage() {
             >
               {filteredGuides
               .slice(0, visibleCount)
-              .map((guide, index) => {
+              .map((guide) => {
                 const isNew = 
                   guide.tag === "Новий";
 

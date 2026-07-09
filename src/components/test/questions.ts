@@ -7,11 +7,8 @@ export type Category =
   | "stress"
   | "emotionalBalance"
   | "innerPressure"
-  | "resilience"
-  | "balance"
   | "awareness"
   | "recovery"
-  | "adaptability";
 
 export type Question = {
   id: number;
@@ -102,17 +99,6 @@ export const questions: Question[] = [
   {
     id: 4,
     question:
-      "Чи складно вам розслабитись навіть у спокійній обстановці?",
-
-    answers: createAnswers([
-      "anxiety",
-      "innerPressure",
-    ]),
-  },
-
-  {
-    id: 5,
-    question:
       "Наскільки часто ви відкладаєте відпочинок через справи?",
 
     answers: createAnswers([
@@ -122,9 +108,9 @@ export const questions: Question[] = [
   },
 
   {
-    id: 6,
+    id: 5,
     question:
-      "Чи буває у вас відчуття втрати напрямку у житті?",
+      "Чи відчуваєте ви зараз нестачу мотивації або натхнення?",
 
     answers: createAnswers([
       "motivation",
@@ -132,7 +118,7 @@ export const questions: Question[] = [
   },
 
   {
-    id: 7,
+    id: 6,
     question:
       "Чи важко вам говорити про свої потреби у стосунках?",
 
@@ -142,7 +128,7 @@ export const questions: Question[] = [
   },
 
   {
-    id: 8,
+    id: 7,
     question:
       "Чи бувають у вас різкі емоційні перепади?",
 
@@ -152,9 +138,9 @@ export const questions: Question[] = [
   },
 
   {
-    id: 9,
+    id: 8,
     question:
-      "Чи часто ви відчуваєте внутрішній тиск?",
+      "Чи часто вам здається, що ви повинні робити більше, ніж можете зараз?",
 
     answers: createAnswers([
       "innerPressure",
@@ -163,39 +149,7 @@ export const questions: Question[] = [
   },
 
   {
-    id: 10,
-    question:
-      "Чи складно вам перестати аналізувати ситуації?",
-
-    answers: createAnswers([
-      "anxiety",
-      "emotionalBalance",
-    ]),
-  },
-
-  {
-    id: 11,
-    question:
-      "Наскільки часто ви відчуваєте втому без причини?",
-
-    answers: createAnswers([
-      "burnout",
-    ]),
-  },
-
-  {
-    id: 12,
-    question:
-      "Чи часто ви критикуєте себе?",
-
-    answers: createAnswers([
-      "selfEsteem",
-      "innerPressure",
-    ]),
-  },
-
-  {
-    id: 13,
+    id: 9,
     question:
       "Чи є у вас складність з мотивацією?",
 
@@ -206,7 +160,7 @@ export const questions: Question[] = [
   },
 
   {
-    id: 14,
+    id: 10,
     question:
       "Чи переживаєте ви через конфлікти довше, ніж хотілося б?",
 
@@ -217,7 +171,7 @@ export const questions: Question[] = [
   },
 
   {
-    id: 15,
+    id: 11,
     question:
       "Чи буває вам складно відчувати спокій?",
 
@@ -228,18 +182,7 @@ export const questions: Question[] = [
   },
 
   {
-    id: 16,
-    question:
-      "Чи є у вас відчуття внутрішнього перевантаження?",
-
-    answers: createAnswers([
-      "burnout",
-      "stress",
-    ]),
-  },
-
-  {
-    id: 17,
+    id: 12,
     question:
       "Чи важко вам дозволяти собі помилки?",
 
@@ -250,7 +193,7 @@ export const questions: Question[] = [
   },
 
   {
-    id: 18,
+    id: 13,
     question:
       "Чи часто ви відчуваєте емоційну нестабільність?",
 
@@ -260,18 +203,7 @@ export const questions: Question[] = [
   },
 
   {
-    id: 19,
-    question:
-      "Чи буває вам складно бути наодинці зі своїми думками?",
-
-    answers: createAnswers([
-      "anxiety",
-      "stress",
-    ]),
-  },
-
-  {
-    id: 20,
+    id: 14,
     question:
       "Чи є у вас відчуття, що ви давно не відновлювались по-справжньому?",
 
@@ -281,121 +213,14 @@ export const questions: Question[] = [
     ]),
   },
 
-  {
-  id: 21,
+ {
+  id: 15,
   question:
-    "Чи вдається вам достатньо швидко відновлюватись після складних періодів?",
+    "Чи часто вам бракує сил навіть після відпочинку?",
 
-  answers: [
-    {
-      text: "Так, зазвичай досить легко",
-      scores: {
-        resilience: 3,
-        recovery: 3,
-        balance: 2,
-      },
-    },
-
-    {
-      text: "Частково",
-      scores: {
-        resilience: 2,
-        recovery: 1,
-      },
-    },
-
-    {
-      text: "Скоріше ні",
-      scores: {
-        burnout: 2,
-        stress: 2,
-      },
-    },
-
-    {
-      text: "Майже ніколи",
-      scores: {
-        burnout: 3,
-        stress: 3,
-      },
-    },
-  ],
-},
-
-{
-  id: 22,
-  question:
-    "Наскільки добре ви розумієте свої емоції та стан?",
-
-  answers: [
-    {
-      text: "Дуже добре",
-      scores: {
-        awareness: 3,
-        balance: 2,
-      },
-    },
-
-    {
-      text: "Достатньо добре",
-      scores: {
-        awareness: 2,
-      },
-    },
-
-    {
-      text: "Іноді мені складно",
-      scores: {
-        anxiety: 1,
-        emotionalBalance: 1,
-      },
-    },
-
-    {
-      text: "Майже не розумію",
-      scores: {
-        anxiety: 3,
-        emotionalBalance: 2,
-      },
-    },
-  ],
-},
-
-{
-  id: 23,
-  question:
-    "Як ви зазвичай реагуєте на зміни або нові ситуації?",
-
-  answers: [
-    {
-      text: "Досить спокійно",
-      scores: {
-        adaptability: 3,
-        resilience: 2,
-      },
-    },
-
-    {
-      text: "Потрібен час на адаптацію",
-      scores: {
-        adaptability: 1,
-      },
-    },
-
-    {
-      text: "Часто хвилююсь",
-      scores: {
-        anxiety: 2,
-      },
-    },
-
-    {
-      text: "Дуже важко переношу зміни",
-      scores: {
-        anxiety: 3,
-        stress: 2,
-      },
-    },
-  ],
+  answers: createAnswers([
+    "burnout",
+    "stress",
+  ]),
 },
 ];

@@ -1,33 +1,50 @@
 export const programs = [
+
   {
-    id: "anxiety-course",
+  id: "healthy-balance",
 
-    title: "Зниження тривожності",
+  title:
+    "Підтримка емоційного балансу",
 
-    author: "Олена Мельник",
+  author:
+    "Sensoria",
 
-    price: "1200",
+  price: "0",
 
-    tags: [
-      "anxiety",
-      "stress",
-      "emotionalBalance",
+  duration: "7 днів",
+
+  benefits: [
+    "Збереження емоційної стабільності",
+    "Підтримка внутрішнього ресурсу",
+    "Практики усвідомленості",
+  ],
+
+  tags: [
+    "healthyBalance",
     ],
   },
 
   {
-    id: "stress-course",
+  id: "stress-course",
 
-    title: "Робота зі стресом",
+  title: "Робота зі стресом",
 
-    author: "Андрій Коваленко",
+  author: "Андрій Коваленко",
 
-    price: "1500",
+  price: "1500",
 
-    tags: [
-      "stress",
-      "burnout",
-      "innerPressure",
+  duration: "14 днів",
+
+  benefits: [
+    "Зниження напруги",
+    "Відновлення енергії",
+    "Практики стабілізації",
+  ],
+
+  tags: [
+    "stress",
+    "burnout",
+    "innerPressure",
     ],
   },
 
@@ -39,6 +56,14 @@ export const programs = [
     author: "Марія Шевченко",
 
     price: "0",
+
+    duration: "10 днів",
+
+benefits: [
+  "Формування здорової самооцінки",
+  "Зниження самокритики",
+  "Розвиток внутрішньої підтримки",
+],
 
     tags: [
       "selfEsteem",
@@ -55,6 +80,14 @@ export const programs = [
 
     price: "1800",
 
+    duration: "21 день",
+
+benefits: [
+  "Покращення комунікації",
+  "Формування особистих кордонів",
+  "Здорові взаємини",
+],
+
     tags: [
       "relationships",
       "emotionalBalance",
@@ -69,6 +102,14 @@ export const programs = [
     author: "Ігор Петренко",
 
     price: "900",
+
+    duration: "14 днів",
+
+benefits: [
+  "Практики усвідомленості",
+  "Зниження емоційного навантаження",
+  "Покращення концентрації",
+],
 
     tags: [
       "emotionalBalance",

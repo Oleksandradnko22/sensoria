@@ -20,6 +20,7 @@ export default function QuestionCard({
   total,
   onAnswer,
 }: Props) {
+  
   return (
     <motion.div
       initial={{
@@ -104,30 +105,38 @@ export default function QuestionCard({
                 scale: 0.98,
               }}
 
-              onClick={() =>
-                onAnswer({
-                    scores: answer.scores,
-                    answerIndex: index,
-                })
-              }
+              onClick={() => {
 
-              className="
-                w-full
-                text-left
+  onAnswer({
+  scores: answer.scores,
+  answerIndex: index,
+});
 
-                p-5
-                rounded-2xl
+}}
 
-                bg-white/5
-                border border-white/10
+             className="
+  w-full
+  text-left
 
-                hover:bg-white/10
-                hover:border-white/20
+  p-6
 
-                transition
+  min-h-[88px]
 
-                text-lg
-              "
+  flex
+  items-center
+
+  rounded-2xl
+
+  bg-white/5
+  border border-white/10
+
+  hover:bg-white/10
+  hover:border-white/20
+
+  transition
+
+  text-lg
+"
             >
               {answer.text}
             </motion.button>

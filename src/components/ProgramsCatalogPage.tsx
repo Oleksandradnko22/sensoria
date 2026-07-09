@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import CourseCard from "./CourseCard";
 import Footer from "./Footer";
-import { getActiveTags,} from "../store/recommendationStore";
 
 type Program = {
   title: string;
@@ -86,32 +85,9 @@ export default function ProgramsCatalogPage({
   const [visibleCount, setVisibleCount] =
     useState(6);
 
-  const recommendationTags = getActiveTags();
-
   const filteredPrograms = useMemo(() => {
 
     let filtered = [...programs];
-
-    if (
-  recommendationTags.length > 0 &&
-  selectedCategory === "all"
-) {
-
-  filtered.sort((a, b) => {
-
-    const aMatches =
-      a.tags?.filter(tag =>
-        recommendationTags.includes(tag)
-      ).length || 0;
-
-    const bMatches =
-      b.tags?.filter(tag =>
-        recommendationTags.includes(tag)
-      ).length || 0;
-
-    return bMatches - aMatches;
-  });
-}
 
     // CATEGORY
     if (selectedCategory !== "all") {
@@ -529,7 +505,8 @@ if (priceFilter === "high") {
 
       </div>
 
-      <Footer />
+      <Footer onOpenTest={function (): void {
+      } } />
     </>
   );
 }

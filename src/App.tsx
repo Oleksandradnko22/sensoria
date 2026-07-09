@@ -1,3 +1,4 @@
+import ResultPage from "./pages/ResultPage";
 import StateSelectionPage from "./pages/StateSelectionPage";
 import TestPage from "./components/test/TestPage";
 import { useEffect, useState } from "react";
@@ -11,18 +12,60 @@ import ProgramPreviewModal from "./components/ProgramPreviewModal";
 import ProgramsCatalogPage from "./components/ProgramsCatalogPage";
 import FAQSection from "./components/FAQSection";
 import GuidesCatalogPage from "./components/GuidesCatalogPage";
+import RegisterPage from "./pages/RegisterPage";
+import RecommendationPage from "./pages/RecomendationPage";
+import funnelStore from "./store/funnelStore";
+import { programs }
+from "./data/programs";
+import { track } from "./services/analytics";
+import { stateProfiles }
+from "./data/stateProfiles";
 
 // тип программы
-export type Program = {
-  tag: import("react/jsx-runtime").JSX.Element;
-  title: string;
-  author: string;
-  meta: string;
-  description: string;
-  price: string;
+export type Program = typeof programs[number];
 
-  recommended?: boolean;
-};
+function ProgramPagePlaceholder({
+  title,
+  onBackToHome,
+}: {
+  title: string;
+  onBackToHome: () => void;
+}) {
+  return (
+    <div className="min-h-screen flex items-center justify-center text-white">
+
+      <div className="max-w-2xl text-center">
+
+        <div className="text-white/60 mb-4">
+          Ваша програма
+        </div>
+
+        <h1 className="text-5xl font-bold mb-6">
+          {title}
+        </h1>
+
+        <p className="text-white/75 mb-10">
+          Програма готова до запуску.
+        </p>
+
+        <button
+          onClick={onBackToHome}
+          className="
+            px-8
+            py-4
+            rounded-2xl
+            bg-white
+            text-black
+          "
+        >
+          Завершити
+        </button>
+
+      </div>
+
+    </div>
+  );
+}
 
 const testimonials = [
   {
@@ -47,102 +90,6 @@ const testimonials = [
   },
 ];
 
-const allPrograms = [
-  {
-    title: "Зниження тривожності",
-    author: "Олена Мельник",
-    meta: "6 модулів • 18 уроків",
-    price: "1200",
-    category: "anxiety",
-    rating: 4.9,
-    tag: "Рекомендована",
-    recommended: true,
-  },
-
-  {
-    title: "Робота зі стресом",
-    author: "Андрій Коваленко",
-    meta: "5 модулів • 16 уроків",
-    price: "1500",
-    category: "stress",
-    rating: 4.8,
-    createdAt: "2026-05-01",
-  },
-
-  {
-    title: "Здорова самооцінка",
-    author: "Марія Шевченко",
-    meta: "6 модулів • 22 уроки",
-    price: "0",
-    category: "selfEsteem",
-    rating: 4.7,
-    tag: "Безкоштовна",
-  },
-
-  {
-    title: "Здорова самооцінка",
-    author: "Марія Шевченко",
-    meta: "6 модулів • 22 уроки",
-    price: "0",
-    category: "selfEsteem",
-    rating: 4.7,
-    tag: "Безкоштовна",
-  },
-
-  {
-    title: "Здорова самооцінка",
-    author: "Марія Шевченко",
-    meta: "6 модулів • 22 уроки",
-    price: "0",
-    category: "selfEsteem",
-    rating: 4.7,
-    tag: "Безкоштовна",
-  },
-
-  {
-    title: "Усвідомленість у житті",
-    author: "Ігор Петренко",
-    meta: "4 модулі • 14 уроків",
-    price: "900",
-    category: "emotionalBalance",
-    rating: 4.8,
-    tag: "Рекомендована",
-    recommended: true,
-  },
-
-  {
-    title: "Контроль емоцій",
-    author: "Світлана Бондар",
-    meta: "5 модулів • 20 уроків",
-    price: "1100",
-    category: "stress",
-    rating: 4.9,
-    tag: "Рекомендована",
-    recommended: true,
-  },
-
-  {
-    title: "Здорові стосунки",
-    author: "Анна Кравчук",
-    meta: "7 модулів • 25 уроків",
-    price: "1800",
-    category: "relationships",
-    rating: 4.9,
-    tag: "Нова",
-  },
-
-  {
-    title: "Контроль емоцій",
-    author: "Світлана Бондар",
-    meta: "5 модулів • 20 уроків",
-    price: "1100",
-    category: "stress",
-    rating: 4.9,
-    tag: "Рекомендована",
-    recommended: true,
-  },
-];
-
 export default function App() {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
@@ -153,6 +100,10 @@ export default function App() {
   | "home"
   | "state-selection"
   | "test"
+  | "result"
+  | "registration"
+  | "recommendation"
+  | "program"
   | "catalog"
   | "guides"
 >("home");
@@ -192,14 +143,6 @@ export default function App() {
     }, 250);
   };
 
-  // открыть программу
-
-  // назад
-  const goBack = () => {
-    setPage("home");
-    window.scrollTo(0, 0);
-  };
-
   const openTest = () => {
   setPage("state-selection");
   window.scrollTo(0, 0);
@@ -215,6 +158,7 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
+  console.log("CURRENT PAGE:", page);
 
 if (page === "catalog") {
   return (
@@ -235,7 +179,7 @@ if (page === "catalog") {
         />
 
         <ProgramsCatalogPage
-          programs={allPrograms}
+          programs={programs as any}
           onOpen={(program: any) => {
             setSelectedProgram(program);
           }}
@@ -294,6 +238,237 @@ if (page === "state-selection") {
   );
 }
 
+if (page === "test") {
+  return (
+    <div
+      className="
+        min-h-screen
+        bg-gradient-to-br
+        from-[#1e3a8a]
+        via-[#2563eb]
+        to-[#8b5cf6]
+      "
+    >
+
+    <TestPage
+      onComplete={() => {
+        setPage("result");
+      }}
+    />
+    </div>
+  );
+}
+
+if (page === "result") {
+
+  return (
+
+    <ResultPage
+
+      onContinue={() => {
+
+        setPage("registration");
+
+      }}
+
+    />
+
+  );
+
+}
+
+if (page === "registration") {
+  const primaryCategory =
+    funnelStore.insight
+      ?.primaryCategory;
+
+  if (!primaryCategory) {
+    setPage("test");
+    return null;
+  }
+
+  const profile =
+  stateProfiles[
+    primaryCategory as keyof typeof stateProfiles
+  ]?.moderate;
+
+  return (
+  <div
+    className="
+      min-h-screen
+      bg-gradient-to-br
+      from-[#1e3a8a]
+      via-[#2563eb]
+      to-[#8b5cf6]
+    "
+  >
+    <RegisterPage
+      stateTitle={profile.title}
+      recommendationTitle={
+        profile.recommendations[0]
+      }
+
+     onContinue={() => {
+
+  track(
+    "registration_completed"
+  );
+
+  setPage("recommendation");
+}}
+
+    />
+  </div>
+);
+}
+
+if (page === "recommendation") {
+
+  const primaryCategory =
+    funnelStore.insight
+      ?.primaryCategory;
+
+  if (!primaryCategory) {
+    setPage("test");
+    return null;
+  }
+
+ const intensity =
+  funnelStore.insight?.intensity;
+
+if (!intensity) {
+  return null;
+}
+
+const profile =
+  stateProfiles[
+    primaryCategory as keyof typeof stateProfiles
+  ]?.[
+    intensity as
+      | "low"
+      | "moderate"
+      | "high"
+      | "critical"
+  ];
+
+if (!profile) {
+  return null;
+}
+
+ const program =
+  programs.find(
+    (item) =>
+      item.tags.includes(
+        primaryCategory as string
+      )
+  ) || programs[0];
+
+    track(
+  "recommendation_viewed",
+  program.id
+);
+
+  return (
+  <div
+    className="
+      min-h-screen
+      bg-gradient-to-br
+      from-[#1e3a8a]
+      via-[#2563eb]
+      to-[#8b5cf6]
+    "
+  >
+    <RecommendationPage
+      stateTitle={profile.title}
+      reason={profile.description}
+      programTitle={program.title}
+      programAuthor={program.author}
+
+      relatedPrograms={programs
+  .filter(
+    (item) => item.id !== program.id
+  )
+  .slice(0, 5)
+  .map((item) => ({
+    id: item.id,
+    title: item.title,
+    author: item.author,
+  }))
+}
+
+onSelectProgram={(id) => {
+
+  const selected =
+    programs.find(
+      (item) => item.id === id
+    );
+
+  if (!selected) return;
+
+  funnelStore.setProgram({
+    id: selected.id,
+    title: selected.title,
+  });
+
+  track(
+    "program_selected",
+    selected.id
+  );
+
+  setPage("program");
+}}
+
+onViewAllPrograms={() => {
+  setPage("catalog");
+}}
+
+      onStartProgram={() => {
+
+        track(
+          "program_opened",
+          program.id
+        );
+
+        funnelStore.setProgram({
+          id: program.id,
+          title: program.title,
+        });
+
+        setPage("program");
+      }}
+    />
+  </div>
+);
+}
+
+if (page === "program") {
+
+  const program =
+    funnelStore.program;
+
+  return (
+    <div
+      className="
+        min-h-screen
+        bg-gradient-to-br
+        from-[#1e3a8a]
+        via-[#2563eb]
+        to-[#8b5cf6]
+      "
+    >
+      <ProgramPagePlaceholder
+        title={program!.title}
+        onBackToHome={() => {
+
+          funnelStore.reset();
+
+          setPage("home");
+        }}
+      />
+    </div>
+  );
+}
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6] text-white overflow-hidden">
 
@@ -333,10 +508,10 @@ if (page === "state-selection") {
             </p>
 
             <div className="flex gap-5">
-              <button 
-              onClick={openCatalog}
+              <button
+  onClick={openTest}
               className="px-7 py-3.5 bg-white text-black rounded-xl font-semibold hover:bg-gray-100 transition">
-                Знайти програму
+                Пройти діагностику
                 </button>
 
               <button className="px-7 py-3.5 rounded-xl border border-white/40 hover:bg-white/10 transition">
@@ -430,16 +605,15 @@ if (page === "state-selection") {
         {/* FAQ */}
       <FAQSection onOpenTest={openTest} />
 
-      {selectedProgram && (
-        <ProgramPreviewModal
-          program={selectedProgram}
-          onClose={() => setSelectedProgram(null)}
-        />
-      )}
+     {selectedProgram && (
+  <ProgramPreviewModal
+    program={selectedProgram!}
+    onClose={() => setSelectedProgram(null)}
+  />
+)}
 
       {/* FOOTER */}
       <Footer onOpenTest={openTest} />
     </div>
   );
 }
-

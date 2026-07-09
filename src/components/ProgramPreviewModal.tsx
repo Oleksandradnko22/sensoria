@@ -98,7 +98,7 @@ useEffect(() => {
                         <div className="pl-6 lg:pl-8">
 
                             {/* TAG */}
-                            {program.tag && (
+                            {program.tags && (
                                 <div
                                     className="
                     inline-flex
@@ -114,7 +114,7 @@ useEffect(() => {
                     mb-5
                   "
                                 >
-                                    {program.tag}
+                                    {program.tags}
                                 </div>
                             )}
 

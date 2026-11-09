@@ -7,8 +7,6 @@ export type Category =
   | "stress"
   | "emotionalBalance"
   | "innerPressure"
-  | "awareness"
-  | "recovery"
 
 export type Question = {
   id: number;
@@ -20,6 +18,17 @@ export type Question = {
 
     scores: Partial<Record<Category, number>>;
   }[];
+};
+
+// The real shape of a submitted assessment answer (RFC-004). Replaces the
+// `any[]` that used to flow from TestPage through calculateResults, and
+// replaces `FunnelAnswer`, which never actually matched what the UI
+// produced (it was missing `scores` and nothing ever populated it with a
+// real `questionId`).
+export type AssessmentAnswer = {
+  questionId: number;
+  answerIndex: number;
+  scores: Partial<Record<Category, number>>;
 };
 
 const scale = [
@@ -48,9 +57,7 @@ function createAnswers(
   categories: Category[]
 ) {
   return scale.map((item) => {
-    const scores: Partial<
-      Record<Category, number>
-    > = {};
+    const scores: Partial<Record<Category, number>> = {};
 
     categories.forEach((cat) => {
       scores[cat] = item.value;

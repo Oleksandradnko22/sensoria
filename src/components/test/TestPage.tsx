@@ -1,244 +1,235 @@
+import { Icon, type IconName } from "../ui/Icon";
 import { useState, useEffect } from "react";
 
 import QuestionCard from "./QuestionCard";
 import LoadingScreen from "./LoadingScreen";
 
-import { questions } from "./questions";
+import { questions, type AssessmentAnswer } from "./questions";
 
 import { calculateResults } from "../../utils/calculateResults";
+import funnelStore from "../../store/funnelStore";
 
 type Props = {
-  onComplete: (answers: any[]) => void;
+  onComplete: (answers: AssessmentAnswer[]) => void;
 };
+
+// A micro-insight interstitial shown after a given question number. Two
+// moments today (Q5/Q10) — the RFC-004 baseline, kept as the validated
+// starting point. Extending this to more moments is just adding another
+// entry here; nothing else in this file needs to change (RFC-004).
+type MicroInsight = {
+  triggerAfterQuestion: number;
+  icon: IconName;
+  title: string;
+  text: string;
+};
+
+const MICRO_INSIGHTS: MicroInsight[] = [
+  {
+    triggerAfterQuestion: 5,
+    icon: "sparkle",
+    title: "Ми вже бачимо перші закономірності",
+    text: "Ваші відповіді допомагають точніше визначити ключові фактори, що впливають на ваш стан.",
+  },
+  {
+    triggerAfterQuestion: 10,
+    icon: "brain",
+    title: "Ваш емоційний профіль майже сформовано",
+    text: "Залишилось лише кілька відповідей для побудови персонального результату.",
+  },
+];
+
+const MICRO_INSIGHT_PROGRESS_CAPTIONS = [
+  "Аналізуємо відповіді...",
+  "Виявляємо закономірності...",
+  "Формуємо профіль...",
+  "Готуємо наступний етап...",
+];
 
 export default function TestPage({
   onComplete,
 }: Props) {
 
-  useEffect(() => {
-  console.log("MOUNT");
-
-  return () => {
-    console.log("UNMOUNT");
-  };
-}, []);
-
   const [current, setCurrent] = useState(0);
 
-  const [answers, setAnswers] = useState<any[]>([]);
+  const [answers, setAnswers] = useState<AssessmentAnswer[]>([]);
 
   const [showLoading, setShowLoading] =
     useState(false);
 
-    const [insightStep, setInsightStep] =
-  useState<number | null>(null);
+  // The active micro-insight interstitial, or null when none is showing.
+  const [activeMicroInsight, setActiveMicroInsight] =
+    useState<MicroInsight | null>(null);
 
   const [progressStep, setProgressStep] =
-  useState(0);
+    useState(0);
 
   useEffect(() => {
 
-  if (insightStep === null) return;
+    if (activeMicroInsight === null) return;
 
-  const timer = setTimeout(() => {
+    const timer = setTimeout(() => {
 
-    setInsightStep(null);
+      setActiveMicroInsight(null);
 
-    setCurrent((prev) => prev + 1);
+      setCurrent((prev) => prev + 1);
 
-  }, 4000);
+    }, 4000);
 
-  return () => clearTimeout(timer);
+    return () => clearTimeout(timer);
 
-}, [insightStep]);
+  }, [activeMicroInsight]);
 
-useEffect(() => {
+  useEffect(() => {
 
-  if (insightStep === null) return;
+    if (activeMicroInsight === null) return;
 
-  setProgressStep(0);
+    setProgressStep(0);
 
-  const step1 =
-    setTimeout(() => {
-      setProgressStep(1);
-    }, 500);
+    const step1 =
+      setTimeout(() => {
+        setProgressStep(1);
+      }, 500);
 
-  const step2 =
-    setTimeout(() => {
-      setProgressStep(2);
-    }, 1200);
+    const step2 =
+      setTimeout(() => {
+        setProgressStep(2);
+      }, 1200);
 
-  const step3 =
-    setTimeout(() => {
-      setProgressStep(3);
-    }, 2000);
+    const step3 =
+      setTimeout(() => {
+        setProgressStep(3);
+      }, 2000);
 
-  return () => {
-    clearTimeout(step1);
-    clearTimeout(step2);
-    clearTimeout(step3);
-  };
+    return () => {
+      clearTimeout(step1);
+      clearTimeout(step2);
+      clearTimeout(step3);
+    };
 
-}, [insightStep]);
+  }, [activeMicroInsight]);
 
   // ANSWER
-  const handleAnswer = (scores: any) => {
-    const updated = [...answers, scores];
+  const handleAnswer = (answer: AssessmentAnswer) => {
+    const updated = [...answers, answer];
 
     setAnswers(updated);
 
-    // LAST QUESTION
     const nextQuestion = current + 1;
 
-if (nextQuestion === 5) {
-  setInsightStep(1);
-  return;
-}
+    const microInsight = MICRO_INSIGHTS.find(
+      (insight) => insight.triggerAfterQuestion === nextQuestion
+    );
 
-if (nextQuestion === 10) {
-  setInsightStep(2);
-  return;
-}
+    if (microInsight) {
+      setActiveMicroInsight(microInsight);
+      return;
+    }
 
-if (nextQuestion >= questions.length) {
-  setShowLoading(true);
-} else {
-  setCurrent(nextQuestion);
-}
+    if (nextQuestion >= questions.length) {
+      setShowLoading(true);
+    } else {
+      setCurrent(nextQuestion);
+    }
   };
 
-if (insightStep !== null) {
+  if (activeMicroInsight !== null) {
 
-  const insightData = {
-
-    1: {
-      emoji: "✨",
-      title:
-        "Ми вже бачимо перші закономірності",
-
-      text:
-        "Ваші відповіді допомагають точніше визначити ключові фактори, що впливають на ваш стан.",
-    },
-
-    2: {
-      emoji: "🧠",
-      title:
-        "Ваш емоційний профіль майже сформовано",
-
-      text:
-        "Залишилось лише кілька відповідей для побудови персонального результату.",
-    },
-
-  };
-
-  const currentInsight =
-    insightData[
-      insightStep as keyof typeof insightData
-    ];
-
-  return (
-
-    <div
-      className="
-      min-h-screen
-      flex
-      items-center
-      justify-center
-      px-6
-      "
-    >
+    return (
 
       <div
         className="
-        max-w-xl
-        w-full
-
-        rounded-[32px]
-
-        bg-white/10
-        backdrop-blur-2xl
-
-        border border-white/20
-
-        p-10
-
-        text-center
-        text-white
+        min-h-screen
+        flex
+        items-center
+        justify-center
+        px-6
         "
       >
 
-        <div className="text-6xl mb-6">
-          {currentInsight.emoji}
-        </div>
+        <div
+          className="
+          max-w-xl
+          w-full
 
-        <h2 className="text-4xl font-bold mb-6">
-          {currentInsight.title}
-        </h2>
+          rounded-[32px]
 
-        <p className="text-white/70 text-lg leading-relaxed">
-          {currentInsight.text}
-        </p>
+          bg-white/10
+          backdrop-blur-2xl
 
-      <div className="flex justify-center mt-10">
+          border border-white/20
 
-  <div className="relative w-16 h-16">
+          p-10
 
-    <div
-      className="
-        absolute
-        inset-0
+          text-center
+          text-white
+          "
+        >
 
-        rounded-full
+          <div className="text-6xl mb-6">
+            <span className="inline-flex"><Icon name={activeMicroInsight.icon} size={60} /></span>
+          </div>
 
-        border-[3px]
-        border-white/10
-      "
-    />
+          <h2 className="text-4xl font-bold mb-6">
+            {activeMicroInsight.title}
+          </h2>
 
-    <div
-      className="
-        absolute
-        inset-0
+          <p className="text-white/70 text-lg leading-relaxed">
+            {activeMicroInsight.text}
+          </p>
 
-        rounded-full
+        <div className="flex justify-center mt-10">
 
-        border-[3px]
-        border-transparent
-        border-t-white
+    <div className="relative w-16 h-16">
 
-        animate-spin
-      "
-    />
+      <div
+        className="
+          absolute
+          inset-0
 
-  </div>
+          rounded-full
 
-</div>
+          border-[3px]
+          border-white/10
+        "
+      />
 
-<p
-  className="
-    mt-6
-    text-center
-    text-white/60
-    text-sm
-  "
->
-  {
-    progressStep === 0
-      ? "Аналізуємо відповіді..."
-      : progressStep === 1
-      ? "Виявляємо закономірності..."
-      : progressStep === 2
-      ? "Формуємо профіль..."
-      : "Готуємо наступний етап..."
-  }
-</p>
+      <div
+        className="
+          absolute
+          inset-0
 
-      </div>
+          rounded-full
+
+          border-[3px]
+          border-transparent
+          border-t-white
+
+          animate-spin
+        "
+      />
 
     </div>
 
-  );
-}
+  </div>
+
+  <p
+    className="
+      mt-6
+      text-center
+      text-white/60
+      text-sm
+    "
+  >
+    {MICRO_INSIGHT_PROGRESS_CAPTIONS[progressStep]}
+  </p>
+
+        </div>
+
+      </div>
+
+    );
+  }
 
   // LOADING
   if (showLoading) {
@@ -246,7 +237,7 @@ if (insightStep !== null) {
       <LoadingScreen
         onFinish={() => {
 
-          calculateResults(answers);
+          calculateResults(funnelStore.selectedState, answers);
 
           onComplete(answers);
         }}
@@ -254,7 +245,12 @@ if (insightStep !== null) {
     );
   }
 
-  // RESULTS
+  // One question per screen is a locked invariant (RFC-004), not just the
+  // current behavior — `current` only ever addresses a single question.
+  // Assessment stays strictly linear: no back navigation exists anywhere
+  // in this flow, and none should be added (RFC-004: correction isn't the
+  // goal, re-editing an answer would require re-running category scoring
+  // mid-flow).
   return (
     <QuestionCard
       question={questions[current]}

@@ -15,7 +15,7 @@ export const emotionalStates = [
 
   {
     id: "burnout",
-    title: "Виснаження",
+    title: "Вигорання",
     description:
       "Емоційна та фізична втома після тривалого навантаження.",
   },

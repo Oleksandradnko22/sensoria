@@ -1,54 +1,28 @@
+import { Icon } from "./ui/Icon";
 import { useEffect, useState } from "react";
 
-export default function TestPopup({ onopentest }: any) {
+type Props = {
+  onOpenTest: () => void;
+};
+
+// Was `{ onopentest }: any` — App.tsx has always passed `onOpenTest`
+// (camelCase), so the lowercase prop here was always `undefined`. The
+// popup's "Пройти тест →" button silently did nothing when clicked
+// (React just no-ops an undefined onClick, no console warning), and
+// `: any` on the props hid the mismatch from tsc.
+export default function TestPopup({ onOpenTest }: Props) {
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
 
+  // Appears after the person has spent 10s on this screen — a plain
+  // timeout from mount, no scroll listener involved.
   useEffect(() => {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  let visibleTime = 0;
-  let interval: ReturnType<typeof setInterval> | null = null;
+    const timeout = setTimeout(() => {
+      setOpen(true);
+    }, 10000);
 
-  const handleScroll = () => {
-    const el = document.getElementById("programs");
-    if (!el) return;
-
-    const rect = el.getBoundingClientRect();
-
-    const isVisible =
-      rect.top < window.innerHeight - 150 && rect.bottom > 150;
-
-    if (isVisible) {
-      if (!interval) {
-        interval = setInterval(() => {
-          visibleTime += 100;
-        }, 100);
-      }
-
-      if (visibleTime > 1800) {
-        window.removeEventListener("scroll", handleScroll);
-
-        if (interval) clearInterval(interval);
-
-        timeout = setTimeout(() => {
-          setOpen(true);
-        }, 1200);
-      }
-    } else {
-      if (interval) clearInterval(interval);
-      interval = null;
-      visibleTime = 0;
-    }
-  };
-
-  window.addEventListener("scroll", handleScroll);
-
-  return () => {
-    window.removeEventListener("scroll", handleScroll);
-    if (interval) clearInterval(interval);
-    if (timeout) clearTimeout(timeout);
-  };
-}, []);
+    return () => clearTimeout(timeout);
+  }, []);
 
   const close = () => {
     setOpen(false);
@@ -64,9 +38,9 @@ export default function TestPopup({ onopentest }: any) {
     <>
       {/* POPUP */}
       {open && (
-        <div className="fixed bottom-10 right-10 z-50">
+        <div role="region" aria-label="Підбір програми" className="fixed bottom-4 left-4 right-4 sm:left-auto sm:bottom-10 sm:right-10 z-50">
           <div
-            className="w-[320px] rounded-2xl p-5 text-white shadow-2xl animate-[fadeIn_0.3s_ease]"
+            className="w-full sm:w-[320px] rounded-2xl p-4 sm:p-5 text-white shadow-2xl animate-[fadeIn_0.6s_ease-out] motion-reduce:animate-none"
             style={{
               background:
                 "linear-gradient(135deg, #1e40ff 0%, #7c3aed 100%)",
@@ -74,22 +48,23 @@ export default function TestPopup({ onopentest }: any) {
           >
             <button
               onClick={close}
-              className="absolute top-2 right-3 text-white/60 hover:text-white"
+              aria-label="Закрити"
+              className="absolute top-1 right-1 min-h-[44px] min-w-[44px] text-white/80 hover:text-white"
             >
               ✕
             </button>
 
-            <h3 className="text-sm font-semibold mb-1">
+            <h3 className="text-[16px] font-semibold mb-2 sm:mb-1 pr-10">
               Підібрати програму?
             </h3>
 
-            <p className="text-white/70 text-xs mb-4">
+            <p className="hidden sm:block text-white/90 text-[14px] mb-4">
               Пройдіть тест і ми підберемо програму саме для вас
             </p>
 
-            <button 
-              onClick={onopentest}
-              className="w-full py-2.5 rounded-lg bg-white text-black text-sm font-medium hover:scale-[1.03] transition"
+            <button
+              onClick={onOpenTest}
+              className="w-full min-h-[44px] rounded-lg bg-white text-black text-[14px] font-medium hover:scale-[1.03] transition"
             >
               Пройти тест →
             </button>
@@ -101,14 +76,15 @@ export default function TestPopup({ onopentest }: any) {
       {minimized && (
         <button
           onClick={reopen}
+          aria-label="Підібрати програму: пройти тест"
           className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl hover:scale-110 transition"
           style={{
             background:
               "linear-gradient(135deg, #1e40ff, #7c3aed)",
           }}
         >
-          <span className="absolute inset-0 rounded-full animate-ping bg-white/20"></span>
-          <span className="relative z-10 text-xl">🧠</span>
+          <span className="absolute inset-0 rounded-full animate-ping motion-reduce:hidden bg-white/20"></span>
+          <span className="relative z-10"><Icon name="brain" size={22} /></span>
         </button>
       )}
 
@@ -116,7 +92,7 @@ export default function TestPopup({ onopentest }: any) {
       <style>
         {`
           @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
+            from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
           }
         `}

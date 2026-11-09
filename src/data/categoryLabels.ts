@@ -7,7 +7,7 @@ export const categoryLabels = {
     "Стрес",
 
   burnout:
-    "Виснаження",
+    "Вигорання",
 
   selfEsteem:
     "Самооцінка",
@@ -23,5 +23,14 @@ export const categoryLabels = {
 
   innerPressure:
     "Внутрішній тиск",
+
+  healthyBalance:
+    "Здоровий баланс",
+
+  awareness:
+    "Усвідомленість",
+
+  recovery:
+    "Відновлення",
 
 };

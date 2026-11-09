@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="robots" content="noindex" />
+    <title>Sensoria — визначити, чия це копія</title>
+    <style>
+      body { font-family: -apple-system, Helvetica, Arial, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1f2430; }
+      h1 { font-size: 22px; } label { display: block; font-weight: 600; margin: 18px 0 6px; font-size: 14px; }
+      textarea, input, select { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #d1d5db; border-radius: 10px; font: inherit; }
+      textarea { height: 110px; font-family: ui-monospace, monospace; font-size: 12px; }
+      .row { display: flex; gap: 12px; } .row > * { flex: 1; }
+      button { margin-top: 18px; padding: 12px 22px; border: 0; border-radius: 999px; background: #1f2430; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+      #out { margin-top: 24px; padding: 16px; border-radius: 14px; background: #f3f4f6; white-space: pre-wrap; font-size: 14px; }
+      small { color: #6b7280; }
+    </style>
+  </head>
+  <body>
+    <h1>Визначити, чия це копія</h1>
+    <p><small>Службовий інструмент, працює лише локально (npm run dev → /identify-leak.html), нічого нікуди не надсилає.
+      Він шукає невидиму мітку Sensoria на скріншоті сторінки та порівнює її з виданими seed.</small></p>
+
+    <label>1. Список виданих seed (по одному в рядку)</label>
+    <textarea id="seeds" placeholder="select seed from public.pdf_exports where content_id = '…';"></textarea>
+
+    <label>2. Розмір еталону сторінки</label>
+    <div class="row">
+      <div><label>Ширина еталону</label><input id="w" type="number" value="1309" /></div>
+      <div><label>Висота еталону</label><input id="h" type="number" value="1852" /></div>
+    </div>
+    <p><small>PDF-версія гайду Sensoria: 1309 × 1852 (A4). Для завантаженого PDF: ширина сторінки × 2 (до 1800 px) і пропорційна висота.</small></p>
+
+    <label>3. Зображення сторінки</label>
+    <input id="file" type="file" accept="image/*" />
+
+    <button id="go">Знайти мітку</button>
+    <div id="out" hidden></div>
+
+    <script type="module">
+      import { identifyMark, lumaFromRgba, resizeLuma, MATCH_Z } from "/src/utils/invisibleMark.ts";
+
+      const $ = (id) => document.getElementById(id);
+      $("go").addEventListener("click", async () => {
+        const out = $("out");
+        out.hidden = false;
+        const file = $("file").files[0];
+        const seeds = $("seeds").value.split(/\s+/).map(Number).filter((n) => Number.isFinite(n) && n >= 0);
+        if (!file || seeds.length === 0) { out.textContent = "Додайте seed-и й зображення."; return; }
+        const W = Number($("w").value), H = Number($("h").value);
+        const bitmap = await createImageBitmap(file);
+        const c = document.createElement("canvas");
+        c.width = bitmap.width; c.height = bitmap.height;
+        const ctx = c.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(bitmap, 0, 0);
+        const img = ctx.getImageData(0, 0, c.width, c.height);
+        const luma = resizeLuma(lumaFromRgba(img.data, c.width, c.height), c.width, c.height, W, H);
+        const match = identifyMark(luma, W, H, seeds);
+        out.textContent = match
+          ? `Знайдено мітку.\nseed: ${match.seed}\nнадійність: ${match.z.toFixed(1)} σ (поріг ${MATCH_Z})\n\nДалі в Supabase SQL Editor:\nselect e.created_at, e.kind, e.content_id, p.name, p.email\nfrom public.pdf_exports e join public.profiles p on p.id = e.user_id\nwhere e.seed = ${match.seed};`
+          : "Мітку не знайдено. Можливі причини: інший розмір еталону, сильна обрізка чи поворот, сторінка майже без порожніх ділянок, або seed немає в списку.";
+      });
+    </script>
+  </body>
+</html>

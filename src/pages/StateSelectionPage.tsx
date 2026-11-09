@@ -3,6 +3,8 @@ import { useState } from "react";
 import { emotionalStates } from "../data/states";
 import funnelStore from "../store/funnelStore";
 import { track } from "../services/analytics";
+import { stateAccentColors } from "../data/stateAccentColors";
+import type { PrimaryStateId } from "../store/funnelStore";
 
 type Props = {
   onContinue: () => void;
@@ -12,7 +14,6 @@ export default function StateSelectionPage({
   onContinue,
 }: Props) {
 
-  console.log("STATE PAGE LOADED");
   const [selectedStates, setSelectedStates] =
   useState<string[]>([]);
 
@@ -197,19 +198,7 @@ h-7
 
     rounded-full
 
-    ${
-      state.id === "anxiety"
-        ? "bg-cyan-400"
-        : state.id === "stress"
-        ? "bg-orange-400"
-        : state.id === "burnout"
-        ? "bg-red-400"
-        : state.id === "selfEsteem"
-        ? "bg-purple-400"
-        : state.id === "relationships"
-        ? "bg-pink-400"
-        : "bg-yellow-400"
-    }
+    ${stateAccentColors[state.id as PrimaryStateId].dot}
   `}
  />
 <div
@@ -260,13 +249,9 @@ max-w-[280px]
     disabled={selectedStates.length === 0}
     onClick={() => {
 
-      console.log("BUTTON CLICKED");
-
   const state = emotionalStates.find(
     (item) => item.id === selectedStates[0]
   );
- console.log("selectedStates =", selectedStates);
- console.log("FOUND STATE =", state);
 
    if (!state) return;
 
@@ -275,6 +260,27 @@ max-w-[280px]
     title: state.title,
     description: state.description,
   });
+
+  // Selecting a second state was already possible here (the toggle
+  // above caps at 2) but the second pick used to go nowhere — only
+  // selectedStates[0] ever reached the store. It's now carried through
+  // as `secondaryState`, cleared to null when only one state is picked
+  // so a stale value can't survive into a later run.
+  const secondaryStateData = selectedStates[1]
+    ? emotionalStates.find(
+        (item) => item.id === selectedStates[1]
+      ) ?? null
+    : null;
+
+  funnelStore.setSecondaryState(
+    secondaryStateData
+      ? {
+          id: secondaryStateData.id,
+          title: secondaryStateData.title,
+          description: secondaryStateData.description,
+        }
+      : null
+  );
 
   track("state_selected", state.id);
 

@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Every page's own gradient background only covers its own wrapping
+   div, which starts at opacity:0 during the page-transition fade (see
+   .page-transition below). With no background set here, the browser's
+   own default (white) briefly shows through underneath during that
+   fade — a white flash on every navigation. Matching this to the
+   app's dominant gradient start color means the "gap" under a
+   transitioning page reads as this same dark blue instead of white. */
+html, body {
+  background-color: #1e3a8a;
+}
+
+/* Keep the scrollbar's space reserved: otherwise a short tab (no scrollbar) and a long one (scrollbar) differ in
+   width, and every centred block, the cabinets' content panels included, jumps sideways when switching tabs. */
+html {
+  scrollbar-gutter: stable;
+}
+
 @keyframes scrollBounce {
   0%, 100% {
     transform: translateY(0);
@@ -19,4 +36,207 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* NEXT STEP atmosphere + progress-action dot — moved off Framer
+   Motion's rAF-driven `animate` (which re-runs a JS callback on the
+   main thread every frame for as long as the component is mounted)
+   and onto plain CSS animations instead. These are all continuous,
+   purely decorative, non-interactive infinite loops (rings breathing,
+   particles drifting, the CTA dot idling), so a browser-native CSS
+   animation produces the identical visual result while running mostly
+   off the main thread — which matters here specifically because it
+   was competing with the same thread that handles hover/click, and is
+   the most likely cause of "everything feels laggier" as more of these
+   accumulated across rounds. */
+@keyframes ring-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+/* The Emotional Profile Hero's soft state-intensity field (2026-09-15
+   redesign) — same `ring-breathe` keyframe as the rest of the app, just
+   with its own opt-in class so this one spot can turn the animation off
+   for prefers-reduced-motion without a JS check (ParticipantEmotionalProfile.tsx
+   has no existing reduced-motion plumbing to hook into, unlike
+   ResultPage.tsx's framer-motion-driven `prefersReducedMotion`). */
+.emotion-field-breathe {
+  animation: ring-breathe 7s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .emotion-field-breathe {
+    animation: none;
+  }
+}
+
+@keyframes particle-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(var(--particle-dx, 0px), var(--particle-dy, 0px)); }
+}
+
+@keyframes dot-pulse-idle {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.15); opacity: 0.85; }
+}
+
+@keyframes dot-pulse-hover {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.35); opacity: 0.75; }
+}
+
+/* Page-to-page transition (App.tsx) — each `page` state swap used to be
+   an instant hard cut with no visual continuity at all. A plain CSS
+   animation keyed to remount (see PageTransition wrapper in App.tsx) is
+   enough here: it's a one-shot transition, not a continuous loop, so
+   there's no main-thread cost concern like the keyframes above. Kept
+   short and subtle (fade + tiny rise) to read as "responsive," not as
+   a slideshow. */
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.page-transition {
+  animation: page-fade-in 0.32s ease-out;
+}
+
+/* Used right before a hard `window.location.href` redirect (account
+   deletion is the only current case) — a real browser navigation can't
+   be animated the way in-app page state can, so this just fades the
+   current screen out first instead of an instant jump-cut straight to
+   the white/blue flash of the reload. */
+@keyframes page-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.page-fade-out {
+  animation: page-fade-out 0.2s ease-in forwards;
+}
+
+/* Brand gradient CTAs (blue-to-purple, used everywhere as a primary
+   action) that also want a bit of "glass" presence — a soft diagonal
+   sheen drifting across the button on a loop, e.g. ProgramExperience's
+   "Що далі?" tiles ("Пройти тест ще раз" / "Пошукати схожі курси").
+   Pure CSS pseudo-element animation, same off-main-thread reasoning as
+   ring-breathe/particle-drift above — safe to run continuously without
+   competing with hover/click on the main thread. */
+.shine-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.shine-btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -75%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(115deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: skewX(-20deg);
+  animation: shine-sweep 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes shine-sweep {
+  0% { left: -75%; }
+  35%, 100% { left: 130%; }
+}
+
+/* Author profile cover: distant, softly glowing light orbs in the colours of
+   the author's categories, drifting very slowly. Decorative; static for
+   reduced motion. */
+@keyframes author-glow-a { 0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.7; } 50% { transform: translate(14%, -10%) scale(1.18); opacity: 0.9; } }
+@keyframes author-glow-b { 0%, 100% { transform: translate(0, 0) scale(1.1); opacity: 0.7; } 50% { transform: translate(-16%, 12%) scale(0.9); opacity: 0.95; } }
+@keyframes author-glow-c { 0%, 100% { transform: translate(0, 0) scale(0.95); opacity: 0.55; } 50% { transform: translate(8%, 14%) scale(1.25); opacity: 0.9; } }
+.author-glow-a { animation: author-glow-a 16s ease-in-out infinite; }
+.author-glow-b { animation: author-glow-b 22s ease-in-out infinite; }
+.author-glow-c { animation: author-glow-c 19s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .author-glow-a, .author-glow-b, .author-glow-c { animation: none; }
+}
+
+/* SVG shapes inside author covers animate around their own centre. */
+.cv-a { transform-box: fill-box; transform-origin: center; }
+@keyframes author-twinkle { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.95; } }
+.author-twinkle { animation: author-twinkle 6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .author-twinkle { animation: none; } }
+
+/* Feed: a post settles in softly when it appears (off for reduced motion). */
+@keyframes post-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.post-in { animation: post-in 0.35s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .post-in { animation: none; } }
+
+
+/* ── Home page fluid layout ─────────────────────────────────────────
+   One container and one type scale for every section of the home page, so
+   edges line up and nothing jumps between breakpoints: side padding grows
+   smoothly (16 → 56px), the column widens on big monitors (up to 1360px),
+   and headings scale continuously instead of in steps. */
+.page-container {
+  width: 100%;
+  max-width: 1360px;
+  margin-inline: auto;
+  padding-inline: clamp(24px, 5vw, 56px);
+}
+.fluid-h1 { font-size: clamp(1.6rem, 0.9rem + 2.7vw, 3.5rem); line-height: 1.14; letter-spacing: -0.01em; }
+.fluid-h2 { font-size: clamp(1.4rem, 0.8rem + 2.2vw, 3rem); line-height: 1.15; }
+.fluid-lead { font-size: clamp(0.9375rem, 0.85rem + 0.3vw, 1.25rem); line-height: 1.6; }
+.section-y { padding-block: clamp(56px, 8vw, 112px); }
+
+/* Type scale for the home page — the SAME roles use the SAME size everywhere:
+   h1 hero · h2 section title · lead (subtitle / intro) · h3 item title ·
+   body · small · caption. Phones get the low end, big monitors the high end. */
+.t-h3 { font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem); line-height: 1.35; font-weight: 600; }
+.t-body { font-size: clamp(0.9375rem, 0.9rem + 0.15vw, 1rem); line-height: 1.6; }
+.t-small { font-size: 0.875rem; line-height: 1.5; }
+.t-caption { font-size: 0.75rem; line-height: 1.4; }
+.t-stat { font-size: clamp(1.25rem, 1rem + 1.2vw, 1.875rem); line-height: 1.15; font-weight: 700; }
+
+/* Hero buttons: a soft light sweep, lift and glow on hover, a gentle idle sheen. */
+.cta-primary { position: relative; overflow: hidden; isolation: isolate;
+  transition: transform .7s cubic-bezier(.22,.61,.36,1), box-shadow .7s ease, background-color .4s; }
+.cta-primary::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(110deg, transparent 35%, rgba(99,102,241,.28) 50%, transparent 65%);
+  transform: translateX(-130%); animation: cta-idle 14s ease-in-out 4s infinite; }
+.cta-primary:hover { transform: translateY(-2px) scale(1.015);
+  box-shadow: 0 18px 44px rgba(10,20,90,.45); }
+.cta-primary:hover::before { animation: cta-sweep 2s ease-in-out forwards; }
+.cta-primary:active { transform: translateY(0) scale(.97); box-shadow: 0 8px 20px rgba(10,20,90,.35); }
+.cta-arrow { display: inline-block; transition: transform .6s cubic-bezier(.22,.61,.36,1); }
+.cta-primary:hover .cta-arrow, .cta-ghost:hover .cta-arrow { transform: translateX(4px); }
+@keyframes cta-idle { 0%, 80% { transform: translateX(-130%); } 100% { transform: translateX(130%); } }
+@keyframes cta-sweep { from { transform: translateX(-130%); } to { transform: translateX(130%); } }
+
+.cta-ghost { background-image: linear-gradient(currentColor, currentColor); background-repeat: no-repeat;
+  background-position: 1rem calc(100% - 0.55rem); background-size: 0% 2px;
+  transition: background-size .7s cubic-bezier(.22,.61,.36,1), background-color .4s, transform .5s; }
+.cta-ghost:hover { background-size: calc(100% - 2rem) 2px; transform: translateY(-1px); }
+.cta-ghost:active { transform: scale(.97); }
+.cta-ghost .cta-arrow { opacity: .6; }
+.cta-ghost:hover .cta-arrow { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cta-primary::before { animation: none; display: none; }
+  .cta-primary, .cta-primary:hover, .cta-ghost, .cta-ghost:hover { transition: none; transform: none; }
+  .cta-arrow { transition: none; }
+  .cta-primary:hover .cta-arrow, .cta-ghost:hover .cta-arrow { transform: none; }
+}
+
+/* Hero card: text settles in slowly; the scene breathes and drifts. */
+@keyframes hero-rise { from { opacity: 0; transform: translateY(12px); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
+.hero-rise { animation: hero-rise 1.1s cubic-bezier(.22,.61,.36,1) both; }
+@keyframes hero-breathe { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.06); opacity: .92; } }
+@keyframes hero-drift-a { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(14px); } }
+@keyframes hero-drift-b { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-10px); } }
+@keyframes hero-glint { 0%, 100% { opacity: .75; } 50% { opacity: .3; } }
+.hero-sun { transform-origin: 300px 215px; animation: hero-breathe 9s ease-in-out infinite; }
+.hero-ridge-far { animation: hero-drift-a 24s ease-in-out infinite; }
+.hero-ridge-mid { animation: hero-drift-b 30s ease-in-out infinite; }
+.hero-shimmer { animation: hero-glint 7s ease-in-out infinite; }
+.hero-shimmer-b { animation-delay: -3s; }
+@media (prefers-reduced-motion: reduce) {
+  .hero-rise, .hero-sun, .hero-ridge-far, .hero-ridge-mid, .hero-shimmer { animation: none; }
+  .hero-scene, .hero-scene * { transition: none !important; }
 }

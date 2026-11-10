@@ -45,12 +45,18 @@ export function loadMaterialsFromDb(): Promise<void> {
         if (f && med) med.coverFocus = f;
       });
     }
-    const signed = await signPaidFileRefs([...m.map((x) => x.audioUrl), ...g.map((x) => x.fileUrl)]);
+    // pictures inside a paid interactive guide are private references too
+    const pictureRefs = g.flatMap((x) => (x.guideContent ?? []).flatMap((b) => (b.type === "media" && isPaidFileRef(b.url) ? [b.url] : [])));
+    const signed = await signPaidFileRefs([...m.map((x) => x.audioUrl), ...g.map((x) => x.fileUrl), ...pictureRefs]);
     m.forEach((x) => {
       if (isPaidFileRef(x.audioUrl)) x.audioUrl = signed.get(x.audioUrl) ?? "";
     });
     g.forEach((x) => {
       if (isPaidFileRef(x.fileUrl)) x.fileUrl = signed.get(x.fileUrl) ?? "";
+      // no access → no picture (the block draws nothing)
+      (x.guideContent ?? []).forEach((b) => {
+        if (b.type === "media" && isPaidFileRef(b.url)) b.url = signed.get(b.url) ?? "";
+      });
     });
     const changedM = mergeIntoList(meditations, m, KEEP_MEDITATION);
     const changedG = mergeIntoList(guides, g, KEEP_GUIDE);

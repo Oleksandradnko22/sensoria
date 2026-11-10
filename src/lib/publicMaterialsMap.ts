@@ -78,6 +78,7 @@ export function guideFromRow(row: ContentRow): Guide | null {
     guideType: (meta.guide_type as Guide["guideType"]) ?? undefined,
     source,
     relevantIf: list(meta.relevant_if),
+    allowDownload: meta.allow_download === false ? false : undefined,
     outcomes: list(meta.outcomes),
     outline: (meta.outline as Guide["outline"]) ?? undefined,
     pdf: (meta.pdf_meta as Guide["pdf"]) ?? undefined,

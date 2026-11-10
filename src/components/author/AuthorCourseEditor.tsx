@@ -2,7 +2,11 @@ import { guideTypeInfo, guideTypeOrder, type GuideType } from "../../data/guideT
 import type { MeditationFormat } from "../../data/meditationFormats";
 import { CHECKLIST_ITEMS_MAX, CHECKLIST_ITEMS_MIN, CHECKLIST_ITEM_MAX, CHECKLIST_ITEM_MIN, CHECKLIST_TITLE_MAX, checklistItems, splitChecklist } from "../../utils/lessonChecklist";
 import { MAX_WARNING_CUSTOM_CHARS, WARNING_TOPICS, parseWarning, setCustomWarning, toggleWarningTopic } from "../../utils/contentWarning";
-import { guideFileProblems, meditationAudioProblems, meditationTranscriptProblems, meditationWhenProblems, TRANSCRIPT_MAX_CHARS, WHEN_MAX_ITEMS, WHEN_MIN_ITEMS, WHEN_ITEM_MAX, stepKeysFor, stepLabelsFor, stepNumber, wordsFor, MEDITATION_MAX_MINUTES, MEDITATION_MAX_AUDIO_BYTES, GUIDE_MAX_PAGES, GUIDE_MAX_READ_MINUTES } from "../../utils/contentSteps";
+import GuideBuilder from "./GuideBuilder";
+import type { GuideContent } from "../../data/guideContent";
+import { guideBlocksProblems, mediaUrls, sectionRanges, starterBlocks } from "../../utils/guideBuilder";
+import { pdfPageCount } from "../../utils/pdfPages";
+import { guideFileProblems, meditationAudioProblems, meditationTranscriptProblems, meditationWhenProblems, TRANSCRIPT_MAX_CHARS, WHEN_MAX_ITEMS, WHEN_MIN_ITEMS, WHEN_ITEM_MAX, stepKeysFor, stepLabelsFor, stepNumber, wordsFor, MEDITATION_MAX_MINUTES, MEDITATION_MAX_AUDIO_BYTES, GUIDE_MAX_PAGES } from "../../utils/contentSteps";
 import { Icon, type IconName } from "../ui/Icon";
 import CategoryGlyph from "./CategoryGlyph";
 import ConfirmDialog from "./ConfirmDialog";
@@ -25,7 +29,7 @@ import type {
 } from "../../data/authorDashboard";
 import type { PracticeType } from "../../data/contentTypes";
 import { useSession } from "../../context/SessionContext";
-import { contentFilePath, deleteContentFile, isPaidFileRef, uploadContentFile, uploadPaidFile } from "../../lib/storage";
+import { contentFilePath, deleteContentFile, deleteStoredImage, isPaidFileRef, uploadContentFile, uploadPaidFile } from "../../lib/storage";
 import { notifyNewContent } from "../../lib/content";
 import { fetchAuthorStory } from "../../lib/authorStory";
 import { categoryLabels } from "../../data/categoryLabels";
@@ -156,6 +160,14 @@ export default function AuthorCourseEditor({
   const [coverUrl, setCoverUrl] = useState<string | null>(editing?.coverUrl ?? null);
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverMakerOpen, setCoverMakerOpen] = useState(false);
+  // Guide builder: the blocks of an interactive guide live here; the page itself is components/author/GuideBuilder.tsx.
+  const [guideBlocks, setGuideBlocks] = useState<GuideContent>(editing?.guideBlocks ?? []);
+  const [builderOpen, setBuilderOpen] = useState(false);
+  // always the latest blocks (saving right after onChange must not see the old ones) and the blocks as they were when the builder opened
+  const guideBlocksRef = useRef<GuideContent>(guideBlocks);
+  guideBlocksRef.current = guideBlocks;
+  const builderStart = useRef<GuideContent>(guideBlocks);
+  const structuredGuide = type === "guide" && guideBlocks.length > 0;
   // Programs are filled in one step at a time; an existing program can be opened at any step.
   // Free = the price is exactly "0" (the existing convention). «Paid» keeps the amount empty until the author types
   // one, so an unfinished paid price is never mistaken for free.
@@ -270,11 +282,13 @@ export default function AuthorCourseEditor({
   // Guide-only fields (stored in content_guide_meta / _body)
   const [guideType, setGuideType] = useState<GuideType>(editing?.guide?.guideType ?? "practical");
   const [guidePages, setGuidePages] = useState(editing?.guide?.pages ? String(editing.guide.pages) : "");
-  const [guideReadMinutes, setGuideReadMinutes] = useState(editing?.guide?.readMinutes ? String(editing.guide.readMinutes) : "");
   const [guideRelevantText, setGuideRelevantText] = useState((editing?.guide?.relevantIf ?? []).join("\n"));
   const [guideOutcomesText, setGuideOutcomesText] = useState((editing?.guide?.outcomes ?? []).join("\n"));
   // Meditation-only fields (stored in content_meditation_meta / _body)
   const [durationAuto, setDurationAuto] = useState(false);
+  const [pagesAuto, setPagesAuto] = useState(false);
+  // the author lets readers download the guide (PDF file, or the PDF version of an interactive guide)
+  const [allowDownload, setAllowDownload] = useState(editing?.guide?.allowDownload !== false);
   const [durationMinutes, setDurationMinutes] = useState<string>(editing?.durationMinutes ? String(editing.durationMinutes) : "");
   // The «з голосом / у тиші» choice was removed from the form: new recordings count as guided (text of the practice
   // is required); older ones keep the format they were saved with.
@@ -386,6 +400,15 @@ export default function AuthorCourseEditor({
   // Old cover files that are no longer used are deleted only AFTER the program is saved (an earlier saved version may still
   // point at them), and never when a new file took the same path.
   const staleCoverPaths = useRef<Set<string>>(new Set());
+  // Pictures of the guide builder: every one opened with or uploaded here is remembered; after a successful save
+  // those that no block points at any more are deleted (never before saving, so an unsaved guide never loses a picture).
+  const knownGuideImages = useRef<Set<string>>(new Set(mediaUrls(editing?.guideBlocks)));
+  const sweepGuideImages = (blocks: GuideContent) => {
+    if (!authorId) return;
+    const live = new Set(mediaUrls(blocks));
+    knownGuideImages.current.forEach((u) => { if (!live.has(u)) void deleteStoredImage(authorId, u).catch(() => undefined); });
+    knownGuideImages.current = live;
+  };
   const markStale = (url: string | null | undefined) => { const p = contentFilePath(url); if (p) staleCoverPaths.current.add(p); };
   const sweepStaleCovers = (currentCover: string | null, focus: CoverFocus) => {
     const live = new Set<string>();
@@ -476,6 +499,11 @@ export default function AuthorCourseEditor({
       const paid = type !== "program" && (Number(price) || 0) > 0;
       const url = paid ? await uploadPaidFile(authorId, draftId, file, "main") : await uploadContentFile(authorId, file, `${draftId}/main`);
       setMainFileUrl(url);
+      if (type === "guide") {
+        // the number of pages is read from the PDF itself (if it can't be read, the author types it)
+        const n = await pdfPageCount(file);
+        if (n) { setGuidePages(String(Math.min(n, 999))); setPagesAuto(true); } else setPagesAuto(false);
+      }
       if (type === "meditation") {
         // The real length of the recording, so a wrong typed number can't reach the catalog and the player.
         const minutes = await audioMinutes(file);
@@ -626,12 +654,14 @@ export default function AuthorCourseEditor({
       ? {
           guide: {
             guideType,
-            pages: Math.max(0, Math.round(Number(guidePages)) || 0),
-            readMinutes: Math.max(0, Math.round(Number(guideReadMinutes)) || 0),
+            pages: guideBlocksRef.current.length > 0 ? sectionRanges(guideBlocksRef.current).length : Math.max(0, Math.round(Number(guidePages)) || 0),
+            readMinutes: editing?.guide?.readMinutes ?? 0,
             relevantIf: guideRelevantText.split("\n").map((l) => l.trim()).filter(Boolean),
             outcomes: guideOutcomesText.split("\n").map((l) => l.trim()).filter(Boolean),
-            source: editing?.guide?.source,
+            allowDownload,
+            source: type === "guide" && guideBlocksRef.current.length > 0 ? ("sensoria_structured" as const) : ("uploaded_pdf" as const),
           },
+          guideBlocks: guideBlocksRef.current.length > 0 ? guideBlocksRef.current : editing?.guideBlocks ? [] : undefined,
         }
       : {}),
     ...(type === "meditation"
@@ -762,7 +792,11 @@ export default function AuthorCourseEditor({
     try {
       await onSave(item, opts?.stay ? { stay: true } : undefined);
       sweepStaleCovers(coverUrl, coverFocus);
-      if (opts?.stay) initialSnapshot.current = snapshot; // saved: the unsaved-work guard starts from here
+      if (type === "guide") sweepGuideImages(guideBlocksRef.current);
+      if (opts?.stay) {
+        initialSnapshot.current = snapshot;
+        if (guideBlocksRef.current !== guideBlocks) resnap.current = true; // blocks were trimmed just before saving: re-baseline once the screen has them
+      } // saved: the unsaved-work guard starts from here
       // A genuine first-time publish only — not a re-save of content
       // that was already live (isPublishedEdit), and not the
       // archive/republish toggle in AuthorContentList.tsx, which is a
@@ -780,8 +814,15 @@ export default function AuthorCourseEditor({
   };
 
   // Unsaved-work guard: compare what is typed now with what the editor opened with.
-  const snapshot = JSON.stringify([type, title, description, price, allTags, riskTopics, coverUrl, coverFocus, introVideoUrl, mainFileUrl, modules, guidePages, guideReadMinutes, guideRelevantText, guideOutcomesText, durationMinutes, whenItems, transcriptText, !isPublishedEdit ? step : 0, priceMode]);
+  const snapshot = JSON.stringify([type, title, description, price, allTags, riskTopics, coverUrl, coverFocus, introVideoUrl, mainFileUrl, modules, guidePages, guideBlocks, allowDownload, guideRelevantText, guideOutcomesText, durationMinutes, whenItems, transcriptText, !isPublishedEdit ? step : 0, priceMode]);
   const initialSnapshot = useRef(snapshot);
+  const resnap = useRef(false);
+  useEffect(() => {
+    if (resnap.current && guideBlocks === guideBlocksRef.current) {
+      resnap.current = false;
+      initialSnapshot.current = snapshot;
+    }
+  }, [snapshot, guideBlocks]);
   const dirty = snapshot !== initialSnapshot.current;
   const saveRef = useRef(handleSave);
   saveRef.current = handleSave;
@@ -833,7 +874,8 @@ export default function AuthorCourseEditor({
     } else if (key === "practice") {
       out.push(...meditationTranscriptProblems(transcriptText));
     } else if (key === "file") {
-      out.push(...guideFileProblems({ fileUrl: mainFileUrl, pages: guidePages, readMinutes: guideReadMinutes, price: Number(price) || 0, structured: editing?.guide?.source === "sensoria_structured" }));
+      out.push(...guideFileProblems({ fileUrl: mainFileUrl, pages: guidePages, price: Number(price) || 0, structured: structuredGuide }));
+      if (structuredGuide) out.push(...guideBlocksProblems(guideBlocks, Number(price) || 0));
     }
     return out;
   };
@@ -951,7 +993,7 @@ export default function AuthorCourseEditor({
                 </span>
                 <span className="min-w-0 flex-1">{t.label}</span>
                 {riskLocked ? (
-                  on ? <span className="shrink-0 rounded-full bg-[#ece9fe] px-2 py-0.5 text-[12px] font-semibold text-[#4a2fd0]">Позначено</span> : <span aria-hidden="true" className="shrink-0 text-[#9a93c9]"><Icon name="lock" size={16} /></span>
+                  on ? <span className="shrink-0 rounded-full bg-[#ece9fe] px-2 py-0.5 text-[13px] font-semibold text-[#4a2fd0]">Позначено</span> : <span aria-hidden="true" className="shrink-0 text-[#9a93c9]"><Icon name="lock" size={16} /></span>
                 ) : on ? (
                   <span aria-hidden="true" className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#5b3df5] text-white"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></span>
                 ) : null}
@@ -969,7 +1011,7 @@ export default function AuthorCourseEditor({
             >
               <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#ece9fe] text-[#5b3df5]"><Icon name="warning" size={18} /></span>
               <span className="min-w-0 flex-1">Раніше позначена тема: «{id}»</span>
-              {riskLocked ? <span className="shrink-0 rounded-full bg-[#ece9fe] px-2 py-0.5 text-[12px] font-semibold text-[#4a2fd0]">Позначено</span> : <span className="shrink-0 text-[13px] font-semibold text-[#4a2fd0] underline">Зняти</span>}
+              {riskLocked ? <span className="shrink-0 rounded-full bg-[#ece9fe] px-2 py-0.5 text-[13px] font-semibold text-[#4a2fd0]">Позначено</span> : <span className="shrink-0 text-[13px] font-semibold text-[#4a2fd0] underline">Зняти</span>}
             </button>
           ))}
         </div>
@@ -1089,7 +1131,7 @@ export default function AuthorCourseEditor({
               aria-invalid={stepErrors.length > 0 && item.trim().length > 0 && item.trim().length < 5 ? true : undefined}
               onChange={(e) => setWhenItems((prev) => prev.map((v, j) => (j === i ? e.target.value : v)))}
               placeholder={["Думки йдуть по колу", "Потрібно заспокоїтися перед сном", "Хочеться перепочити між справами"][i] ?? "Ще одна ситуація"}
-              className="min-h-[40px] min-w-0 flex-1 bg-transparent text-[14px] text-[#1d1a3b] placeholder:text-black/45 focus:outline-none"
+              className="min-h-[40px] min-w-0 flex-1 bg-transparent text-[14px] text-[#1d1a3b] placeholder:text-black/55 focus:outline-none"
             />
             {whenItems.length > WHEN_MIN_ITEMS && (
               <button
@@ -1124,9 +1166,9 @@ export default function AuthorCourseEditor({
     const missingFile = stepErrors.length > 0 && !mainFileUrl;
     return (
       <div className="rounded-2xl border border-[#e3def9] bg-gradient-to-r from-[#f6f4ff] to-[#ece9fe] p-4 sm:p-5">
-        <div className="text-[15px] font-semibold text-[#1d1a3b]">{isGuide ? "PDF-файл гайду" : "Аудіо медитації"} <span className="text-rose-600" aria-hidden="true">*</span></div>
+        <div className="text-[15px] font-semibold text-[#1d1a3b]">{isGuide ? "Файл або конструктор" : "Аудіо медитації"} {!(isGuide && structuredGuide) && <span className="text-rose-600" aria-hidden="true">*</span>}</div>
         <ul className="mt-2 flex flex-col gap-1.5 text-[14px] leading-snug text-[#2d2a5c]">
-          {(isGuide ? ["PDF, до 30 МБ", "Наскрізна структура: вступ → практика → підсумок"] : ["MP3 або WAV, до 200 МБ", "Чистий запис без фонового шуму, рівна гучність голосу"]).map((t) => (
+          {(isGuide ? ["Завантажте готовий PDF, до 30 МБ: читач побачить його як є", "Або створіть гайд у конструкторі: він буде інтерактивним (розділи, шкали, практики, нотатки), а PDF-версію читач отримає автоматично, якщо ви дозволите завантаження"] : ["MP3 або WAV, до 200 МБ", "Чистий запис без фонового шуму, рівна гучність голосу"]).map((t) => (
             <li key={t} className="flex items-start gap-2.5">
               <span aria-hidden="true" className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#5b3df5] text-white"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></span>
               {t}
@@ -1149,7 +1191,15 @@ export default function AuthorCourseEditor({
               }}
             />
           </label>
+          {isGuide && (
+            <button type="button" onClick={() => { builderStart.current = guideBlocks; if (guideBlocks.length === 0) { const s = starterBlocks(); guideBlocksRef.current = s; setGuideBlocks(s); } setBuilderOpen(true); }} className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#5b3df5] bg-white px-5 text-[14px] font-semibold text-[#4a2fd0] transition hover:bg-[#f3efff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50">
+              <span aria-hidden="true" className="text-[18px] leading-none">{structuredGuide ? "✎" : "+"}</span>
+              {structuredGuide ? "Відкрити конструктор" : "Створити в конструкторі"}
+            </button>
+          )}
         </div>
+        {isGuide && structuredGuide && <p className="mt-3 text-[14px] font-medium text-[#2f7a4d]">✓ Гайд зібрано в конструкторі: блоків {guideBlocks.length}. Читач проходить його на сайті, а PDF-версію Sensoria створює сама, окремий PDF не потрібен.</p>}
+        {isGuide && structuredGuide && mainFileUrl && <p role="note" className="mt-2 text-[14px] leading-snug text-amber-900">Завантажений PDF читачам не показується: гайд інтерактивний. Щоб показувати PDF як є, приберіть усі блоки в конструкторі.</p>}
         {mainFileUploading && <p role="status" className="mt-3 text-[14px] text-[#4b4a66]">Завантажуємо файл…</p>}
         {error && !mainFileUploading && <p role="alert" className="mt-3 text-[14px] text-rose-700">{error}</p>}
         {mainFileUrl && isPaidFileRef(mainFileUrl) && <p className="mt-3 text-[14px] font-medium text-[#2f7a4d]">✓ Файл завантажено. Він захищений: його бачать лише ті, хто купив.</p>}
@@ -1185,6 +1235,27 @@ export default function AuthorCourseEditor({
           }}
         />
       )}
+      {builderOpen && authorId && (
+        <GuideBuilder
+          title={title}
+          blocks={guideBlocks}
+          authorId={authorId}
+          contentId={draftId}
+          livePublished={editing?.status === "published"}
+          allowDownload={allowDownload}
+          price={Number(price) || 0}
+          onImageUploaded={(url) => knownGuideImages.current.add(url)}
+          onSave={async () => {
+            if (!title.trim()) return "Спершу вкажіть назву гайду на першому кроці.";
+            const ok = await handleSave(editing?.status === "published" ? "published" : "draft", { stay: true });
+            return ok ? null : "Не вдалося зберегти. Перевірте з'єднання й спробуйте ще раз.";
+          }}
+          giftOptions={content.filter((c) => c.type === "meditation" && c.slug && c.id !== draftId).map((c) => ({ id: c.slug as string, title: c.title, published: c.status === "published" }))}
+          onChange={(next) => { guideBlocksRef.current = next; setGuideBlocks(next); }}
+          onClose={() => setBuilderOpen(false)}
+          onDiscard={() => { guideBlocksRef.current = builderStart.current; setGuideBlocks(builderStart.current); setBuilderOpen(false); }}
+        />
+      )}
       {agreementFor && (
         <AuthorAgreementDialog
           onCancel={() => setAgreementFor(null)}
@@ -1201,7 +1272,7 @@ export default function AuthorCourseEditor({
         <div className="min-w-0">
           <button
             onClick={onCancel}
-            className="text-[13px] text-black/45 hover:text-black/70 transition mb-2"
+            className="mb-1 inline-flex min-h-[44px] items-center text-[14px] font-medium text-black/65 transition hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50"
           >
             ← Назад до контенту
           </button>
@@ -1214,7 +1285,7 @@ export default function AuthorCourseEditor({
           </h1>
           {!editing && lockedType && (
             <p className="mt-1.5 text-[15px] text-black/55">
-              {type === "program" ? "Створіть власну програму, яка допоможе учасникам у їхньому запиті." : type === "meditation" ? "Додайте запис і розкажіть, у яких ситуаціях він допоможе." : "Додайте PDF і розкажіть, кому він буде корисним."}
+              {type === "program" ? "Створіть власну програму, яка допоможе учасникам у їхньому запиті." : type === "meditation" ? "Додайте запис і розкажіть, у яких ситуаціях він допоможе." : "Створіть інтерактивний гайд у конструкторі або додайте PDF, і розкажіть, кому він стане в пригоді."}
             </p>
           )}
         </div>
@@ -1239,14 +1310,14 @@ export default function AuthorCourseEditor({
           «Створити програму» each open their own form. */}
       {!lockedType && !editing && (
       <div>
-        <div className="text-[13px] font-medium text-black/50 mb-2">Тип</div>
+        <div className="text-[13px] font-medium text-black/65 mb-2">Тип</div>
         <div className="flex gap-2">
           {(Object.keys(typeLabel) as ContentType[]).map((t) => (
             <button
               key={t}
               onClick={() => { setType(t); setStep(1); setMaxStep(1); setStepErrors([]); }}
               disabled={!!editing}
-              className={`px-4 py-2.5 rounded-xl text-[14px] font-medium transition ${
+              className={`min-h-[44px] px-4 py-2.5 rounded-xl text-[14px] font-medium transition ${
                 type === t
                   ? "bg-black text-white"
                   : "bg-white border border-black/10 text-black/60 hover:bg-black/5"
@@ -1276,17 +1347,17 @@ export default function AuthorCourseEditor({
                   onClick={() => jumpTo(n)}
                   aria-label={`Крок ${n}: ${label}`}
                   aria-current={current ? "step" : undefined}
-                  className="group relative shrink-0 disabled:cursor-not-allowed"
+                  className="group relative shrink-0 p-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 rounded-full disabled:cursor-not-allowed lg:p-1"
                 >
                   <span
-                    className={`flex h-8 w-8 lg:h-9 lg:w-9 items-center justify-center rounded-full text-[12px] lg:text-[13px] font-semibold transition ${
+                    className={`flex h-8 w-8 lg:h-9 lg:w-9 items-center justify-center rounded-full text-[13px] font-semibold transition ${
                       current
                         ? "bg-[#5b3df5] text-white shadow-[0_6px_16px_-6px_rgba(91,61,245,0.7)]"
                         : done
                         ? "bg-[#e9e6fc] text-[#5b3df5]"
                         : reachable
                         ? "bg-[#eef0fb] text-black/60 group-hover:bg-[#e3e6f7]"
-                        : "bg-[#f1f2f8] text-black/35"
+                        : "bg-[#f1f2f8] text-black/60"
                     }`}
                   >
                     {done ? (
@@ -1297,7 +1368,7 @@ export default function AuthorCourseEditor({
                   </span>
                   {/* the label hangs centered under its circle without changing the row; the row is inset so the outer labels end flush with the edges */}
                   <span
-                    className={`absolute left-1/2 top-[calc(100%+8px)] hidden w-[96px] -translate-x-1/2 text-center text-[12px] leading-tight lg:block ${current ? "font-semibold text-black" : "text-black/50"}`}
+                    className={`absolute left-1/2 top-[calc(100%+4px)] hidden w-[104px] -translate-x-1/2 text-center text-[13px] leading-tight lg:block ${current ? "font-semibold text-black" : "text-black/65"}`}
                   >
                     {label}
                   </span>
@@ -1326,7 +1397,7 @@ export default function AuthorCourseEditor({
             </li>
           </ul>
           <div className="mt-auto rounded-xl bg-white/80 p-3.5">
-            <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#7c5cf5]">Приклад</div>
+            <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#5b3df5]">Приклад</div>
             <div className="mt-1 text-[14px] font-semibold leading-snug text-[#2d2a5c]">{W.exampleTitle}</div>
             <p className="mt-1 text-[13px] leading-[1.5] text-black/60">{W.exampleText}</p>
           </div>
@@ -1348,7 +1419,7 @@ export default function AuthorCourseEditor({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={`Наприклад, «${W.exampleTitle}»`}
-            className="w-full px-4 py-3 rounded-xl border border-[#d9d4f5] text-[14px] focus:outline-none focus:border-[#5b3df5]"
+            className="min-h-[44px] w-full rounded-xl border border-[#d9d4f5] px-4 py-3 text-[15px] text-[#1d1a3b] placeholder:text-black/55 focus:border-[#5b3df5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/30"
           />
         </div>
 
@@ -1367,7 +1438,7 @@ export default function AuthorCourseEditor({
             onChange={(e) => setDescription(e.target.value)}
             rows={5}
             placeholder={W.descPlaceholder}
-            className="w-full px-4 py-3 rounded-xl border border-[#d9d4f5] text-[14px] focus:outline-none focus:border-[#5b3df5] resize-none flex-1 min-h-[130px]"
+            className="min-h-[130px] w-full flex-1 resize-none rounded-xl border border-[#d9d4f5] px-4 py-3 text-[15px] leading-relaxed text-[#1d1a3b] placeholder:text-black/55 focus:border-[#5b3df5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/30"
           />
         </div>
 
@@ -1401,7 +1472,7 @@ export default function AuthorCourseEditor({
           {priceMode === "paid" && (
             <div className="flex items-center justify-between gap-3 rounded-xl bg-white/70 px-4 py-3 text-[13px] text-[#2d2a5c]">
               <span className="min-w-0">
-                <span className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#7c5cf5]">
+                <span className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-[0.08em] text-[#5b3df5]">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.1a1.5 1.5 0 0 0 1.5-1.1L20 8H6.2" /><circle cx="9" cy="19.5" r="1.3" /><circle cx="17" cy="19.5" r="1.3" /></svg>
                   У кошику
                 </span>
@@ -1410,7 +1481,7 @@ export default function AuthorCourseEditor({
               <span className="shrink-0 text-[15px] font-bold">{price.trim() ? formatPrice(price) : "—"}</span>
             </div>
           )}
-          <p className="text-[13px] leading-snug text-black/55">Ви зможете змінити ціну пізніше, у редагуванні {W.gen}.</p>
+          <p className="text-[13px] leading-snug text-black/65">Ви зможете змінити ціну пізніше, у редагуванні {W.gen}.</p>
         </div>
       }>
       <div className="flex flex-1 flex-col gap-6 pt-3">
@@ -1453,7 +1524,7 @@ export default function AuthorCourseEditor({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[16px] font-semibold text-[#1d1a3b]">{label}</span>
-                  <span className="mt-1 block text-[13px] leading-snug text-black/55">{text}</span>
+                  <span className="mt-1 block text-[13px] leading-snug text-black/65">{text}</span>
                 </span>
                 <span aria-hidden="true" className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${active ? "border-[#6d4cf5]" : "border-[#c9cde2]"}`}>
                   {active && <span className="h-3 w-3 rounded-full bg-[#6d4cf5]" />}
@@ -1488,7 +1559,7 @@ export default function AuthorCourseEditor({
                 maxLength={6}
                 placeholder="Наприклад, 450"
                 onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ""))}
-                className="w-full rounded-xl border border-[#d9d4f5] bg-white py-3 pl-4 pr-10 text-[15px] focus:outline-none focus:border-[#5b3df5]"
+                className="min-h-[44px] w-full rounded-xl border border-[#d9d4f5] bg-white py-3 pl-4 pr-10 text-[15px] text-[#1d1a3b] placeholder:text-black/55 focus:border-[#5b3df5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/30"
               />
               <span aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[15px] text-black/60">₴</span>
             </div>
@@ -1546,7 +1617,7 @@ export default function AuthorCourseEditor({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[14px] font-semibold leading-tight text-[#1d1a3b]">{label}</span>
-                  {primary && <span className="mt-0.5 block text-[12px] font-semibold text-[#5b3df5]">Основна</span>}
+                  {primary && <span className="mt-0.5 block text-[13px] font-semibold text-[#5b3df5]">Основна</span>}
                 </span>
                 <span aria-hidden="true" className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${on ? "border-[#5b3df5] bg-[#5b3df5] text-white" : "border-[#c9cde2] bg-white text-transparent"}`}>
                   <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
@@ -1673,7 +1744,7 @@ export default function AuthorCourseEditor({
                     }}
                     className="min-w-0 flex-1 bg-transparent py-3 text-[15px] text-[#1d1a3b] placeholder:text-black/55 focus:outline-none"
                   />
-                  <span className="hidden shrink-0 rounded-full bg-[#f1eefe] px-2.5 py-0.5 text-[12px] font-semibold text-[#5b3df5] sm:inline">Обов'язково</span>
+                  <span className="hidden shrink-0 rounded-full bg-[#f1eefe] px-2.5 py-0.5 text-[13px] font-semibold text-[#5b3df5] sm:inline">Обов'язково</span>
                   <span className={`shrink-0 text-[13px] tabular-nums ${(invalid && short) || len >= MAX_BENEFIT_CHARS ? "font-semibold text-rose-700" : len >= MAX_BENEFIT_CHARS - 5 ? "font-semibold text-amber-700" : "text-black/60"}`}>{len}/{MAX_BENEFIT_CHARS}<span className="sr-only"> (від {MIN_BENEFIT_CHARS})</span></span>
                 </div>
               </div>
@@ -1896,7 +1967,7 @@ export default function AuthorCourseEditor({
       <section aria-labelledby="video-link-label" className="rounded-2xl border border-[#e6e8f6] bg-white p-5 shadow-[0_18px_40px_-34px_rgba(60,50,140,0.5)] sm:p-6">
         <div className="flex flex-wrap items-center gap-2">
           <label id="video-link-label" tabIndex={-1} htmlFor="intro-video-url" className="scroll-mt-24 text-[16px] focus:outline-none font-bold text-[#1d1a3b]">Посилання на відео</label>
-          <span className="rounded-full bg-[#f1eefe] px-2.5 py-0.5 text-[12px] font-semibold text-[#4a2fd0]">Обов'язково</span>
+          <span className="rounded-full bg-[#f1eefe] px-2.5 py-0.5 text-[13px] font-semibold text-[#4a2fd0]">Обов'язково</span>
         </div>
         <input
           id="intro-video-url"
@@ -1911,7 +1982,7 @@ export default function AuthorCourseEditor({
           autoComplete="off"
           autoCapitalize="none"
           spellCheck={false}
-          className="mt-3 w-full min-h-[48px] rounded-xl border border-black/15 bg-white px-4 py-2.5 text-[15px] text-[#1d1a3b] placeholder:text-black/50 transition focus:border-[#5b3df5] focus:outline-none focus:shadow-[0_0_0_3px_rgba(91,61,245,0.12)]"
+          className="mt-3 w-full min-h-[48px] rounded-xl border border-black/15 bg-white px-4 py-2.5 text-[15px] text-[#1d1a3b] placeholder:text-black/55 transition focus:border-[#5b3df5] focus:outline-none focus:shadow-[0_0_0_3px_rgba(91,61,245,0.12)]"
         />
         <p id="intro-video-help" className="mt-2 text-[14px] text-black/60">Вставте посилання на ваше відео з YouTube.</p>
         {showBadLink && (
@@ -2840,91 +2911,155 @@ export default function AuthorCourseEditor({
       )}
 
       {type === "guide" && (
-      <Step n={stepNo("file")} current={step} errors={stepErrors} icon="guide" title="PDF та про гайд" hint="Завантажте файл і вкажіть, який це гайд і скільки в ньому сторінок.">
-        {editing?.guide?.source === "sensoria_structured" ? (
-          <p className="rounded-xl bg-[#f6f4ff] px-4 py-3 text-[14px] leading-relaxed text-[#2d2a5c]">Цей гайд створено Sensoria, тому PDF-файл завантажувати не потрібно.</p>
-        ) : (
-          renderMainFilePanel()
-        )}
+      <Step n={stepNo("file")} current={step} errors={stepErrors} icon="guide" title="PDF та про гайд" hint="Оберіть тип гайду, завантажте файл і вкажіть його обсяг.">
         <div>
-          <div id="guide-type-label" className="mb-2 text-[13px] font-medium text-black/60">Тип гайду</div>
-          <div role="group" aria-labelledby="guide-type-label" className="flex flex-wrap gap-2">
-            {guideTypeOrder.map((t) => (
-              <button
-                key={t}
-                type="button"
-                aria-pressed={guideType === t}
-                onClick={() => setGuideType(t)}
-                className={`min-h-[44px] rounded-xl px-4 text-[14px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 ${guideType === t ? "bg-[#5b3df5] text-white shadow-[0_8px_18px_-10px_rgba(91,61,245,0.9)]" : "border border-[#d9d4f5] bg-white text-[#2d2a5c] hover:bg-[#f3efff]"}`}
-              >
-                {guideTypeInfo[t].label}
-              </button>
-            ))}
+          <div id="guide-type-label" className="mb-2.5 text-[13px] font-medium text-black/60">Тип гайду</div>
+          <div role="group" aria-labelledby="guide-type-label" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {guideTypeOrder.map((t) => {
+              const on = guideType === t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setGuideType(t)}
+                  className={`flex min-h-[44px] flex-col items-start gap-2 rounded-2xl p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 ${on ? "bg-gradient-to-br from-[#5232f4] to-[#774eff] text-white shadow-[0_14px_28px_-16px_rgba(91,61,245,0.9)]" : "border border-[#d9d4f5] bg-white text-[#2d2a5c] hover:bg-[#f3efff]"}`}
+                >
+                  <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${on ? "bg-white/20 text-white" : "bg-[#f1ecff] text-[#5b3df5]"}`}>
+                    <Icon name={guideTypeInfo[t].icon} size={18} />
+                  </span>
+                  <span className="text-[15px] font-semibold leading-tight">{guideTypeInfo[t].label}</span>
+                  <span className={`text-[13px] leading-snug ${on ? "text-white/90" : "text-black/60"}`}>{guideTypeInfo[t].description}</span>
+                </button>
+              );
+            })}
           </div>
-          <p className="mt-1.5 text-[13px] leading-snug text-black/60">{guideTypeInfo[guideType].description}</p>
         </div>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div>
-            <label htmlFor="guide-pages" className="mb-2 block text-[13px] font-medium text-black/60">Сторінок <span className="text-rose-600" aria-hidden="true">*</span></label>
-            <input
-              id="guide-pages"
-              inputMode="numeric"
-              autoComplete="off"
-              maxLength={3}
-              aria-required="true"
-              aria-invalid={stepErrors.length > 0 && editing?.guide?.source !== "sensoria_structured" && (!guidePages.trim() || Number(guidePages) < 1 || Number(guidePages) > GUIDE_MAX_PAGES) ? true : undefined}
-              aria-describedby={stepErrors.length > 0 ? "step-5-errors" : undefined}
-              value={guidePages}
-              placeholder="Наприклад, 24"
-              onChange={(e) => setGuidePages(e.target.value.replace(/[^\d]/g, "").slice(0, 3))}
-              className="w-full rounded-xl border border-[#d9d4f5] bg-white px-4 py-3 text-[15px] focus:outline-none focus:border-[#5b3df5]"
-            />
-            <p className="mt-1.5 text-[13px] text-black/60">Від 1 до {GUIDE_MAX_PAGES}.</p>
+
+        <div className={`grid items-stretch gap-5 ${structuredGuide ? "" : "lg:grid-cols-[minmax(0,1fr)_260px]"}`}>
+          {renderMainFilePanel()}
+          {!structuredGuide && (
+          <div className="flex flex-col justify-center rounded-[22px] border border-[#e4def9] bg-[#faf8ff] p-5">
+            <label htmlFor="guide-pages" className="mb-2 block text-[16px] font-semibold text-[#2d2a5c]">Обсяг <span className="text-rose-600" aria-hidden="true">*</span></label>
+            <div className="relative">
+              <input
+                id="guide-pages"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={3}
+                aria-required="true"
+                aria-invalid={stepErrors.length > 0 && !structuredGuide && (!guidePages.trim() || Number(guidePages) < 1 || Number(guidePages) > GUIDE_MAX_PAGES) ? true : undefined}
+                aria-describedby={stepErrors.length > 0 ? "step-5-errors" : undefined}
+                value={guidePages}
+                placeholder="24"
+                onChange={(e) => { setPagesAuto(false); setGuidePages(e.target.value.replace(/[^\d]/g, "").slice(0, 3)); }}
+                className="w-full rounded-xl border border-[#d9d4f5] bg-white py-3 pl-4 pr-16 text-[22px] font-semibold text-[#2d2a5c] placeholder:text-black/55 focus:outline-none focus:border-[#5b3df5]"
+              />
+              <span aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[15px] text-black/55">стор.</span>
+            </div>
+            <p className="mt-2 text-[13px] leading-snug text-black/60">{pagesAuto ? "Визначено за PDF, за потреби виправте." : `Скільки сторінок у PDF: від 1 до ${GUIDE_MAX_PAGES}. Якщо не вийшло визначити автоматично, впишіть самі.`}</p>
           </div>
-          <div>
-            <label htmlFor="guide-read" className="mb-2 block text-[13px] font-medium text-black/60">Читання, хвилин <span className="text-rose-600" aria-hidden="true">*</span></label>
-            <input
-              id="guide-read"
-              inputMode="numeric"
-              autoComplete="off"
-              maxLength={3}
-              aria-required="true"
-              aria-invalid={stepErrors.length > 0 && editing?.guide?.source !== "sensoria_structured" && (!guideReadMinutes.trim() || Number(guideReadMinutes) < 1 || Number(guideReadMinutes) > GUIDE_MAX_READ_MINUTES) ? true : undefined}
-              aria-describedby={stepErrors.length > 0 ? "step-5-errors" : undefined}
-              value={guideReadMinutes}
-              placeholder="Наприклад, 30"
-              onChange={(e) => setGuideReadMinutes(e.target.value.replace(/[^\d]/g, "").slice(0, 3))}
-              className="w-full rounded-xl border border-[#d9d4f5] bg-white px-4 py-3 text-[15px] focus:outline-none focus:border-[#5b3df5]"
-            />
-            <p className="mt-1.5 text-[13px] text-black/60">Від 1 до {GUIDE_MAX_READ_MINUTES}.</p>
+          )}
+        </div>
+
+        <div className="flex items-start gap-4 rounded-[22px] border border-[#e4def9] bg-gradient-to-br from-white to-[#f8f6ff] p-5">
+          <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#5232f4] to-[#8a63f7] text-white"><Icon name="lock" size={22} /></span>
+          <div className="min-w-0 flex-1">
+            <div id="guide-download-label" className="text-[17px] font-bold text-[#1f1b4d]">Завантаження гайду читачем</div>
+            <p id="guide-download-hint" className="mt-1 text-[14px] leading-snug text-black/60">
+              {allowDownload
+                ? (structuredGuide ? "Читач проходить гайд на сайті й може завантажити його PDF-версію." : "Читач бачить PDF на сайті й може завантажити файл.")
+                : "Читач лише читає гайд на сайті. Кнопки завантаження не буде."}
+
+            </p>
+            {allowDownload && structuredGuide && (
+              <p role="note" className="mt-2 text-[14px] font-semibold leading-snug text-rose-700">Увага: зображення в PDF інколи можуть не завантажитися. Тоді їхній блок у файлі пропускається, а решта лишається. Важливе дублюйте текстом.</p>
+            )}
           </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={allowDownload}
+            aria-labelledby="guide-download-label"
+            aria-describedby="guide-download-hint"
+            onClick={() => setAllowDownload((v) => !v)}
+            className="flex h-11 w-14 shrink-0 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50"
+          >
+            <span aria-hidden="true" className={`relative block h-[24px] w-[42px] rounded-full transition ${allowDownload ? "bg-gradient-to-r from-[#5232f4] to-[#774eff]" : "bg-[#d9d4f5]"}`}>
+              <span className={`absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-all ${allowDownload ? "left-[21px]" : "left-[3px]"}`} />
+            </span>
+            <span className="sr-only">{allowDownload ? "Дозволено" : "Заборонено"}</span>
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-[#f6f4ff] px-4 py-3 text-[14px] text-[#2d2a5c]" aria-live="polite">
+          <span className="font-medium text-black/60">Читач побачить:</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 font-semibold ring-1 ring-[#e4def9]"><Icon name={guideTypeInfo[guideType].icon} size={14} />{guideTypeInfo[guideType].label}</span>
+          {structuredGuide ? (
+            <>
+              <span className="rounded-full bg-white px-3 py-1 font-semibold ring-1 ring-[#e4def9]">Інтерактивний, блоків: {guideBlocks.length}</span>
+              <span className="rounded-full bg-white px-3 py-1 font-semibold ring-1 ring-[#e4def9]">{sectionRanges(guideBlocks).length} стор.</span>
+              <span className="rounded-full bg-white px-3 py-1 font-semibold ring-1 ring-[#e4def9]">{allowDownload ? "PDF-версія" : "лише читання"}</span>
+            </>
+          ) : (
+            <>
+              <span className="rounded-full bg-white px-3 py-1 font-semibold ring-1 ring-[#e4def9]">PDF</span>
+              <span className="rounded-full bg-white px-3 py-1 font-semibold ring-1 ring-[#e4def9]">{Number(guidePages) > 0 ? `${Number(guidePages)} стор.` : "кількість сторінок"}</span>
+              <span className="rounded-full bg-white px-3 py-1 font-semibold ring-1 ring-[#e4def9]">{allowDownload ? "можна завантажити" : "лише читання"}</span>
+            </>
+          )}
         </div>
       </Step>
       )}
 
       {type === "guide" && (
-      <Step n={stepNo("about")} current={step} errors={stepErrors} icon="bulb" title="Для кого й результат" hint="Необов’язково, але допомагає читачеві зрозуміти, чи підходить йому гайд.">
-        <div>
-          <label htmlFor="guide-relevant" className="mb-2 block text-[13px] font-medium text-black/60">Гайд буде корисним, якщо ви зараз… <span className="font-normal">(кожен пункт з нового рядка)</span></label>
-          <textarea
+      <Step n={stepNo("about")} current={step} errors={stepErrors} icon="bulb" title="Кому підійде гайд" hint="Необов’язково, але читач одразу зрозуміє, чи це саме для нього, і що з гайду забере.">
+        <div className="grid gap-5 lg:grid-cols-2">
+          <ListCard
             id="guide-relevant"
-            rows={4}
+            icon="heart"
+            title="Гайд стане в пригоді, якщо ви зараз…"
+            hint="Ситуації й стани, з якими до вас приходять. По одному пункту в рядку."
             value={guideRelevantText}
-            onChange={(e) => setGuideRelevantText(e.target.value)}
-            placeholder={"Тривожитесь перед важливою подією\nНе можете заснути через думки"}
-            className="w-full rounded-xl border border-[#d9d4f5] px-4 py-3 text-[14px] focus:outline-none focus:border-[#5b3df5]"
+            onChange={setGuideRelevantText}
+            placeholder="Наприклад: тривожитесь перед важливою подією"
+            examples={["Тривожитесь перед важливою подією", "Не можете заснути через думки", "Відчуваєте постійну втому"]}
+          />
+          <ListCard
+            id="guide-outcomes"
+            icon="sparkle"
+            title="Що ви отримаєте"
+            hint="Конкретні результати після гайду. По одному пункту в рядку."
+            value={guideOutcomesText}
+            onChange={setGuideOutcomesText}
+            placeholder="Наприклад: прості вправи для щоденного спокою"
+            examples={["Прості вправи для щоденного спокою", "План дій на тривожний день", "Техніку, яку можна робити де завгодно"]}
           />
         </div>
-        <div>
-          <label htmlFor="guide-outcomes" className="mb-2 block text-[13px] font-medium text-black/60">Що ви отримаєте <span className="font-normal">(кожен пункт з нового рядка)</span></label>
-          <textarea
-            id="guide-outcomes"
-            rows={4}
-            value={guideOutcomesText}
-            onChange={(e) => setGuideOutcomesText(e.target.value)}
-            placeholder={"Прості вправи для щоденного спокою\nПлан дій на тривожний день"}
-            className="w-full rounded-xl border border-[#d9d4f5] px-4 py-3 text-[14px] focus:outline-none focus:border-[#5b3df5]"
-          />
+        <div className="rounded-[24px] border border-[#e4def9] bg-gradient-to-br from-[#f8f6ff] to-[#ece9fe] p-5">
+          <div className="text-[13px] font-semibold uppercase tracking-wide text-[#4a2fd0]">Так це побачить читач</div>
+          <div className="mt-3 grid gap-4 md:grid-cols-2">
+            {([["Гайд стане в пригоді, якщо ви зараз…", guideRelevantText], ["Що ви отримаєте", guideOutcomesText]] as const).map(([t, v]) => {
+              const items = v.split("\n").map((l) => l.trim()).filter(Boolean);
+              return (
+                <div key={t} className="rounded-2xl bg-white p-4">
+                  <div className="text-[15px] font-semibold text-[#1f1b4d]">{t}</div>
+                  {items.length === 0 ? (
+                    <p className="mt-2 text-[14px] text-black/60">Додайте пункти, і тут з’явиться готовий вигляд.</p>
+                  ) : (
+                    <ul className="mt-2 flex flex-col gap-2">
+                      {items.map((it, i) => (
+                        <li key={i} className="flex items-start gap-2 text-[15px] leading-snug text-[#2d2a5c]">
+                          <span aria-hidden="true" className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#5b3df5] to-[#8a63f7] text-white"><Icon name="check" size={12} /></span>
+                          <span>{it}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </Step>
       )}
@@ -2935,17 +3070,17 @@ export default function AuthorCourseEditor({
 
       {step === STEPS.length && missing.length > 0 && (
         <div role={publishProblems.length > 0 ? "alert" : undefined} className={`rounded-xl border bg-white p-5 ${publishProblems.length > 0 ? "border-rose-300" : "border-black/10"}`}>
-          <div className={`text-[13px] font-medium mb-2 ${publishProblems.length > 0 ? "text-rose-700" : "text-black/70"}`}>{publishProblems.length > 0 ? "Перед тим як надіслати або опублікувати, виправте:" : "Щоб надіслати на модерацію, лишилось:"}</div>
-          <ul className="text-[13px] text-black/60 list-disc pl-5 flex flex-col gap-1">
+          <div className={`text-[14px] font-semibold mb-2 ${publishProblems.length > 0 ? "text-rose-700" : "text-black/75"}`}>{publishProblems.length > 0 ? "Перед тим як надіслати або опублікувати, виправте:" : "Щоб надіслати на модерацію, лишилось:"}</div>
+          <ul className="text-[14px] text-black/70 list-disc pl-5 flex flex-col gap-1">
             {missing.map((m) => <li key={m}>{m}</li>)}
           </ul>
-          <p className="text-[12px] text-black/40 mt-2">Чернетку можна зберегти в будь-який момент і дописати пізніше.</p>
+          <p className="mt-2 text-[13px] text-black/60">Чернетку можна зберегти в будь-який момент і дописати пізніше.</p>
         </div>
       )}
       {/* On the last program step the checklist card above already lists these, so they are not repeated. */}
-      {error && !(publishProblems.length > 0 && step === STEPS.length && missing.length > 0) && <div className="text-[13px] text-red-500">{error}</div>}
+      {error && !(publishProblems.length > 0 && step === STEPS.length && missing.length > 0) && <div role="alert" className="text-[14px] font-medium text-rose-700">{error}</div>}
       {publishProblems.length > 0 && !(step === STEPS.length && missing.length > 0) && (
-        <ul className="text-[13px] text-red-500 list-disc pl-5 flex flex-col gap-1">
+        <ul role="alert" className="flex list-disc flex-col gap-1 pl-5 text-[14px] font-medium text-rose-700">
           {publishProblems.map((p) => (
             <li key={p}>{p}</li>
           ))}
@@ -2956,11 +3091,11 @@ export default function AuthorCourseEditor({
       {step < STEPS.length && (
         <div className="flex flex-wrap items-center gap-3 border-t border-black/5 pt-3">
           {isPublishedEdit ? (
-            <button type="button" onClick={() => handleSave("published")} disabled={saving} className="min-h-[40px] px-1 rounded-xl text-[14px] font-medium text-black/60 hover:text-black transition disabled:opacity-60">
+            <button type="button" onClick={() => handleSave("published")} disabled={saving} className="min-h-[44px] px-1 rounded-xl text-[14px] font-medium text-black/65 hover:text-black transition disabled:opacity-60">
               {saving ? "Зберігаємо…" : "Зберегти зміни"}
             </button>
           ) : (
-            <button type="button" onClick={() => handleSave("draft")} disabled={saving} className="min-h-[40px] px-1 rounded-xl text-[14px] font-medium text-black/60 hover:text-black transition disabled:opacity-60">
+            <button type="button" onClick={() => handleSave("draft")} disabled={saving} className="min-h-[44px] px-1 rounded-xl text-[14px] font-medium text-black/65 hover:text-black transition disabled:opacity-60">
               {saving ? "Зберігаємо…" : "Зберегти як чернетку"}
             </button>
           )}
@@ -2974,7 +3109,7 @@ export default function AuthorCourseEditor({
           <button
             onClick={() => handleSave("published")}
             disabled={saving}
-            className="px-5 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white text-[14px] font-medium hover:opacity-90 transition mt-6 disabled:opacity-60"
+            className="min-h-[46px] px-5 py-3 rounded-xl bg-gradient-to-r from-[#5232f4] to-[#774eff] text-white text-[14px] font-semibold hover:opacity-90 transition mt-6 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#582edd] focus-visible:ring-offset-2"
           >
             {saving ? "Зберігаємо…" : "Зберегти зміни"}
           </button>
@@ -2983,14 +3118,14 @@ export default function AuthorCourseEditor({
             <button
               onClick={() => handleSave("draft")}
               disabled={saving}
-              className="px-5 py-3 rounded-xl bg-white border border-black/10 text-[14px] font-medium hover:bg-black/5 transition mt-6 disabled:opacity-60"
+              className="min-h-[46px] px-5 py-3 rounded-xl bg-white border border-[#d9d4f5] text-[14px] font-medium text-[#2d2a5c] hover:bg-[#f3efff] transition mt-6 disabled:opacity-60"
             >
               {saving ? "Зберігаємо…" : "Зберегти чернетку"}
             </button>
             <button
               onClick={() => handleSave("review")}
               disabled={saving}
-              className="px-5 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white text-[14px] font-medium hover:opacity-90 transition mt-6 disabled:opacity-60"
+              className="min-h-[46px] px-5 py-3 rounded-xl bg-gradient-to-r from-[#5232f4] to-[#774eff] text-white text-[14px] font-semibold hover:opacity-90 transition mt-6 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#582edd] focus-visible:ring-offset-2"
             >
               {saving ? "Зберігаємо…" : "Опублікувати"}
             </button>
@@ -2999,7 +3134,7 @@ export default function AuthorCourseEditor({
         <button
           onClick={onCancel}
           disabled={saving}
-          className="px-5 py-3 rounded-xl text-[14px] font-medium text-black/45 hover:text-black/70 transition mt-6 disabled:opacity-60"
+          className="px-5 py-3 rounded-xl min-h-[44px] text-[14px] font-medium text-black/65 hover:text-black transition mt-6 disabled:opacity-60"
         >
           Скасувати
         </button>
@@ -3407,6 +3542,71 @@ function MaterialTile({ icon, title, state, done, error, children }: { icon: Rea
   );
 }
 
+// A Sensoria-style card with a list of short points (one input per point, Enter adds the next, clickable examples). The value is the same "one point per line" text as before.
+const LIST_MAX = 8;
+function ListCard({ id, icon, title, hint, value, onChange, placeholder, examples }: { id: string; icon: IconName; title: string; hint: string; value: string; onChange: (v: string) => void; placeholder: string; examples: string[] }) {
+  const items = value.split("\n");
+  const set = (next: string[]) => onChange(next.join("\n"));
+  const focusRow = (i: number) => window.setTimeout(() => document.getElementById(`${id}-${i}`)?.focus(), 0);
+  const filled = items.filter((l) => l.trim()).length;
+  const addExample = (ex: string) => {
+    const empty = items.findIndex((l) => !l.trim());
+    if (empty >= 0) set(items.map((l, i) => (i === empty ? ex : l)));
+    else if (items.length < LIST_MAX) set([...items, ex]);
+  };
+  const free = examples.filter((ex) => !items.some((l) => l.trim() === ex));
+  return (
+    <section aria-labelledby={`${id}-title`} className="flex flex-col gap-4 rounded-[24px] border border-[#e4def9] bg-gradient-to-br from-white to-[#f8f6ff] p-5 shadow-[0_14px_30px_-24px_rgba(70,40,170,0.5)]">
+      <div className="flex items-start gap-3">
+        <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#5232f4] to-[#8a63f7] text-white"><Icon name={icon} size={24} /></span>
+        <div className="min-w-0 flex-1">
+          <h3 id={`${id}-title`} className="text-[18px] font-bold leading-tight text-[#1f1b4d]">{title}</h3>
+          <p className="mt-1 text-[14px] leading-snug text-black/60">{hint}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-[#ece9fe] px-3 py-1 text-[13px] font-semibold text-[#4a2fd0]">{filled} з {LIST_MAX}</span>
+      </div>
+      <ul className="flex flex-col gap-2">
+        {items.map((it, i) => (
+          <li key={i} className="flex items-center gap-2">
+            <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#ece9fe] text-[13px] font-bold text-[#4a2fd0]">{i + 1}</span>
+            <input
+              id={`${id}-${i}`}
+              value={it}
+              maxLength={160}
+              aria-label={`${title}: пункт ${i + 1}`}
+              placeholder={i === 0 ? placeholder : "Ще один пункт"}
+              onChange={(e) => set(items.map((l, k) => (k === i ? e.target.value.replace(/\n/g, " ") : l)))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (items.length < LIST_MAX && it.trim()) { set([...items.slice(0, i + 1), "", ...items.slice(i + 1)]); focusRow(i + 1); }
+                }
+              }}
+              className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-[#d9d4f5] bg-white px-4 text-[15px] text-[#2d2a5c] placeholder:text-black/55 focus:border-[#5b3df5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/30"
+            />
+            <button type="button" aria-label={`Видалити пункт ${i + 1}`} onClick={() => set(items.length > 1 ? items.filter((_, k) => k !== i) : [""])} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[20px] leading-none text-black/55 transition hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50">×</button>
+          </li>
+        ))}
+      </ul>
+      {items.length < LIST_MAX && (
+        <button type="button" onClick={() => { set([...items, ""]); focusRow(items.length); }} className="inline-flex min-h-[44px] w-fit items-center gap-2 rounded-xl border border-dashed border-[#b8abf7] bg-white px-4 text-[14px] font-semibold text-[#4a2fd0] transition hover:bg-[#f3efff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50">
+          <span aria-hidden="true" className="text-[18px] leading-none">+</span> Додати пункт
+        </button>
+      )}
+      {free.length > 0 && items.length <= LIST_MAX && (
+        <div>
+          <div className="mb-2 text-[13px] font-medium text-black/60">Підказки, натисніть, щоб додати:</div>
+          <div className="flex flex-wrap gap-2">
+            {free.map((ex) => (
+              <button key={ex} type="button" onClick={() => addExample(ex)} className="min-h-[44px] rounded-full bg-[#f3efff] px-4 text-left text-[14px] font-medium text-[#2d2a5c] ring-1 ring-[#e4def9] transition hover:bg-[#ece9fe] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50">+ {ex}</button>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function Step({ n, current, errors, title, hint, children, icon, aside, tight, below }: { n: number; current: number; errors: string[]; title: string; hint: string; children: React.ReactNode; icon?: IconName; aside?: React.ReactNode; tight?: boolean; below?: React.ReactNode }) {
   if (n !== current) return null;
   const errorList = errors.length > 0 && (
@@ -3424,7 +3624,7 @@ function Step({ n, current, errors, title, hint, children, icon, aside, tight, b
           </span>
           <div className="min-w-0">
             <h2 id={`step-${n}`} className="text-[22px] font-bold leading-tight text-black">{title}</h2>
-            <p className="mt-1 text-[14px] text-black/55">{hint}</p>
+            <p className="mt-1 text-[14px] text-black/65">{hint}</p>
           </div>
         </div>
         {aside && <aside className={`lg:col-start-2 lg:row-start-1 lg:row-span-2 ${icon === "card" ? "" : "lg:mt-1"} lg:self-stretch order-last lg:order-none`}>{aside}</aside>}
@@ -3444,7 +3644,7 @@ function Step({ n, current, errors, title, hint, children, icon, aside, tight, b
         <span aria-hidden="true" className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black text-[13px] font-semibold text-white">{n}</span>
         <div>
           <h2 id={`step-${n}`} className="text-[17px] font-semibold leading-tight text-black">{title}</h2>
-          <p className="mt-0.5 text-[13px] text-black/50">{hint}</p>
+          <p className="mt-0.5 text-[14px] text-black/65">{hint}</p>
         </div>
       </div>
       <div className="sm:pl-10 flex flex-col gap-4">{children}</div>

@@ -38,7 +38,7 @@ type Props = {
   onOpenRelated: (kind: RelatedKind, id: string) => void;
   onSectionSeen: (sectionKey: string) => void;
   // Downloads the flattened, marked PDF copy directly.
-  onDownloadPdf: () => void;
+  onDownloadPdf?: () => void;
   downloading: boolean;
   downloadError: string | null;
   // "Завершити": the person says they are done — the caller records the
@@ -165,14 +165,16 @@ export default function GuideInteractiveReader({
           <span className="hidden sm:inline">До гайду</span>
         </button>
         <div className="flex-1 min-w-0 text-[13.5px] font-semibold text-black/75 truncate">{title}</div>
-        <button
-          onClick={onDownloadPdf}
-          disabled={downloading}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-[12.5px] font-medium text-black/60 hover:text-black hover:bg-black/[0.05] transition disabled:opacity-50"
-        >
-          <DownloadIcon />
-          <span className="hidden sm:inline">{downloading ? "Готуємо PDF…" : "PDF-версія"}</span>
-        </button>
+        {onDownloadPdf && (
+          <button
+            onClick={onDownloadPdf}
+            disabled={downloading}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-[12.5px] font-medium text-black/60 hover:text-black hover:bg-black/[0.05] transition disabled:opacity-50"
+          >
+            <DownloadIcon />
+            <span className="hidden sm:inline">{downloading ? "Готуємо PDF…" : "PDF-версія"}</span>
+          </button>
+        )}
       </div>
 
       {downloadError && (

@@ -31,7 +31,7 @@ type ContentRow = {
   content_meditation_meta?: MeditationMetaRow | MeditationMetaRow[] | null;
   content_meditation_body?: MeditationBodyRow | MeditationBodyRow[] | null;
   content_guide_meta?: GuideMetaRow | GuideMetaRow[] | null;
-  content_guide_body?: { file_url: string | null } | { file_url: string | null }[] | null;
+  content_guide_body?: { file_url: string | null; blocks?: unknown } | { file_url: string | null; blocks?: unknown }[] | null;
 };
 
 type GuideMetaRow = {
@@ -41,6 +41,7 @@ type GuideMetaRow = {
   read_minutes: number;
   relevant_if: string[] | null;
   outcomes: string[] | null;
+  allow_download?: boolean | null;
 };
 
 type MeditationMetaRow = {
@@ -129,11 +130,13 @@ function fromRow(row: ContentRow, modules: ModuleRow[], items: ItemRow[]): Autho
           relevantIf: gmeta.relevant_if ?? [],
           outcomes: gmeta.outcomes ?? [],
           source: gmeta.source,
+          allowDownload: gmeta.allow_download !== false,
         }
       : undefined,
     slug: row.slug ?? undefined,
     durationMinutes: row.duration_minutes ?? undefined,
     mainFileUrl: body?.audio_url || gbody?.file_url || undefined,
+    guideBlocks: Array.isArray(gbody?.blocks) && gbody.blocks.length > 0 ? (gbody.blocks as AuthoredContent["guideBlocks"]) : undefined,
     meditation: meta
       ? {
           format: meta.format,
@@ -187,7 +190,7 @@ export async function fetchMyContent(authorId: string, opts?: { strict?: boolean
   // sale_status exists after supabase/complaints-migration.sql; fall back so the
   // author's list still loads before it has been run.
   // slug / duration / meditation tables exist after materials-db-model-migration.sql
-  const materials = "slug, duration_minutes, content_meditation_meta(*), content_meditation_body(*), content_guide_meta(*), content_guide_body(file_url)";
+  const materials = "slug, duration_minutes, content_meditation_meta(*), content_meditation_body(*), content_guide_meta(*), content_guide_body(file_url, blocks)";
   let res = (await client
     .from("content")
     .select(`${base}, sale_status, risk_topics, ${materials}`)
@@ -445,7 +448,7 @@ async function saveMeditationParts(client: ReturnType<typeof requireSupabase>, i
 async function saveGuideParts(client: ReturnType<typeof requireSupabase>, item: AuthoredContent): Promise<void> {
   const g = item.guide;
   if (!g) return;
-  const { error: metaError } = await client.from("content_guide_meta").upsert({
+  const meta = {
     content_id: item.id,
     source: g.source ?? "uploaded_pdf",
     guide_type: g.guideType,
@@ -453,10 +456,17 @@ async function saveGuideParts(client: ReturnType<typeof requireSupabase>, item: 
     read_minutes: g.readMinutes,
     relevant_if: g.relevantIf,
     outcomes: g.outcomes,
-  });
+  };
+  const allow = g.allowDownload !== false;
+  let { error: metaError } = await client.from("content_guide_meta").upsert({ ...meta, allow_download: allow });
+  // the column comes from supabase/guide-allow-download.sql; until it is added, "allowed" (the default) saves without it
+  if (metaError && allow && /allow_download/.test(metaError.message ?? "")) ({ error: metaError } = await client.from("content_guide_meta").upsert(meta));
   if (metaError) throw metaError;
-  // only the file column is written: the structured blocks of a Sensoria guide stay untouched
-  const { error: bodyError } = await client.from("content_guide_body").upsert({ content_id: item.id, file_url: item.mainFileUrl ?? null });
+  // blocks are written only when the author works with them (the builder, or a Sensoria guide that already has them);
+  // a plain PDF guide leaves the column untouched
+  const body: { content_id: string; file_url: string | null; blocks?: unknown } = { content_id: item.id, file_url: item.mainFileUrl ?? null };
+  if (item.guideBlocks !== undefined) body.blocks = item.guideBlocks;
+  const { error: bodyError } = await client.from("content_guide_body").upsert(body);
   if (bodyError) throw bodyError;
 }
 

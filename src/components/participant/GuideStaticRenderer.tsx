@@ -8,6 +8,7 @@
 // practice, a branch, a blank for notes) is drawn here as something you can
 // do with a pen.
 import type { StaticBlock } from "../../data/guideStatic";
+import GuideMedia from "./GuideMedia";
 
 const BOX = "inline-block w-[15px] h-[15px] border-[1.5px] border-black/60 rounded-[3px] shrink-0 mt-[3px]";
 
@@ -136,10 +137,9 @@ function Block({ block }: { block: StaticBlock }) {
       );
     case "image":
       return (
-        <figure className="break-inside-avoid">
-          <img src={block.url} alt={block.alt} className="w-full rounded-md" />
-          {block.caption && <figcaption className="text-[12px] text-black/50 mt-1">{block.caption}</figcaption>}
-        </figure>
+        <div className="break-inside-avoid">
+          <GuideMedia url={block.url} alt={block.alt} caption={block.caption} ratio={block.ratio} zoom={block.zoom} focus={block.focus} width={block.width} captionPosition={block.captionPosition} />
+        </div>
       );
     case "divider":
       return <hr className="border-black/15 my-2" />;

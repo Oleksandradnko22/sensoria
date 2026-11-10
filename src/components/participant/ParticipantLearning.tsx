@@ -1074,7 +1074,7 @@ export default function ParticipantLearning({
         const guideRec = guides.find((g) => g.id === continueTarget.contentId);
         const metaBits = [
           continueInfo.author,
-          guideRec ? `${guideSizeLabel(guideRec)}${guideRec.readMinutes ? ` · ≈ ${guideRec.readMinutes} хв` : ""}` : null,
+          guideRec ? guideSizeLabel(guideRec) : null,
         ].filter(Boolean);
         return (
           <div className="rounded-2xl bg-gradient-to-br from-[#f3f6ff] to-white border border-black/5 p-4">
@@ -1119,7 +1119,7 @@ export default function ParticipantLearning({
               <div className="font-semibold text-[16px]">{topRecommendedGuide.title}</div>
               <div className="text-[12px] text-black/60 mt-0.5">
                 Гайд · {topRecommendedGuide.author}
-                {` · ${guideSizeLabel(topRecommendedGuide)}${topRecommendedGuide.readMinutes ? ` · ≈ ${topRecommendedGuide.readMinutes} хв` : ""}`}
+                {` · ${guideSizeLabel(topRecommendedGuide)}`}
               </div>
             </div>
             <button
@@ -1142,7 +1142,6 @@ export default function ParticipantLearning({
               <div className="font-semibold text-[16px]">{revisitGuide.title}</div>
               <div className="text-[12px] text-black/60 mt-0.5">
                 Гайд · {revisitGuide.author}
-                {revisitGuide.readMinutes ? ` · ≈ ${revisitGuide.readMinutes} хв` : ""}
               </div>
             </div>
             <button
@@ -1570,7 +1569,7 @@ function ContentCard({
   if (item.kind === "guide") {
     const guidePercent = hasSectionProgress ? Math.round((guideViewedSections / guideTotalSections) * 100) : 0;
     const guideMeta = info.sizeLabel
-      ? `${info.sizeLabel}${info.readMinutes ? ` · ≈ ${info.readMinutes} хв` : ""}`
+      ? info.sizeLabel
       : undefined;
     return (
       <div className="group rounded-[28px] bg-white border border-black/[0.06] overflow-hidden hover:shadow-[0_16px_40px_rgba(15,23,42,0.09)] transition-all duration-200 flex flex-col">

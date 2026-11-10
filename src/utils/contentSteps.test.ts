@@ -70,12 +70,11 @@ test("when it fits: 3 to 5 points of 5 to 100 characters", () => {
 });
 
 test("guide file step", () => {
-  const ok = { fileUrl: "https://x/g.pdf", pages: "12", readMinutes: "30", price: 0, structured: false };
+  const ok = { fileUrl: "https://x/g.pdf", pages: "12", price: 0, structured: false };
   assert.deepEqual(guideFileProblems(ok), []);
   assert.equal(guideFileProblems({ ...ok, fileUrl: "" })[0], "Завантажте PDF-файл гайду.");
   assert.equal(guideFileProblems({ ...ok, pages: "" })[0], "Вкажіть кількість сторінок.");
   assert.ok(guideFileProblems({ ...ok, pages: "501" })[0].includes("500"));
-  assert.equal(guideFileProblems({ ...ok, readMinutes: "0" })[0], "Вкажіть, скільки хвилин займає читання.");
-  assert.deepEqual(guideFileProblems({ ...ok, fileUrl: "", pages: "", readMinutes: "", structured: true }), []);
+  assert.deepEqual(guideFileProblems({ ...ok, fileUrl: "", pages: "", structured: true }), []);
   assert.equal(guideFileProblems({ ...ok, price: 100 }).length, 1);
 });

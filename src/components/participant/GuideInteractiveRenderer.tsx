@@ -10,6 +10,8 @@
 import { useEffect, useRef } from "react";
 import type { GuideBlockV2, GuideContent, GuideSection } from "../../data/guideContent";
 import { SECTIONS_PER_PAGE, groupIntoSections, paginateSections } from "../../data/guideContent";
+import GuideMedia from "./GuideMedia";
+import { meditations } from "../../data/meditations";
 import { isSectionAnswered } from "../../utils/guideInteraction";
 import type { RelatedItem, RelatedKind } from "../../utils/guideRelated";
 import { BookmarkIcon, CheckIcon } from "./GuideIcons";
@@ -155,18 +157,60 @@ export default function GuideInteractiveRenderer({
           </div>
         );
       case "media":
+        return <GuideMedia url={block.url} alt={block.alt} caption={block.caption} ratio={block.ratio} zoom={block.zoom} focus={block.focus} width={block.width} captionPosition={block.captionPosition} />;
+      case "gift": {
+        const med = meditations.find((m) => m.id === block.meditationId);
+        // a gift that is not in the catalog (yet) is never drawn as a dead card
+        if (!med) return null;
         return (
-          <figure>
-            <img src={block.url} alt={block.alt} className="w-full rounded-[24px]" />
-            {block.caption && <figcaption className="text-[13.5px] text-black/45 mt-2">{block.caption}</figcaption>}
-          </figure>
+          <div className="rounded-[24px] bg-[#f3efff] p-6 sm:p-8">
+            <div className="text-[13px] font-semibold uppercase tracking-[0.14em] text-[#4a2fd0]">Подарунок від автора</div>
+            {block.text && <p className="mt-3 text-[16px] leading-relaxed text-black/75">{block.text}</p>}
+            <button
+              type="button"
+              onClick={() => onOpenRelated("meditation", med.id)}
+              className="mt-5 flex min-h-[64px] w-full items-center justify-between gap-4 rounded-2xl bg-white px-5 py-4 text-left shadow-sm ring-1 ring-[#e4def9] transition hover:ring-[#bfb3f5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]"
+            >
+              <span className="min-w-0">
+                <span className="block text-[13px] text-black/60">Медитація · {med.duration}</span>
+                <span className="block truncate text-[17px] font-semibold text-[#1f1b4d]">{med.title}</span>
+              </span>
+              <span aria-hidden="true" className="text-[20px] text-[#4a2fd0]">→</span>
+            </button>
+          </div>
         );
+      }
       case "divider":
         return <hr className="border-black/10" />;
     }
   };
 
   return (
+    <div>
+      {pages.length > 1 && (
+        <nav aria-label="Розділи гайду" className="mb-10 flex flex-wrap gap-2 md:mb-14">
+          {pages.map((group, n) => {
+            const on = n === Math.min(page, lastPage);
+            const heading = group[0]?.heading?.text;
+            return (
+              <button
+                key={group[0]?.key ?? n}
+                type="button"
+                aria-current={on ? "page" : undefined}
+                title={heading || undefined}
+                onClick={() => onPageChange(n)}
+                className={`min-h-[44px] rounded-full px-5 text-[14px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
+                  on
+                    ? "bg-gradient-to-r from-[#2f6bff] to-[#8b5cf6] text-white"
+                    : "border border-black/10 bg-white/70 text-black/70 hover:border-black/20 hover:bg-white"
+                }`}
+              >
+                Розділ {n + 1}
+              </button>
+            );
+          })}
+        </nav>
+      )}
     <div className="flex flex-col gap-16 md:gap-24">
       {sections.map((section: GuideSection, i) => (
         <section
@@ -257,6 +301,7 @@ export default function GuideInteractiveRenderer({
           {guide.error}
         </div>
       )}
+    </div>
     </div>
   );
 }

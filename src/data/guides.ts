@@ -100,6 +100,8 @@ export type Guide = {
   points?: string[];
   content?: GuideBlock[];
   relevantIf?: string[];
+  /** false = the author does not let readers download this guide (missing = allowed). */
+  allowDownload?: boolean;
   quickMode?: GuideQuickMode;
   // "Тип гайда" (2026-09-09, per Sasha's explicit spec — an author
   // picks this at creation; see data/guideTypes.ts for the full

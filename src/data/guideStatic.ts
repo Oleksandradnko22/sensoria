@@ -33,7 +33,17 @@ export type StaticBlock =
   | { kind: "writing_area"; prompt: string; lines: number }
   | { kind: "instructions"; title: string; intro?: string; steps: string[]; doneText: string }
   | { kind: "tree"; prompt: string; branches: { label: string; step: string }[] }
-  | { kind: "image"; url: string; alt: string; caption?: string }
+  | {
+      kind: "image";
+      url: string;
+      alt: string;
+      caption?: string;
+      ratio?: number;
+      zoom?: number;
+      focus?: { x: number; y: number };
+      width?: number;
+      captionPosition?: import("./guideContent.ts").MediaCaptionPosition;
+    }
   | { kind: "divider" };
 
 const DEFAULT_WRITING_LINES = 5;
@@ -119,7 +129,15 @@ export function toStaticBlock(block: GuideBlockV2): StaticBlock | null {
       // a recommendation disappears with it, see toStaticBlocks).
       return null;
     case "media":
-      return { kind: "image", url: block.url, alt: block.alt, caption: block.caption };
+      return { kind: "image", url: block.url, alt: block.alt, caption: block.caption, ratio: block.ratio, zoom: block.zoom, focus: block.focus, width: block.width, captionPosition: block.captionPosition };
+    case "gift":
+      // On paper a gift is only named: the meditation itself lives on Sensoria.
+      return {
+        kind: "callout",
+        tone: "note",
+        title: "Подарунок від автора",
+        text: `${block.text ? `${block.text} ` : ""}Медитація «${block.meditationTitle}» чекає на вас у Sensoria.`,
+      };
     case "divider":
       return { kind: "divider" };
   }

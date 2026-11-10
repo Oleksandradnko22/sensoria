@@ -217,7 +217,7 @@ export function buildSavedItems(records: SavedRecords, catalog: SavedCatalog, ac
             ? `${formatPrice(guide.price)} · ${guideSizeLabel(guide)}`
             : undefined
           : guide
-            ? `${guideSizeLabel(guide)} · ${guide.readMinutes} хв`
+            ? guideSizeLabel(guide)
             : undefined,
         searchFields: [title, ...guideSearchFields(g.guideId)],
         // not in the cabinet: the public page (price, contents), never the full guide

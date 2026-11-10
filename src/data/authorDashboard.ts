@@ -127,6 +127,8 @@ export type AuthoredContent = {
   // false = never published (needs draft-delete-migration.sql); undefined = unknown, so no deleting is offered.
   everPublished?: boolean;
   mainFileUrl?: string;
+  /** Guide only: blocks built in the guide builder (data/guideContent.ts). Empty = a plain PDF guide. */
+  guideBlocks?: import("./guideContent.ts").GuideContent;
   // Emotional-topic categories (categoryLabels.ts keys) — same
   // vocabulary the public catalog's filter chips use. Without this, a
   // published item is only ever found under "Всі", never under a
@@ -150,6 +152,8 @@ export type AuthoredGuide = {
   outcomes: string[];
   /** Kept as stored so editing a structured Sensoria guide never turns it into a PDF one. */
   source?: "uploaded_pdf" | "sensoria_structured";
+  /** The author lets readers download the guide (a PDF file, or the PDF version of an interactive guide). Missing = allowed. */
+  allowDownload?: boolean;
 };
 
 export type AuthoredMeditation = {

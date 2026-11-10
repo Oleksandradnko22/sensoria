@@ -112,3 +112,16 @@ test("images: a picture that does not fit moves to the next page whole, with its
   assert.ok(img && img.t === "image" && img.y + img.h <= PAGE_H - MARGIN_BOTTOM + 0.5);
   assert.ok(out[pageWithImage].some((c) => c.t === "text" && c.text.includes("Підпис")));
 });
+
+test("images: the author's width, crop and caption side are kept (card with the caption beside the picture)", () => {
+  const block = { kind: "image" as const, url: "c.png", alt: "Опис", caption: "Підпис", ratio: 1.5, zoom: 2, focus: { x: 0, y: 0 }, width: 50, captionPosition: "right" as const };
+  const out = layoutGuidePdf({ title: "T", blocks: [block] }, measure, { "c.png": { w: 1600, h: 1200 } });
+  const img = out.flat().find((c) => c.t === "image");
+  assert.ok(img && img.t === "image");
+  assert.ok(Math.abs(img.w / img.h - 1.5) < 0.01, "frame keeps the chosen ratio");
+  assert.ok(img.w <= 595 - 104, "inside the column");
+  assert.equal(img.sx, 0);
+  assert.equal(img.sy, 0);
+  assert.ok((img.sw ?? 0) < 1600 && (img.sh ?? 0) < 1200, "zoom shows only part of the picture");
+  assert.ok(out.flat().some((c) => c.t === "rect" && c.fill), "the picture and the caption sit on one card");
+});

@@ -575,7 +575,7 @@ export default function ParticipantEmotionalProfile({
                           const open = openContentFor(section.key);
                           const duration =
                             "pages" in item
-                              ? `${guideSizeLabel(item as Guide)} · ${item.readMinutes} хв читання`
+                              ? guideSizeLabel(item as Guide)
                               : "duration" in item
                               ? item.duration
                               : "";

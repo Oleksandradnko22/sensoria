@@ -13,6 +13,7 @@ import { aiDeclaration } from "./contentLabels.ts";
 import { benefitsFromTags, benefitsProblem } from "./programBenefits.ts";
 import { categoriesProblem } from "./programCategories.ts";
 import { meditationWhenProblems } from "./contentSteps.ts";
+import { guideBlocksProblems } from "./guideBuilder.ts";
 import { MAX_LESSONS_PER_MODULE, MAX_LESSONS_TOTAL, MAX_MODULES } from "./programModule.ts";
 import { checklistItems, checklistProblem } from "./lessonChecklist.ts";
 import { isHighRisk, RISK_MESSAGE } from "./riskTopics.ts";
@@ -90,10 +91,12 @@ export function validatePublishable(content: AuthoredContent, opts?: { isSpecial
     if (whenProblem) add("when-to-use", whenProblem);
   }
 
+  if (content.type === "guide" && content.guide?.source === "sensoria_structured") {
+    guideBlocksProblems(content.guideBlocks, Number(content.price)).forEach((m) => add("guide-blocks", m));
+  }
   if (content.type === "guide" && content.guide?.source !== "sensoria_structured") {
     if (!has(content.mainFileUrl)) add("file", "Завантажте PDF-файл гайду.");
     if (!content.guide || content.guide.pages < 1) add("pages", "Вкажіть кількість сторінок.");
-    if (!content.guide || content.guide.readMinutes < 1) add("read-minutes", "Вкажіть, скільки хвилин займає читання.");
   }
 
   // Length rules (the same ones the step-by-step editor shows) and 1-3 categories: for every kind of material.

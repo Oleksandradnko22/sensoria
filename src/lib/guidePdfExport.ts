@@ -40,29 +40,50 @@ const SCALE = 2.4;
 // Storage public buckets do): without it the canvas would be tainted and
 // could not be exported, so such an image is simply left out and its
 // caption is printed instead (the layout does that for sizes it lacks).
-async function loadImages(blocks: StaticBlock[]): Promise<{ sizes: ImageSizes; elements: Map<string, HTMLImageElement> }> {
-  const urls = Array.from(new Set(blocks.flatMap((b) => (b.kind === "image" ? [b.url] : []))));
+// Each picture is fetched as a file first (fresh from the network: a copy the page showed earlier without CORS rights
+// could otherwise be refused by the canvas) and drawn from that; a plain CORS <img> is the fallback. `failed` lists
+// pictures that could not be loaded by either way.
+function loadElement(src: string, cors: boolean): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    if (cors) img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img.naturalWidth > 0 && img.naturalHeight > 0 ? img : null);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+async function loadPicture(url: string): Promise<HTMLImageElement | null> {
+  try {
+    const res = await fetch(url, { mode: "cors", cache: "reload" });
+    if (res.ok) {
+      const local = URL.createObjectURL(await res.blob());
+      const img = await loadElement(local, false);
+      if (img) return img; // the object URL stays valid for the drawing that follows
+      URL.revokeObjectURL(local);
+    }
+  } catch {
+    /* fall back to a plain request below */
+  }
+  return loadElement(url, true);
+}
+function withoutFailed(blocks: StaticBlock[], failed: string[]): StaticBlock[] {
+  return failed.length === 0 ? blocks : blocks.filter((b) => !(b.kind === "image" && failed.includes(b.url)));
+}
+async function loadImages(blocks: StaticBlock[]): Promise<{ sizes: ImageSizes; elements: Map<string, HTMLImageElement>; failed: string[] }> {
+  const urls = Array.from(new Set(blocks.flatMap((b) => (b.kind === "image" && b.url ? [b.url] : []))));
   const sizes: ImageSizes = {};
   const elements = new Map<string, HTMLImageElement>();
+  const failed: string[] = [];
   await Promise.all(
-    urls.map(
-      (url) =>
-        new Promise<void>((resolve) => {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.onload = () => {
-            if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-              sizes[url] = { w: img.naturalWidth, h: img.naturalHeight };
-              elements.set(url, img);
-            }
-            resolve();
-          };
-          img.onerror = () => resolve();
-          img.src = url;
-        })
-    )
+    urls.map(async (url) => {
+      const img = await loadPicture(url);
+      if (img) {
+        sizes[url] = { w: img.naturalWidth, h: img.naturalHeight };
+        elements.set(url, img);
+      } else failed.push(url);
+    })
   );
-  return { sizes, elements };
+  return { sizes, elements, failed };
 }
 
 function drawCommands(ctx: CanvasRenderingContext2D, commands: Cmd[], images: Map<string, HTMLImageElement>) {
@@ -80,7 +101,17 @@ function drawCommands(ctx: CanvasRenderingContext2D, commands: Cmd[], images: Ma
       ctx.stroke();
     } else if (c.t === "image") {
       const img = images.get(c.url);
-      if (img) ctx.drawImage(img, c.x, c.y, c.w, c.h);
+      if (img) {
+        ctx.save();
+        if (c.r && "roundRect" in ctx) {
+          ctx.beginPath();
+          (ctx as CanvasRenderingContext2D).roundRect(c.x, c.y, c.w, c.h, c.r);
+          ctx.clip();
+        }
+        if (c.sw && c.sh) ctx.drawImage(img, c.sx ?? 0, c.sy ?? 0, c.sw, c.sh, c.x, c.y, c.w, c.h);
+        else ctx.drawImage(img, c.x, c.y, c.w, c.h);
+        ctx.restore();
+      }
     } else {
       ctx.beginPath();
       if (c.r && "roundRect" in ctx) (ctx as CanvasRenderingContext2D).roundRect(c.x, c.y, c.w, c.h, c.r);
@@ -139,8 +170,9 @@ export async function exportGuidePdf(params: {
     return scratch.measureText(text).width;
   };
 
-  const { sizes, elements } = await loadImages(params.blocks);
-  const pages = layoutGuidePdf({ title: params.title, subtitle: params.subtitle, blocks: params.blocks }, measure, sizes);
+  const { sizes, elements, failed } = await loadImages(params.blocks);
+  // a picture that could not be loaded is left out of the PDF together with its block; everything else stays
+  const pages = layoutGuidePdf({ title: params.title, subtitle: params.subtitle, blocks: withoutFailed(params.blocks, failed) }, measure, sizes);
 
   const images: ImagePage[] = [];
   for (let i = 0; i < pages.length; i += 1) {
@@ -184,6 +216,8 @@ export async function renderGuidePreviewPages(params: {
   subtitle?: string;
   blocks: StaticBlock[];
   count: number;
+  // how many pictures could not be loaded and were left out
+  onSkipped?: (n: number) => void;
 }): Promise<{ imageUrl: string; label: string }[]> {
   if (document.fonts?.ready) await document.fonts.ready;
   const scratch = document.createElement("canvas").getContext("2d");
@@ -192,8 +226,9 @@ export async function renderGuidePreviewPages(params: {
     scratch.font = fontOf(size, bold);
     return scratch.measureText(text).width;
   };
-  const { sizes, elements } = await loadImages(params.blocks);
-  const pages = layoutGuidePdf({ title: params.title, subtitle: params.subtitle, blocks: params.blocks }, measure, sizes);
+  const { sizes, elements, failed } = await loadImages(params.blocks);
+  params.onSkipped?.(failed.length);
+  const pages = layoutGuidePdf({ title: params.title, subtitle: params.subtitle, blocks: withoutFailed(params.blocks, failed) }, measure, sizes);
   const scale = 1.6;
   const out: { imageUrl: string; label: string }[] = [];
   for (let i = 0; i < Math.min(params.count, pages.length); i += 1) {

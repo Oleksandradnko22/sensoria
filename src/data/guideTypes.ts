@@ -33,7 +33,7 @@ export const guideTypeOrder: GuideType[] = ["quick", "practical", "deep", "sos",
 
 export const guideTypeInfo: Record<GuideType, GuideTypeInfo> = {
   quick: {
-    label: "Quick Guide",
+    label: "Швидкий гайд",
     durationLabel: "2–5 хв",
     description: "Коротко й по суті — головна думка за кілька хвилин.",
     icon: "bolt",
@@ -45,7 +45,7 @@ export const guideTypeInfo: Record<GuideType, GuideTypeInfo> = {
     icon: "compass",
   },
   deep: {
-    label: "Deep Guide",
+    label: "Розгорнутий гайд",
     durationLabel: "15+ хв",
     description: "Глибоке занурення в тему — контекст, нюанси, повна картина.",
     icon: "guide",
@@ -53,13 +53,13 @@ export const guideTypeInfo: Record<GuideType, GuideTypeInfo> = {
   // The one type Sasha explicitly called out as its own product-level
   // experience, not just a duration label — see GuideSOSView.tsx.
   sos: {
-    label: "SOS Guide",
+    label: "SOS-гайд",
     durationLabel: "прямо зараз",
     description: "Для моменту, коли допомога потрібна негайно — без читання, одразу дія.",
     icon: "lifebuoy",
   },
   workbook: {
-    label: "Workbook",
+    label: "Робочий зошит",
     durationLabel: "з вправами",
     description: "Гайд із вправами та полями для заповнення.",
     icon: "note",

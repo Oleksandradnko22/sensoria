@@ -13,7 +13,7 @@ export const MEDITATION_STEP_LABELS = [
   "Назва та опис", "Вартість", "Категорії", "Обкладинка", "Аудіо та про запис", "Текст практики", "Теми ризику",
 ] as const;
 export const GUIDE_STEP_LABELS = [
-  "Назва та опис", "Вартість", "Категорії", "Обкладинка", "PDF та про гайд", "Для кого й результат", "Теми ризику",
+  "Назва та опис", "Вартість", "Категорії", "Обкладинка", "PDF та про гайд", "Кому підійде гайд", "Теми ризику",
 ] as const;
 
 export type StepKey =
@@ -93,7 +93,6 @@ export const MEDITATION_MAX_MINUTES = 60;
 /** Biggest audio file of a meditation: about an hour of mp3, so the player and downloads stay fast. */
 export const MEDITATION_MAX_AUDIO_BYTES = 100 * 1024 * 1024;
 export const GUIDE_MAX_PAGES = 500;
-export const GUIDE_MAX_READ_MINUTES = 600;
 
 const isPaidRef = (url: string) => url.startsWith("paid:");
 
@@ -144,16 +143,13 @@ export function meditationTranscriptProblems(text: string): string[] {
   return [];
 }
 
-export function guideFileProblems(g: { fileUrl: string | null | undefined; pages: string; readMinutes: string; price: number; structured: boolean }): string[] {
+export function guideFileProblems(g: { fileUrl: string | null | undefined; pages: string; price: number; structured: boolean }): string[] {
   if (g.structured) return []; // a guide made by Sensoria has no PDF to upload
   const out: string[] = [];
   if (!g.fileUrl || !g.fileUrl.trim()) out.push("Завантажте PDF-файл гайду.");
   const pages = Math.round(Number(g.pages));
   if (!g.pages.trim() || !Number.isFinite(pages) || pages < 1) out.push("Вкажіть кількість сторінок.");
   else if (pages > GUIDE_MAX_PAGES) out.push(`Сторінок не більше ${GUIDE_MAX_PAGES}.`);
-  const mins = Math.round(Number(g.readMinutes));
-  if (!g.readMinutes.trim() || !Number.isFinite(mins) || mins < 1) out.push("Вкажіть, скільки хвилин займає читання.");
-  else if (mins > GUIDE_MAX_READ_MINUTES) out.push(`Читання не більше ${GUIDE_MAX_READ_MINUTES} хвилин.`);
   const v = fileVisibilityProblem(g.fileUrl, g.price);
   if (v) out.push(v);
   return out;

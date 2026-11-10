@@ -20,7 +20,7 @@ begin
   on conflict (content_id) do update set format = excluded.format, has_embedded_music = excluded.has_embedded_music,
     offline_download_enabled = excluded.offline_download_enabled, background_sound_ids = excluded.background_sound_ids, when_to_use = excluded.when_to_use;
   insert into public.content_meditation_body (content_id, audio_url, transcript)
-  values (v_id, $t$https://gvetalfctsojvwucxmeo.supabase.co/storage/v1/object/public/content-files/ElevenLabs_2026-09-23T21_51_53_Sofiia%20-%20Clear%2C%20Warm%20and%20Bright_pvc_s50_m2.mp3$t$, null)
+  values (v_id, $t$https://gvetalfctsojvwucxmeo.supabase.co/storage/v1/object/public/content-files/ElevenLabs_2026-09-23T21_51_53_Sofiia%20-%20Clear%2C%20Warm%20and%20Bright_pvc_s50_m2.mp3$t$, $t${"text":"Влаштуйтеся зручно. Можна сидіти або стояти, головне, щоб тілу було спокійно. Зробіть повільний вдих і довгий видих.\n\nПодивіться навколо й назвіть про себе п'ять речей, які ви бачите. Не поспішайте, просто помічайте кольори й форми.\n\nТепер зверніть увагу на тіло. Відчуйте чотири дотики: одяг на плечах, опору під ногами, поверхню під руками, повітря на шкірі.\n\nПрислухайтеся. Знайдіть три звуки поруч із вами: далекі й близькі, гучні й ледь чутні.\n\nПомітьте два запахи. Якщо їх немає, просто зробіть вдих і відчуйте повітря.\n\nІ одне, що ви відчуваєте на смак, або просто ковток води чи спокійний видих.\n\nВи тут, у теперішньому моменті. Зробіть ще один повільний вдих. Коли будете готові, повертайтеся до справ.","status":"confirmed","confirmedBy":"Sensoria","confirmedAt":"2026-11-10T09:00:00.000Z"}$t$::jsonb)
   on conflict (content_id) do update set audio_url = excluded.audio_url, transcript = excluded.transcript;
 end
 $seed$;

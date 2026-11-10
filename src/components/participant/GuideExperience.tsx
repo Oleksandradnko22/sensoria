@@ -224,13 +224,11 @@ export default function GuideExperience({
       ? [
           "Інтерактивний гайд",
           sectionsLabel(totalSections),
-          guide.readMinutes ? `≈ ${guide.readMinutes} хв` : null,
           "є PDF-версія",
         ]
       : [
           "PDF",
           pagesLabel(pdf.pageCount),
-          guide.readMinutes ? `≈ ${guide.readMinutes} хв` : null,
           pdf.fileSizeBytes ? formatFileSize(pdf.fileSizeBytes) : null,
         ]
   ).filter(Boolean);
@@ -284,8 +282,10 @@ export default function GuideExperience({
     void recordViews(sectionKeys);
   };
 
+  // the author may switch downloading off: the guide is then read on the site only
+  const canDownload = guide.allowDownload !== false;
   const handleDownload = async () => {
-    if (downloading || !session?.profile?.id) return;
+    if (!canDownload || downloading || !session?.profile?.id) return;
     setDownloading(true);
     setSaveError(null);
     try {
@@ -435,10 +435,12 @@ export default function GuideExperience({
                     <BookmarkIcon filled={!!saveRowId} />
                     {saveRowId ? "Збережено" : "Зберегти"}
                   </button>
-                  <button onClick={handleDownload} disabled={downloading || !userId} className={SECONDARY_BUTTON}>
-                    <DownloadIcon />
-                    {downloading ? (isStructured ? "Готуємо PDF…" : "Завантажуємо…") : isStructured ? "PDF-версія" : "Завантажити PDF"}
-                  </button>
+                  {canDownload && (
+                    <button onClick={handleDownload} disabled={downloading || !userId} className={SECONDARY_BUTTON}>
+                      <DownloadIcon />
+                      {downloading ? (isStructured ? "Готуємо PDF…" : "Завантажуємо…") : isStructured ? "PDF-версія" : "Завантажити PDF"}
+                    </button>
+                  )}
                 </div>
                 {saveError && <div className="text-[12px] text-red-500 mt-3">{saveError}</div>}
               </div>
@@ -596,7 +598,7 @@ export default function GuideExperience({
           onClose={() => setReaderOpen(false)}
           onOpenRelated={openRelated}
           onSectionSeen={(sectionKey) => void recordViews([sectionKey])}
-          onDownloadPdf={handleDownload}
+          onDownloadPdf={canDownload ? handleDownload : undefined}
           downloading={downloading}
           downloadError={saveError}
           viewedKeys={viewedKeys}

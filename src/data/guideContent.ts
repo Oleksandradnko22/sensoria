@@ -175,11 +175,37 @@ export type ActionPlanBlock = BlockBase & {
   static?: StaticOverride;
 };
 
+// How a picture is shown. Everything is optional: a block without these is the
+// full-width picture it always was. The crop is only a view (frame shape, zoom
+// and focal point), the original file is never changed.
+export type MediaCaptionPosition = "bottom" | "top" | "left" | "right";
+
 export type MediaBlock = BlockBase & {
   type: "media";
   url: string;
   alt: string;
   caption?: string;
+  // Shape of the frame, width / height (e.g. 1 = square). Missing = the picture's own shape.
+  ratio?: number;
+  // 1 = the whole frame is filled, up to 4 = zoomed in.
+  zoom?: number;
+  // Focal point of the crop, 0–100 from the top-left corner.
+  focus?: { x: number; y: number };
+  // Width of the picture in percent of the available width (25–100).
+  width?: number;
+  captionPosition?: MediaCaptionPosition;
+};
+
+// A meditation of the guide's own author given to the reader as a gift. The
+// title is stored with the id so the printed version can name it without
+// looking anything up. Nothing is shown if the meditation is not (or no longer)
+// in the catalog.
+export type GiftBlock = BlockBase & {
+  type: "gift";
+  meditationId: string;
+  meditationTitle: string;
+  // A short word from the author next to the gift.
+  text?: string;
 };
 
 export type DividerBlock = BlockBase & { type: "divider" };
@@ -197,6 +223,7 @@ export type GuideBlockV2 =
   | RecommendationBlock
   | ActionPlanBlock
   | MediaBlock
+  | GiftBlock
   | DividerBlock;
 
 export type GuideBlockType = GuideBlockV2["type"];
@@ -272,7 +299,8 @@ export function paginateSections(sections: GuideSection[], perPage: number): Gui
   return pages;
 }
 
-export const SECTIONS_PER_PAGE = 5;
+// Every section is its own page: «Далі» opens the next section from the top.
+export const SECTIONS_PER_PAGE = 1;
 
 // Which reading page to reopen on: the page of the furthest section the
 // person has reached. A guide not started — or already worked through

@@ -27,7 +27,8 @@ export type Cmd =
   | { t: "rect"; x: number; y: number; w: number; h: number; stroke?: string; fill?: string; lw?: number; r?: number }
   | { t: "line"; x1: number; y1: number; x2: number; y2: number; color: string; lw: number }
   // A picture from a guide's `media` block, placed at its final size.
-  | { t: "image"; url: string; x: number; y: number; w: number; h: number };
+  // `sx..sh` = the part of the picture to show (natural pixels): the author's crop and zoom; `r` = rounded corners.
+  | { t: "image"; url: string; x: number; y: number; w: number; h: number; sx?: number; sy?: number; sw?: number; sh?: number; r?: number };
 
 // Natural pixel size of each image url that could be loaded. An image that
 // is missing from this map (failed to load, blocked by CORS) is printed as
@@ -128,6 +129,83 @@ class Layout {
   height(text: string, size: number, width: number, bold = false, lh = size * 1.45): number {
     return wrapText(text, width, size, bold, this.measure).length * lh;
   }
+}
+
+// The picture the way the author set it in the builder: crop (ratio, zoom, focus), width, and the caption on any of
+// the four sides. With a caption the picture and the text are one soft card, like on the site.
+const IMG_MIN_W = 25;
+const IMG_SIDE_MAX_W = 75;
+const CARD_FILL = "#f3f0ff";
+const CARD_PAD = 12;
+function layoutStyledImage(
+  L: Layout,
+  block: Extract<StaticBlock, { kind: "image" }>,
+  size: { w: number; h: number }
+) {
+  const caption = (block.caption ?? "").trim();
+  const pos = block.captionPosition ?? "bottom";
+  const side = !!caption && (pos === "left" || pos === "right");
+  const pct = Math.min(side ? IMG_SIDE_MAX_W : 100, Math.max(IMG_MIN_W, block.width ?? 100)) / 100;
+  const ratio = block.ratio && block.ratio > 0 ? block.ratio : size.w / size.h;
+  let fw = CONTENT_W * pct;
+  let fh = fw / ratio;
+  const k = Math.min(1, MAX_IMAGE_H / fh);
+  fw *= k;
+  fh *= k;
+  // the part of the picture that fills the frame (cover), then zoom towards the focus point
+  const zoom = Math.max(1, block.zoom ?? 1);
+  let sw = size.w;
+  let sh = size.w / ratio;
+  if (sh > size.h) {
+    sh = size.h;
+    sw = size.h * ratio;
+  }
+  sw /= zoom;
+  sh /= zoom;
+  const f = block.focus ?? { x: 50, y: 50 };
+  const sx = (size.w - sw) * (Math.min(100, Math.max(0, f.x)) / 100);
+  const sy = (size.h - sh) * (Math.min(100, Math.max(0, f.y)) / 100);
+  const img = (x: number, y: number): Cmd => ({ t: "image", url: block.url, x, y, w: fw, h: fh, sx, sy, sw, sh, r: 8 });
+
+  if (!caption) {
+    L.need(fh + 10);
+    L.page.push(img(MARGIN_X + (CONTENT_W - fw) / 2, L.y));
+    L.y += fh + 10;
+    return;
+  }
+  const accent = (x: number, y: number): Cmd => ({ t: "rect", x, y, w: 22, h: 3, fill: "#6d4cf6", r: 1.5 });
+  if (!side) {
+    const tw = fw - CARD_PAD * 2;
+    const th = L.height(caption, 10.5, tw, true, 15);
+    const h = fh + CARD_PAD * 2 + 8 + th;
+    L.need(h + 8);
+    const x = MARGIN_X + (CONTENT_W - fw) / 2;
+    const top = L.y;
+    L.page.push({ t: "rect", x, y: top, w: fw, h, fill: CARD_FILL, r: 10 });
+    const imgY = pos === "top" ? top + CARD_PAD + th + 8 : top;
+    const textY = pos === "top" ? top + CARD_PAD : top + fh + CARD_PAD;
+    L.page.push(img(x, imgY));
+    L.page.push(accent(x + CARD_PAD, textY));
+    L.y = textY + 8;
+    L.lines(caption, { size: 10.5, bold: true, color: "#2d2a5c", x: x + CARD_PAD, width: tw, lh: 15 });
+    L.y = top + h + 10;
+    return;
+  }
+  // caption beside the picture: the picture takes its share of the row, the text the rest
+  const textW = CONTENT_W - fw - CARD_PAD * 2;
+  const th = L.height(caption, 10.5, textW, true, 15);
+  const h = Math.max(fh, th + CARD_PAD * 2 + 8);
+  L.need(h + 8);
+  const top = L.y;
+  L.page.push({ t: "rect", x: MARGIN_X, y: top, w: CONTENT_W, h, fill: CARD_FILL, r: 10 });
+  const imgX = pos === "left" ? MARGIN_X + CONTENT_W - fw : MARGIN_X;
+  const textX = (pos === "left" ? MARGIN_X : MARGIN_X + fw) + CARD_PAD;
+  L.page.push(img(imgX, top));
+  const textTop = top + (h - (th + 8)) / 2;
+  L.page.push(accent(textX, textTop));
+  L.y = textTop + 8;
+  L.lines(caption, { size: 10.5, bold: true, color: "#2d2a5c", x: textX, width: textW, lh: 15 });
+  L.y = top + h + 10;
 }
 
 export function layoutGuidePdf(
@@ -283,6 +361,11 @@ export function layoutGuidePdf(
       case "image": {
         const size = imageSizes[block.url];
         const caption = block.caption ?? "";
+        const styled = block.ratio !== undefined || (block.zoom ?? 1) > 1 || block.width !== undefined || block.captionPosition !== undefined;
+        if (styled && size && size.w > 0 && size.h > 0) {
+          layoutStyledImage(L, block, size);
+          break;
+        }
         if (!size || size.w <= 0 || size.h <= 0) {
           // Could not load the picture: keep the content as text.
           L.lines(caption || block.alt, { size: 10, color: MUTED, lh: 14.5 });

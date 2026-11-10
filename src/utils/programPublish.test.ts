@@ -72,7 +72,7 @@ test("at least one lesson must be required", () => {
 });
 
 test("a guide or meditation is not checked for program-only rules", () => {
-  assert.deepEqual(codes(base({ type: "guide", modules: undefined })), ["file", "pages", "read-minutes"]);
+  assert.deepEqual(codes(base({ type: "guide", modules: undefined })), ["file", "pages"]);
   assert.ok(codes(base({ type: "guide", title: "" })).includes("title"));
 });
 
@@ -110,7 +110,14 @@ test("a PDF guide needs the file, pages and reading time; a structured one does 
   assert.deepEqual(codes(g()), []);
   assert.ok(codes(g({ mainFileUrl: undefined })).includes("file"));
   assert.ok(codes(g({ guide: { guideType: "quick", pages: 0, readMinutes: 0, relevantIf: [], outcomes: [] } })).includes("pages"));
-  assert.deepEqual(codes(g({ mainFileUrl: undefined, guide: { guideType: "sos", pages: 0, readMinutes: 0, relevantIf: [], outcomes: [], source: "sensoria_structured" } })), []);
+  const structured = { guideType: "sos" as const, pages: 0, readMinutes: 0, relevantIf: [], outcomes: [], source: "sensoria_structured" as const };
+  const blocks = [
+    { id: "h", type: "heading" as const, text: "Дихання" },
+    { id: "t", type: "rich_text" as const, text: "Повільно вдихніть." },
+    { id: "r", type: "reflection" as const, prompt: "Що ви помітили?" },
+  ];
+  assert.deepEqual(codes(g({ mainFileUrl: undefined, guide: structured, guideBlocks: blocks })), []);
+  assert.ok(codes(g({ mainFileUrl: undefined, guide: structured, guideBlocks: [] })).includes("guide-blocks"));
 });
 
 test("the file's bucket must match the price (paid = private, free = public)", () => {

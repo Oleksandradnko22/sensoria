@@ -16,7 +16,8 @@
 import { supabase } from "./supabaseClient.ts";
 
 const BUCKET = "content-files";
-export { contentFilePath } from "../utils/storagePath.ts";
+import { contentFilePath } from "../utils/storagePath.ts";
+export { contentFilePath };
 
 export async function uploadContentFile(
   authorId: string,
@@ -69,6 +70,18 @@ export async function uploadPaidFile(authorId: string, contentId: string, file: 
   const { error } = await supabase.storage.from(PAID_BUCKET).upload(path, file, { upsert: true, cacheControl: "3600" });
   if (error) throw error;
   return `${PAID_PREFIX}${path}`;
+}
+
+// Deletes one stored picture (public link or private reference). Only the author's own folder is ever touched.
+export async function deleteStoredImage(authorId: string, url: string): Promise<void> {
+  if (!supabase || !url) return;
+  if (isPaidFileRef(url)) {
+    const path = url.slice(PAID_PREFIX.length);
+    if (path.startsWith(`${authorId}/`)) await supabase.storage.from(PAID_BUCKET).remove([path]);
+    return;
+  }
+  const path = contentFilePath(url);
+  if (path && path.startsWith(`${authorId}/`)) await deleteContentFile(path);
 }
 
 // Several references at once; a reference that cannot be signed (no access) is simply left out of the result.

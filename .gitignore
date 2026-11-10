@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# large instruction videos live on YouTube, not in git
+sensoria-guide-builder-instruction-4k.mp4

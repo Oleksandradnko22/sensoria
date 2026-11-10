@@ -502,7 +502,7 @@ export async function saveContent(authorId: string, item: AuthoredContent): Prom
   }
 
   // Which wizard step the author stopped on (draft-step-migration.sql); before it is run nothing is lost but the step.
-  if (item.type === "program" && item.draftStep) {
+  if (item.draftStep) {
     const st = await client.from("content").update({ draft_step: item.draftStep }).eq("id", item.id);
     if (st.error && !(st.error.code === "42703" || st.error.code === "PGRST204" || /draft_step/i.test(st.error.message ?? ""))) throw st.error;
   }

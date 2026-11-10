@@ -9,11 +9,13 @@ export default function MeditationTranscriptView({ meditation }: { meditation: M
   const paragraphs = publicTranscript(meditation);
   if (!paragraphs) return null;
   return (
-    <details className="group w-full max-w-[560px] mx-auto text-left rounded-2xl border border-black/[0.07] bg-white/70 px-5 py-3">
-      <summary className="cursor-pointer select-none text-[13.5px] font-medium text-black/65 hover:text-black/85 transition">
+    <details open className="group w-full max-w-[560px] mx-auto text-left rounded-2xl border border-[#e3def9] bg-[#faf9ff] px-5 py-4">
+      <summary className="flex min-h-[44px] cursor-pointer select-none items-center justify-between gap-3 text-[16px] font-semibold text-[#1d1a3b]">
         Текст практики
+        <span className="text-[13px] font-semibold text-[#4a2fd0] group-open:hidden">Показати</span>
+        <span className="hidden text-[13px] font-semibold text-[#4a2fd0] group-open:inline">Згорнути</span>
       </summary>
-      <div className="mt-3 flex flex-col gap-3 text-[14.5px] leading-relaxed text-black/70">
+      <div className="mt-3 flex flex-col gap-3 text-[16px] leading-[1.7] text-[#2d2a5c]">
         {paragraphs.map((p, i) => (
           <p key={i}>{p}</p>
         ))}

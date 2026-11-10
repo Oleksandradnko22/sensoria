@@ -108,6 +108,7 @@ const TermsPage = lazy(() => import("./pages/TermsPage"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const RefundsPage = lazy(() => import("./pages/RefundsPage"));
 const AuthorAgreementPage = lazy(() => import("./pages/AuthorAgreementPage"));
+const PaymentResultPage = lazy(() => import("./pages/PaymentResultPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const PreparingPage = lazy(() => import("./pages/PreparingPage"));
 const LibraryHomePage = lazy(() => import("./pages/LibraryHomePage"));
@@ -622,6 +623,39 @@ if (page === "catalog") {
           session={session ?? null}
           onRequireLogin={openParticipantDashboard}
           onOpen={(program) => openProgram(program.id)}
+        />
+      </div>
+    </div>
+  );
+}
+
+if (page === "payment-result") {
+  return (
+    <div key={page} className="page-transition">
+      <div className="min-h-screen bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6]">
+        <Header
+          onGoHome={goHome}
+          onOpenTest={openTest}
+          onOpenCatalog={openCatalog}
+          onOpenGuides={openGuides}
+          onOpenMeditations={openMeditations}
+          onSelectProgram={selectProgramById}
+          onSelectGuide={selectGuideById}
+          onSelectMeditation={selectMeditationById}
+          onOpenAuthorDashboard={openAuthorDashboard}
+          onOpenParticipantDashboard={openParticipantDashboard}
+          programs={allPrograms}
+          session={session}
+        />
+        <PaymentResultPage
+          session={session}
+          onOpenCabinet={openParticipantDashboard}
+          onOpenCart={openCart}
+          onOpenCatalog={openCatalog}
+          onRequireLogin={() => {
+            setLoginReturn("cart");
+            openParticipantDashboard();
+          }}
         />
       </div>
     </div>

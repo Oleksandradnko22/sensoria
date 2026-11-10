@@ -80,6 +80,11 @@ type MeditationEntry = {
   // reason offlineDownloadEnabled is: every entry makes an explicit
   // choice, never a silent default.
   hasEmbeddedMusic: boolean;
+  // From the database only (the static demo entry has none): the author's price ("0" = free), name and cover.
+  price?: string;
+  author?: string;
+  coverUrl?: string;
+  coverFocus?: import("../utils/coverFocus.ts").CoverFocus;
 }
 
 const entries: MeditationEntry[] = [
@@ -120,6 +125,23 @@ const entries: MeditationEntry[] = [
     ],
 
     offlineDownloadEnabled: true,
+
+    // Text of the practice, shown under the player. ПЕРЕВІРТЕ: це робочий текст у дусі техніки «5-4-3-2-1»,
+    // його треба замінити точним сценарієм запису (того, що озвучено в ElevenLabs).
+    transcript: {
+      text: [
+        "Влаштуйтеся зручно. Можна сидіти або стояти, головне, щоб тілу було спокійно. Зробіть повільний вдих і довгий видих.",
+        "Подивіться навколо й назвіть про себе п'ять речей, які ви бачите. Не поспішайте, просто помічайте кольори й форми.",
+        "Тепер зверніть увагу на тіло. Відчуйте чотири дотики: одяг на плечах, опору під ногами, поверхню під руками, повітря на шкірі.",
+        "Прислухайтеся. Знайдіть три звуки поруч із вами: далекі й близькі, гучні й ледь чутні.",
+        "Помітьте два запахи. Якщо їх немає, просто зробіть вдих і відчуйте повітря.",
+        "І одне, що ви відчуваєте на смак, або просто ковток води чи спокійний видих.",
+        "Ви тут, у теперішньому моменті. Зробіть ще один повільний вдих. Коли будете готові, повертайтеся до справ.",
+      ].join("\n\n"),
+      status: "confirmed",
+      confirmedBy: "Sensoria",
+      confirmedAt: "2026-11-10T09:00:00.000Z",
+    },
 
     // A real ElevenLabs voice-only recording — no music baked in — so
     // every background, including the four music variants, stays

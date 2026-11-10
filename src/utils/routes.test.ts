@@ -11,6 +11,7 @@ test("page -> path", () => {
   assert.equal(pathForPage("privacy"), "/privacy");
   assert.equal(pathForPage("refunds"), "/refunds");
   assert.equal(pathForPage("author-agreement"), "/author-agreement");
+  assert.equal(pathForPage("payment-result"), "/payment-result");
   assert.equal(pathForPage("admin-dashboard"), "/account");
   assert.equal(pathForPage("author-profile", "a b"), "/authors/a%20b");
   assert.equal(pathForPage("author-profile", null), "/");
@@ -20,6 +21,7 @@ test("path -> page", () => {
   assert.deepEqual(pageForPath("/programs/"), { page: "catalog", authorId: null, programId: null });
   assert.deepEqual(pageForPath("/privacy"), { page: "privacy", authorId: null, programId: null });
   assert.deepEqual(pageForPath("/author-agreement"), { page: "author-agreement", authorId: null, programId: null });
+  assert.deepEqual(pageForPath("/payment-result"), { page: "payment-result", authorId: null, programId: null });
   assert.deepEqual(pageForPath("/refunds"), { page: "refunds", authorId: null, programId: null });
   assert.deepEqual(pageForPath("/terms"), { page: "terms", authorId: null, programId: null });
   assert.deepEqual(pageForPath("/contacts"), { page: "contacts", authorId: null, programId: null });

@@ -509,9 +509,9 @@ export default function CoverMaker({ title: initialTitle, categoryId, categoryId
           <h2 id="cover-maker-title" className="mr-2 text-[19px] font-bold">Створити обкладинку</h2>
           <button type="button" className={tool} onClick={doUndo} disabled={!history.past.length} aria-label="Скасувати (Ctrl+Z)">↶ Скасувати</button>
           <button type="button" className={tool} onClick={doRedo} disabled={!history.future.length} aria-label="Повернути (Ctrl+Shift+Z)">↷ Повернути</button>
-          <a href="/guides/cover-editor-guide.pdf" target="_blank" rel="noopener noreferrer" className="ml-auto inline-flex min-h-[38px] items-center gap-2 rounded-xl bg-gradient-to-r from-[#5b3df5] to-[#8a63f7] px-4 text-[13px] font-semibold text-white shadow-[0_8px_20px_-10px_rgba(91,61,245,0.8)] transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></svg>
-            Інструкція (PDF)
+          <a href="https://youtu.be/DnVRUHCrroU" target="_blank" rel="noopener noreferrer" className="ml-auto inline-flex min-h-[38px] items-center gap-2 rounded-xl bg-gradient-to-r from-[#5b3df5] to-[#8a63f7] px-4 text-[13px] font-semibold text-white shadow-[0_8px_20px_-10px_rgba(91,61,245,0.8)] transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M10.5 9.3v5.4l4.5-2.7-4.5-2.7Z" /></svg>
+            Відеоінструкція
           </a>
           <button type="button" onClick={requestClose} aria-label="Закрити" className={iconBtn}>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>

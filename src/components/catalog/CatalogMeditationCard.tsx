@@ -2,6 +2,7 @@ import Icon from "../ui/Icon";
 import { getContentAccent } from "../../data/contentAccents";
 import { categoryLabelForTags } from "../../utils/catalogFilters";
 import type { Meditation } from "../../data/meditations";
+import { formatPrice, isFreePrice } from "../../utils/price";
 
 type Props = {
   meditation: Meditation;
@@ -22,6 +23,8 @@ export default function CatalogMeditationCard({ meditation, onOpen, saved, onTog
   const label = categoryLabelForTags(meditation.tags);
   const accent = getContentAccent(meditation.tags);
   const AccentIcon = accent.Icon;
+  const price = meditation.price ?? "0";
+  const free = isFreePrice(price);
 
   return (
     <article
@@ -31,17 +34,18 @@ export default function CatalogMeditationCard({ meditation, onOpen, saved, onTog
     >
       {/* COVER */}
       <div className="relative h-[130px] shrink-0 overflow-hidden bg-gradient-to-br from-[#ece6ff] via-[#ddd2ff] to-[#cbbcff] sm:h-[140px]">
-        <div aria-hidden="true" className="absolute inset-x-4 bottom-0 flex h-[72px] items-end justify-between gap-1.5 opacity-80 transition-transform duration-500 group-hover:scale-y-110 [transform-origin:bottom]">
+        {meditation.coverUrl && <img src={meditation.coverUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />}
+        {!meditation.coverUrl && <div aria-hidden="true" className="absolute inset-x-4 bottom-0 flex h-[72px] items-end justify-between gap-1.5 opacity-80 transition-transform duration-500 group-hover:scale-y-110 [transform-origin:bottom]">
           {BARS.map((h, i) => (
             <span key={i} className="w-full rounded-t-full bg-white/80" style={{ height: `${h}%` }} />
           ))}
-        </div>
+        </div>}
         <div aria-hidden="true" className="absolute bottom-4 right-4 flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#6431e6] shadow-md">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg>
         </div>
 
         <div className="absolute left-3 top-3 right-16 flex flex-wrap gap-1.5">
-          <span className="rounded-full bg-emerald-700 px-3 py-1 text-[12px] font-semibold text-white shadow-sm">Безкоштовно</span>
+          {free && <span className="rounded-full bg-emerald-700 px-3 py-1 text-[12px] font-semibold text-white shadow-sm">Безкоштовно</span>}
         </div>
 
         {onToggleSaved && (
@@ -72,7 +76,7 @@ export default function CatalogMeditationCard({ meditation, onOpen, saved, onTog
         )}
 
         <h2 className="line-clamp-2 text-[18px] font-semibold leading-snug">{meditation.title}</h2>
-        <p className="truncate text-[13px] text-slate-500">Sensoria</p>
+        <p className="truncate text-[13px] text-slate-500">{meditation.author || "Sensoria"}</p>
         {meditation.description && <p className="line-clamp-3 text-[14px] leading-relaxed text-slate-600">{meditation.description}</p>}
 
         <div className="mt-auto flex items-center gap-1.5 pt-2 text-[13px] text-slate-500">
@@ -80,7 +84,7 @@ export default function CatalogMeditationCard({ meditation, onOpen, saved, onTog
           <span className="truncate">{meditation.duration}</span>
         </div>
 
-        <div className="text-[18px] font-semibold">Безкоштовно</div>
+        <div className="text-[18px] font-semibold">{formatPrice(price)}</div>
 
         <button
           type="button"

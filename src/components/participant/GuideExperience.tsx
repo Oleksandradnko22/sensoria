@@ -476,8 +476,8 @@ export default function GuideExperience({
             {/* ---------------- ДЛЯ КОГО + ПІСЛЯ ГАЙДУ ---------------- */}
             {(hasWho || hasOutcomes) && (
               <section
-                className={`rounded-[24px] border border-black/[0.06] bg-white/60 grid ${
-                  hasWho && hasOutcomes ? "md:grid-cols-2 md:divide-x divide-black/[0.06]" : ""
+                className={`rounded-[24px] border border-[#e3e6f4] bg-white shadow-[0_10px_28px_-20px_rgba(40,30,110,0.35)] grid ${
+                  hasWho && hasOutcomes ? "md:grid-cols-2 md:divide-x divide-[#e3e6f4]" : ""
                 }`}
               >
                 {hasWho && (
@@ -496,7 +496,7 @@ export default function GuideExperience({
                   </div>
                 )}
                 {hasOutcomes && (
-                  <div className="px-6 md:px-8 py-6 md:py-7 border-t md:border-t-0 border-black/[0.06]">
+                  <div className="px-6 md:px-8 py-6 md:py-7 border-t md:border-t-0 border-[#e3e6f4]">
                     <h2 className="text-[16px] md:text-[17px] font-semibold tracking-tight text-black/85 mb-3">
                       Після гайду у вас буде
                     </h2>
@@ -516,7 +516,7 @@ export default function GuideExperience({
             )}
 
             {/* ---------------- АВТОР ---------------- */}
-            <section className="rounded-[24px] border border-black/[0.06] bg-white/60 px-6 md:px-8 py-6">
+            <section className="rounded-[24px] border border-[#e3e6f4] bg-white shadow-[0_10px_28px_-20px_rgba(40,30,110,0.35)] px-6 md:px-8 py-6 md:py-7">
               <div className="flex flex-wrap items-center gap-4">
                 <Avatar
                   avatarUrl={authorCard?.avatarUrl ?? null}

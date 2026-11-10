@@ -20,6 +20,6 @@ export function buildCartCatalog(programs: Program[]): CartCatalogItem[] {
   return [
     ...programs.map((p) => ({ kind: "program" as const, id: p.id, title: p.title, author: p.author, description: p.description, price: p.price, coverUrl: p.coverUrl, coverFocus: p.coverFocus, tags: p.tags })),
     ...guides.map((g) => ({ kind: "guide" as const, id: g.id, title: g.title, author: g.author, description: g.description ?? "", price: g.price })),
-    ...meditations.map((m) => ({ kind: "meditation" as const, id: m.id, title: m.title, author: "Sensoria", description: m.description, price: 0 })),
+    ...meditations.map((m) => ({ kind: "meditation" as const, id: m.id, title: m.title, author: m.author || "Sensoria", description: m.description, price: m.price ?? 0, coverUrl: m.coverUrl })),
   ];
 }

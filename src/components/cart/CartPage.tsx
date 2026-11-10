@@ -2,6 +2,8 @@ import { Fragment, useEffect, useId, useMemo, useState, type ReactNode } from "r
 import Footer from "../Footer";
 import { useCart } from "../../lib/cartStore";
 import { acquireContent } from "../../lib/acquired";
+import { startMonoCheckout } from "../../lib/finance";
+import { isBankPageUrl } from "../../utils/payment";
 import ProgramCover from "../ProgramCover";
 import MaterialVisual from "../author/public/MaterialVisual";
 import { materialsReady, useMaterialsVersion } from "../../lib/materialsStore";
@@ -194,7 +196,8 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
   const catalog = useMemo(() => buildCartCatalog(programs), [programs, materialsVersion]);
   const lines = useMemo(() => viewLines.map((l) => ({ entry: l.entry, item: catalog.find((c) => cartKey(c) === cartKey(l.entry))! })), [viewLines, catalog]);
   const owned = useMemo(() => new Set(lines.filter((l) => ownedKeys.has(cartKey(l.entry))).map((l) => cartKey(l.entry))), [lines, ownedKeys]);
-  const [notice, setNotice] = useState(false);
+  const [paying, setPaying] = useState<string | null>(null);
+  const [payError, setPayError] = useState<string | null>(null);
 
   // A material that no longer exists is dropped, but only once the real catalog has loaded.
   useEffect(() => {
@@ -213,6 +216,25 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
   const free = inOrder.filter((l) => isFreePrice(l.item.price));
   const totals = cartTotals(payable);
   const unpriced = cartTotals(inOrder).unpriced;
+
+  // Paid: one material = one payment on monobank's page. The server fixes the price and the split; the browser only names the material.
+  const pay = async (item: CatalogItem) => {
+    if (!userId) return onRequireLogin();
+    if (!isParticipant) {
+      setPayError("Купувати матеріали можуть учасники. Увійдіть в обліковий запис учасника.");
+      return;
+    }
+    setPaying(item.id);
+    setPayError(null);
+    try {
+      const r = await startMonoCheckout(item.id);
+      if (!isBankPageUrl(r.pageUrl)) throw new Error("Банк повернув неочікуване посилання. Спробуйте пізніше.");
+      window.location.assign(r.pageUrl);
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : "Не вдалося створити оплату. Спробуйте ще раз.");
+      setPaying(null);
+    }
+  };
 
   // Free materials go from the cart to the cabinet («Моє навчання»); only free ones are ever sent.
   const [claiming, setClaiming] = useState(false);
@@ -330,12 +352,34 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
 
                 {payable.length > 0 ? (
                   <>
-                    <button type="button" onClick={() => setNotice(true)} className={`${BTN} mt-5 min-h-[48px] text-[15px]`}>
-                      Перейти до оплати <span aria-hidden="true" className="ml-2">→</span>
-                    </button>
-                    {notice && (
-                      <p role="status" className="mt-3 text-[14px] leading-relaxed text-slate-500">
-                        Оплата з’явиться найближчим часом. Ваш кошик збережений, нічого не втрачено.
+                    {payable.length === 1 ? (
+                      <button type="button" onClick={() => pay(payable[0].item)} disabled={paying !== null} className={`${BTN} mt-5 min-h-[48px] text-[15px] disabled:opacity-60`}>
+                        {paying ? "Переходимо до оплати…" : <>Перейти до оплати <span aria-hidden="true" className="ml-2">→</span></>}
+                      </button>
+                    ) : (
+                      <>
+                        <p className="mt-4 text-[14px] leading-relaxed text-slate-500">Кожен матеріал оплачується окремо.</p>
+                        <ul className="mt-3 flex flex-col gap-2">
+                          {payable.map((l) => (
+                            <li key={cartKey(l.entry)} className="flex items-center justify-between gap-3">
+                              <span className="min-w-0 flex-1 truncate text-[14px]">{l.item.title}</span>
+                              <button
+                                type="button"
+                                onClick={() => pay(l.item)}
+                                disabled={paying !== null}
+                                aria-label={`Оплатити: ${l.item.title}`}
+                                className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-r from-[#0057ff] to-[#7b2cff] px-4 text-[14px] font-semibold text-white transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2 disabled:opacity-60"
+                              >
+                                {paying === l.item.id ? "Зачекайте…" : `Оплатити · ${formatPrice(l.item.price)}`}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                    {payError && (
+                      <p role="alert" className="mt-3 rounded-[14px] bg-red-50 px-4 py-3 text-[14px] leading-relaxed text-red-700">
+                        {payError}
                       </p>
                     )}
                   </>

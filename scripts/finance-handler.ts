@@ -5,8 +5,8 @@
 //   - scripts/finance-handler.ts  (this file: loading state, calling finance_apply)
 // by `npm run build:finance`. Edit those two, not the output.
 //
-// This function never moves real money. Payments are confirmed by an
-// administrator in TEST mode; the banking layer is a later stage.
+// Money is taken by monobank (split payments): see the "monobank" section below. Until MONO_TOKEN is set
+// and finance_settings.mode is 'live', payments are TEST: a test token from api.monobank.ua moves no real money.
 //
 // DEPLOY: Dashboard -> Edge Functions -> "finance" -> paste -> Deploy.
 // Secrets: CRON_SECRET (for runJobs), RESEND_API_KEY / RESEND_FROM (emails),
@@ -14,6 +14,7 @@
 // header  x-cron-secret: <CRON_SECRET>.
 //
 // Actions (POST { action, ... }):
+//   buyer   (own JWT):  monoCheckout, monoStatus     (+ webhook: POST ?hook=mono, signed by the bank)
 //   author  (own JWT):  touchActivity, requestPayout, markNotificationsRead
 //   admin   (2FA, owner): overview, authors, author, confirmPayment, refund,
 //                         markDisputed, repayDebt, setStatus, payoutConfirm,
@@ -23,6 +24,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 // @@ENGINE@@
+
+// @@MONO@@
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -316,9 +319,234 @@ async function authorOverview(authorId: string) {
   };
 }
 
+// ── monobank (split payments) ───────────────────────────────────────────────
+// The buyer pays on monobank's page; monobank splits the money between the author's and Sensoria's FOP.
+// A purchase and its ledger entries are created ONLY here, after a webhook with a valid signature
+// (or a status check against the bank) says `success`. The amount and the order are never taken from the browser.
+// Secrets: MONO_TOKEN (test token from api.monobank.ua first), SITE_URL (default https://sensoria.courses).
+
+const MONO_API = "https://api.monobank.ua";
+const siteUrl = () => (Deno.env.get("SITE_URL") ?? "https://sensoria.courses").replace(/\/+$/, "");
+const allowedOrigins = () => [siteUrl(), "https://www.sensoria.courses", "http://localhost:5173", "http://127.0.0.1:5173"];
+
+async function monoCall(path: string, body?: unknown) {
+  const token = Deno.env.get("MONO_TOKEN");
+  if (!token) throw new FinanceError("payments_not_configured", "Оплату ще не підключено.");
+  const res = await fetch(`${MONO_API}${path}`, {
+    method: body === undefined ? "GET" : "POST",
+    headers: { "X-Token": token, "X-Cms": MONO_CMS_NAME, "X-Cms-Version": "1", "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  // deno-lint-ignore no-explicit-any
+  let data: any = null;
+  try { data = JSON.parse(text); } catch { /* not json */ }
+  if (!res.ok) {
+    console.error("monobank", path, res.status, text.slice(0, 500));
+    throw new FinanceError("mono_error", `Банк не прийняв запит (${res.status}). Спробуйте пізніше.`);
+  }
+  return data;
+}
+
+let cachedPubkey: string | null = null;
+async function monoPubkey(force = false): Promise<string> {
+  if (!cachedPubkey || force) cachedPubkey = (await monoCall("/api/merchant/pubkey"))?.key ?? null;
+  return cachedPubkey ?? "";
+}
+async function verifyMonoWebhook(raw: string, sign: string | null): Promise<boolean> {
+  if (await verifyWebhookSignature(raw, sign, await monoPubkey())) return true;
+  return await verifyWebhookSignature(raw, sign, await monoPubkey(true)); // the bank may have rotated its key
+}
+
+interface MonoRow {
+  id: string; buyer_id: string; content_id: string; author_id: string;
+  amount_kop: number; author_kop: number; sensoria_kop: number; sale_source: SaleSource;
+  mono_invoice_id: string | null; page_url: string | null; status: string; mono_modified: string | null;
+  mode: "test" | "live";
+}
+
+async function monoCheckout(userId: string, payload: Record<string, unknown>) {
+  const contentId = String(payload.contentId ?? "");
+  const { data: content } = await admin.from("content").select("id, author_id, title, price, status, sale_status").eq("id", contentId).maybeSingle();
+  if (!content || content.status !== "published") throw new FinanceError("not_for_sale", "Цей матеріал недоступний для купівлі.");
+  if (content.sale_status && !["published", "restored"].includes(content.sale_status)) throw new FinanceError("not_for_sale", "Продаж цього матеріалу тимчасово призупинено.");
+  if (content.author_id === userId) throw new FinanceError("own_content", "Власний матеріал купувати не потрібно.");
+  const amountKop = Math.round(Number(content.price) * 100);
+  if (!Number.isFinite(amountKop) || amountKop <= 0) throw new FinanceError("free", "Цей матеріал безкоштовний: оплата не потрібна.");
+  const { data: owned } = await admin.from("purchases").select("id").eq("participant_id", userId).eq("content_id", content.id).eq("status", "completed").limit(1);
+  if (owned?.length) throw new FinanceError("already_bought", "Ви вже придбали цей матеріал.");
+
+  // the same unpaid invoice is reused for 50 minutes: a double click or a reload never creates a second one
+  const since = new Date(Date.now() - 50 * 60_000).toISOString();
+  const { data: open } = await admin.from("mono_invoices").select("id, page_url, amount_kop").eq("buyer_id", userId).eq("content_id", content.id)
+    .in("status", ["created", "processing"]).not("page_url", "is", null).gte("created_at", since).order("created_at", { ascending: false }).limit(1);
+  if (open?.[0] && Number(open[0].amount_kop) === amountKop) return { pageUrl: open[0].page_url as string, ref: open[0].id as string, reused: true };
+
+  const settings = await loadSettings();
+  const { data: cfg } = await admin.from("finance_settings").select("mode, mono_sensoria_receiver_id").eq("id", 1).single();
+  const mode: "test" | "live" = cfg?.mode === "live" ? "live" : "test";
+  const { data: rcv } = await admin.from("author_mono_receivers").select("receiver_id").eq("author_id", content.author_id).maybeSingle();
+  // referral rate only on the server's own record of the buyer's click (never from the client)
+  const { data: attr } = await admin.from("referral_attributions").select("created_at").eq("buyer_id", userId).eq("author_id", content.author_id).maybeSingle();
+  const source = pickSaleSource(attr?.created_at ?? null, nowIso());
+  const { authorKop, sensoriaKop } = splitAmount(amountKop, settings, source);
+
+  const ref = uuid();
+  const requested = String(payload.origin ?? "");
+  const origin = allowedOrigins().includes(requested) ? requested : siteUrl();
+  const body = buildInvoiceBody({
+    amountKop, authorKop, sensoriaKop, title: content.title, contentCode: content.id,
+    authorReceiverId: rcv?.receiver_id ?? "", sensoriaReceiverId: cfg?.mono_sensoria_receiver_id ?? "",
+    reference: ref, redirectUrl: `${origin}/payment-result?pay=${ref}`, webHookUrl: `${SUPABASE_URL}/functions/v1/finance?hook=mono`,
+  });
+
+  const { error: insErr } = await admin.from("mono_invoices").insert({
+    id: ref, buyer_id: userId, content_id: content.id, author_id: content.author_id,
+    amount_kop: amountKop, author_kop: authorKop, sensoria_kop: sensoriaKop, sale_source: source, mode,
+  });
+  if (insErr) throw new Error(insErr.message);
+  try {
+    const inv = await monoCall("/api/merchant/invoice/create", body);
+    if (!inv?.invoiceId || !inv?.pageUrl) throw new FinanceError("mono_error", "Банк не повернув посилання на оплату.");
+    await admin.from("mono_invoices").update({ mono_invoice_id: inv.invoiceId, page_url: inv.pageUrl, updated_at: nowIso() }).eq("id", ref);
+    return { pageUrl: inv.pageUrl as string, ref };
+  } catch (e) {
+    await admin.from("mono_invoices").update({ status: "failure", review_reason: "invoice_create_failed", updated_at: nowIso() }).eq("id", ref);
+    throw e;
+  }
+}
+
+async function recordPaid(row: MonoRow, p: Record<string, unknown>) {
+  const { error: pErr } = await admin.from("purchases").upsert(
+    { id: row.id, participant_id: row.buyer_id, content_id: row.content_id, amount: Number((row.amount_kop / 100).toFixed(2)), status: "completed", purchased_at: nowIso() },
+    { onConflict: "id", ignoreDuplicates: true },
+  );
+  if (pErr) throw new Error(pErr.message);
+  const { data: content } = await admin.from("content").select("title, kind").eq("id", row.content_id).maybeSingle();
+  // the paid material shows up in «Моє навчання» (the same table free materials go to)
+  if (content?.kind) {
+    const { error: aErr } = await admin.from("acquired_content").upsert(
+      { user_id: row.buyer_id, kind: content.kind, content_id: row.content_id },
+      { onConflict: "user_id,kind,content_id", ignoreDuplicates: true },
+    );
+    if (aErr) throw new Error(aErr.message);
+  }
+  const settings = await loadSettings();
+  const expected = splitAmount(row.amount_kop, settings, row.sale_source);
+  if (expected.authorKop !== Number(row.author_kop)) {
+    // settings changed between the invoice and the payment: the bank already split by the invoice, so the books need a human look
+    await admin.from("finance_audit_log").insert({
+      administrator_id: null, action: "mono_split_mismatch", entity_type: "payment", entity_id: row.id, reason: "Частки в рахунку банку відрізняються від поточних налаштувань",
+      previous_value: { authorKop: row.author_kop, sensoriaKop: row.sensoria_kop }, new_value: { authorKop: expected.authorKop, sensoriaKop: expected.sensoriaKop },
+    });
+  }
+  await applyWithRetry(async () => {
+    const [account, debts] = await Promise.all([loadAccount(row.author_id), loadDebts(row.author_id)]);
+    return planPaymentReceived({
+      settings, now: nowIso(), account, debts,
+      purchase: { purchaseId: row.id, authorId: row.author_id, buyerId: row.buyer_id, amountKop: row.amount_kop, contentId: row.content_id, contentTitle: content?.title ?? "", source: row.sale_source },
+      paymentId: uuid(), reserveId: uuid(), externalReference: String(p.invoiceId ?? row.mono_invoice_id ?? "").slice(0, 120), mode: row.mode,
+    });
+  }, null).catch((e) => {
+    if (e instanceof FinanceError && e.code === "duplicate") return null; // the same payment was already recorded
+    throw e;
+  });
+}
+
+async function recordReversal(row: MonoRow) {
+  const { data: pay } = await admin.from("finance_payments").select("*").eq("purchase_id", row.id).maybeSingle();
+  if (!pay) return;
+  await applyWithRetry(async () => {
+    const [account, fresh, reserveRows] = await Promise.all([
+      loadAccount(row.author_id),
+      admin.from("finance_payments").select("*").eq("id", pay.id).single(),
+      admin.from("refund_reserves").select("*").eq("payment_id", pay.id).limit(1),
+    ]);
+    const payment = toPayment(fresh.data);
+    const amountKop = payment.amountKop - payment.refundedKop;
+    if (amountKop <= 0) return null; // already refunded in the books
+    return planRefund({
+      now: nowIso(), account, payment, reserve: reserveRows.data?.[0] ? toReserve(reserveRows.data[0]) : null,
+      refundId: uuid(), debtId: uuid(), idempotencyKey: `mono-reversed:${row.id}`, amountKop, kind: "full", reason: "Повернення коштів через monobank",
+    });
+  }, null).catch((e) => {
+    if (e instanceof FinanceError && e.code === "duplicate") return null;
+    throw e;
+  });
+  await admin.from("purchases").update({ status: "refunded" }).eq("id", row.id);
+}
+
+/** One place for webhooks and status checks. Throws on a real failure so that the bank retries the webhook. */
+async function applyMonoStatus(row: MonoRow, p: Record<string, unknown>): Promise<{ applied: boolean; reason?: string }> {
+  const status = parseStatus(p.status);
+  if (!status) return { applied: false, reason: "unknown_status" };
+  const modified = typeof p.modifiedDate === "string" ? p.modifiedDate : undefined;
+  if (!isNewer(modified, row.mono_modified)) return { applied: false, reason: "stale" };
+  if (typeof p.amount === "number" && p.amount !== Number(row.amount_kop)) {
+    await admin.from("mono_invoices").update({ status: "needs_review", review_reason: "amount_mismatch", updated_at: nowIso() }).eq("id", row.id);
+    return { applied: false, reason: "amount_mismatch" };
+  }
+  const effect = effectOf(status);
+  if (effect === "paid") await recordPaid(row, p);
+  if (effect === "reversed") await recordReversal(row);
+  await admin.from("mono_invoices").update({ status, mono_modified: modified ?? row.mono_modified, updated_at: nowIso() }).eq("id", row.id);
+  return { applied: true };
+}
+
+async function handleMonoWebhook(req: Request): Promise<Response> {
+  const raw = await req.text();
+  if (!(await verifyMonoWebhook(raw, req.headers.get("x-sign")))) return json({ error: "bad_signature" }, 403);
+  let p: Record<string, unknown>;
+  try { p = JSON.parse(raw); } catch { return json({ error: "bad_json" }, 400); }
+  const invoiceId = String(p.invoiceId ?? "");
+  let { data: row } = await admin.from("mono_invoices").select("*").eq("mono_invoice_id", invoiceId).maybeSingle();
+  if (!row && typeof p.reference === "string") {
+    row = (await admin.from("mono_invoices").select("*").eq("id", p.reference).maybeSingle()).data;
+    if (row && invoiceId) await admin.from("mono_invoices").update({ mono_invoice_id: invoiceId }).eq("id", row.id);
+  }
+  if (!row) return json({ ok: true, ignored: "unknown_invoice" }); // not ours: answer 200 so the bank stops retrying
+  const out = await applyMonoStatus(row as MonoRow, p);
+  return json({ ok: true, ...out });
+}
+
+/** The buyer's return page asks here; if the webhook is late, the bank is asked directly. */
+async function monoStatusFor(userId: string, ref: string) {
+  const { data: row } = await admin.from("mono_invoices").select("*").eq("id", ref).eq("buyer_id", userId).maybeSingle();
+  if (!row) throw new FinanceError("no_invoice", "Оплату не знайдено.");
+  let cur = row as MonoRow;
+  if (["created", "processing", "hold"].includes(cur.status) && cur.mono_invoice_id) {
+    const bank = await monoCall(`/api/merchant/invoice/status?invoiceId=${encodeURIComponent(cur.mono_invoice_id)}`);
+    if (bank) {
+      await applyMonoStatus(cur, bank);
+      cur = (await admin.from("mono_invoices").select("*").eq("id", ref).single()).data as MonoRow;
+    }
+  }
+  return { status: cur.status, purchaseId: cur.status === "success" ? cur.id : null, contentId: cur.content_id };
+}
+
+/** A full refund of a payment made through monobank goes back to the buyer's card first; only then the books change. */
+async function monoCancelIfNeeded(purchaseId: string, kind: RefundKind, requestKey: string) {
+  if (kind === "chargeback") return; // the bank already took the money
+  const { data: inv } = await admin.from("mono_invoices").select("mono_invoice_id, status").eq("id", purchaseId).maybeSingle();
+  if (!inv || inv.status !== "success" || !inv.mono_invoice_id) return; // not a monobank payment (e.g. a TEST confirmation)
+  if (kind !== "full") throw new FinanceError("mono_partial_refund", "Часткове повернення через банк ще не підтримується: зверніться до розробника.");
+  const res = await monoCall("/api/merchant/invoice/cancel", { invoiceId: inv.mono_invoice_id, extRef: requestKey.slice(0, 60) });
+  if (res?.status === "failure") throw new FinanceError("mono_cancel_failed", "Банк відхилив повернення коштів.");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+  // monobank webhook: no user, authenticated only by the bank's signature
+  if (new URL(req.url).searchParams.get("hook") === "mono") {
+    try {
+      return await handleMonoWebhook(req);
+    } catch (e) {
+      console.error("mono webhook", e);
+      return json({ error: "server_error" }, 500); // not 200: the bank will retry
+    }
+  }
 
   try {
     const payload = await req.json().catch(() => null);
@@ -340,6 +568,16 @@ Deno.serve(async (req) => {
     if (userError || !userData.user) return json({ error: "Не авторизовано." }, 401);
     const user = userData.user;
     const { data: prof } = await admin.from("profiles").select("id, role, is_admin, admin_role").eq("id", user.id).single();
+
+    // ── any signed-in user: pay for a material on monobank ──
+    if (action === "monoCheckout") {
+      if (!prof) return json({ error: "Не авторизовано." }, 401);
+      return json({ ok: true, ...(await monoCheckout(user.id, payload)) });
+    }
+    if (action === "monoStatus") {
+      if (!prof) return json({ error: "Не авторизовано." }, 401);
+      return json({ ok: true, ...(await monoStatusFor(user.id, String(payload.ref ?? ""))) });
+    }
 
     // ── an author's own actions ──
     if (action === "touchActivity" || action === "requestPayout" || action === "markNotificationsRead" || action === "saveBankAccount") {
@@ -518,6 +756,7 @@ Deno.serve(async (req) => {
       if (!pay) throw new FinanceError("no_payment", "Платіж не знайдено: оплату ще не підтверджено.");
       const kind = (payload.kind as RefundKind) ?? "full";
       const authorId = pay.author_id as string;
+      await monoCancelIfNeeded(pay.purchase_id as string, kind, requestKey);
       const plan = await applyWithRetry(async () => {
         const [account, fresh, reserveRows] = await Promise.all([
           loadAccount(authorId),
@@ -636,7 +875,7 @@ Deno.serve(async (req) => {
 
     return json({ error: "unknown_action" }, 400);
   } catch (e) {
-    if (e instanceof FinanceError) return json({ error: e.code, message: e.message }, 400);
+    if (e instanceof FinanceError || e instanceof MonoError) return json({ error: e.code, message: e.message }, 400);
     return json({ error: "server_error", message: e instanceof Error ? e.message : "Помилка сервера." }, 500);
   }
 });

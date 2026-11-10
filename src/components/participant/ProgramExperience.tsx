@@ -1381,7 +1381,7 @@ export default function ProgramExperience({
               no scrolling required. Same summary.percent/isCompleted this
               screen always used — no second progress source. */}
           <div className="mb-5">
-            <div className="rounded-2xl bg-black/[0.025] border border-black/5 px-6 py-6 flex items-center gap-6 flex-wrap">
+            <div className="rounded-2xl bg-[#f8f9fe] border border-[#e3e6f4] px-6 py-6 flex items-center gap-6 flex-wrap">
               <div className="relative shrink-0 w-[92px] h-[92px]">
                 <CircularProgress
                   percent={summary.percent}

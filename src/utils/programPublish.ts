@@ -12,9 +12,9 @@ import { isYoutubeUrl } from "./youtube.ts";
 import { aiDeclaration } from "./contentLabels.ts";
 import { benefitsFromTags, benefitsProblem } from "./programBenefits.ts";
 import { categoriesProblem } from "./programCategories.ts";
+import { meditationWhenProblems } from "./contentSteps.ts";
 import { MAX_LESSONS_PER_MODULE, MAX_LESSONS_TOTAL, MAX_MODULES } from "./programModule.ts";
 import { checklistItems, checklistProblem } from "./lessonChecklist.ts";
-import { needsTranscript as needsMeditationTranscript, transcriptState } from "./meditationTranscript.ts";
 import { isHighRisk, RISK_MESSAGE } from "./riskTopics.ts";
 
 export const MIN_TRANSCRIPT_CHARS = 20;
@@ -86,10 +86,8 @@ export function validatePublishable(content: AuthoredContent, opts?: { isSpecial
   if (content.type === "meditation") {
     if (!has(content.mainFileUrl)) add("audio", "Завантажте аудіо медитації.");
     if (!content.durationMinutes || content.durationMinutes < 1) add("duration", "Вкажіть тривалість у хвилинах.");
-    const m = content.meditation;
-    if (m && needsMeditationTranscript(m.format) && transcriptState({ format: m.format, transcript: m.transcript }) !== "confirmed") {
-      add("transcript", "Потрібен текст практики (транскрипт), який ви вичитали й підтвердили. Для запису без голосу він не потрібен.");
-    }
+    const whenProblem = meditationWhenProblems(content.meditation?.whenToUse ?? [])[0];
+    if (whenProblem) add("when-to-use", whenProblem);
   }
 
   if (content.type === "guide" && content.guide?.source !== "sensoria_structured") {
@@ -98,11 +96,13 @@ export function validatePublishable(content: AuthoredContent, opts?: { isSpecial
     if (!content.guide || content.guide.readMinutes < 1) add("read-minutes", "Вкажіть, скільки хвилин займає читання.");
   }
 
-  if (content.type !== "program") return problems;
-
-  // Length rules for programs (the same ones the step-by-step editor shows).
+  // Length rules (the same ones the step-by-step editor shows) and 1-3 categories: for every kind of material.
   if (has(content.title)) { const t = titleProblem(content.title); if (t) add("title-length", t); }
   if (has(content.description)) { const d = descriptionProblem(content.description!); if (d) add("description-length", d); }
+  const cat = categoriesProblem(content.tags);
+  if (cat) add("categories", cat);
+
+  if (content.type !== "program") return problems;
 
   // Every program must say whether AI was used — it is shown to buyers as an "AI" mark.
   if (!aiDeclaration(content.tags)) add("ai-declaration", "Вкажіть, чи використовували ви ШІ під час створення програми.");
@@ -110,10 +110,6 @@ export function validatePublishable(content: AuthoredContent, opts?: { isSpecial
   // The presentation video is required for a program, and must be a YouTube link the page can embed.
   if (!has(content.introVideoUrl)) add("intro-video", "Додайте відео-презентацію: використайте відео з профілю або вставте посилання на YouTube.");
   else if (!isYoutubeUrl(content.introVideoUrl!)) add("intro-video", "Відео-презентація: вставте посилання на YouTube (youtu.be/… або youtube.com/watch?v=…).");
-
-  // 1-3 categories: the catalog finds the program by them, the card shows the first (primary) one.
-  const cat = categoriesProblem(content.tags);
-  if (cat) add("categories", cat);
 
   // «Що ви отримаєте» — all three benefits, shown on the program page.
   const bp = benefitsProblem(benefitsFromTags(content.tags));

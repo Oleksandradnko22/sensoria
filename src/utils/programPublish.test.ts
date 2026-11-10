@@ -85,14 +85,23 @@ test("a program cannot be published without the AI declaration", () => {
   assert.equal(codes(base({ tags: ["ai-none"] })).includes("ai-declaration"), false);
 });
 
-test("a meditation needs audio, length and (with voice) a confirmed transcript", () => {
+test("a meditation needs audio and length, and no transcript", () => {
   const med = (over: Partial<AuthoredContent> = {}) =>
-    base({ type: "meditation", modules: undefined, mainFileUrl: "https://x/a.mp3", durationMinutes: 5, meditation: { format: "guided", hasEmbeddedMusic: false, offlineDownloadEnabled: false, whenToUse: [], transcript: { text: "Сядьте зручно і зробіть вдих.", status: "confirmed", confirmedBy: "А", confirmedAt: "2026-11-04" } }, ...over });
+    base({ type: "meditation", modules: undefined, mainFileUrl: "https://x/a.mp3", durationMinutes: 5, meditation: { format: "guided", hasEmbeddedMusic: false, offlineDownloadEnabled: false, whenToUse: ["Думки йдуть по колу", "Перед сном", "Між справами"], transcript: { text: "Сядьте зручно і зробіть вдих.", status: "confirmed", confirmedBy: "А", confirmedAt: "2026-11-04" } }, ...over });
   assert.deepEqual(codes(med()), []);
   assert.ok(codes(med({ mainFileUrl: undefined })).includes("audio"));
   assert.ok(codes(med({ durationMinutes: undefined })).includes("duration"));
-  assert.ok(codes(med({ meditation: { ...med().meditation!, transcript: { text: "Сядьте зручно і зробіть вдих.", status: "draft" } } })).includes("transcript"));
-  assert.deepEqual(codes(med({ meditation: { ...med().meditation!, format: "silent", transcript: undefined } })), []);
+  assert.deepEqual(codes(med({ meditation: { ...med().meditation!, transcript: undefined } })), []);
+  assert.deepEqual(codes(med({ meditation: { ...med().meditation!, transcript: { text: "Сядьте зручно і зробіть вдих.", status: "draft" } } })), []);
+});
+
+test("a meditation needs at least three «when it fits» points of real length", () => {
+  const med = (when: string[]) =>
+    base({ type: "meditation", modules: undefined, mainFileUrl: "https://x/a.mp3", durationMinutes: 5, meditation: { format: "guided", hasEmbeddedMusic: false, offlineDownloadEnabled: false, whenToUse: when } });
+  assert.ok(codes(med([])).includes("when-to-use"));
+  assert.ok(codes(med(["Перед сном", "Думки по колу"])).includes("when-to-use"));
+  assert.ok(codes(med(["Перед сном", "Думки по колу", "ок"])).includes("when-to-use"));
+  assert.equal(codes(med(["Перед сном", "Думки по колу", "Між справами"])).includes("when-to-use"), false);
 });
 
 test("a PDF guide needs the file, pages and reading time; a structured one does not need the file", () => {
@@ -106,7 +115,7 @@ test("a PDF guide needs the file, pages and reading time; a structured one does 
 
 test("the file's bucket must match the price (paid = private, free = public)", () => {
   const m = (price: string, url: string) =>
-    base({ type: "meditation", modules: undefined, price, mainFileUrl: url, durationMinutes: 5, meditation: { format: "silent", hasEmbeddedMusic: false, offlineDownloadEnabled: false, whenToUse: [] } });
+    base({ type: "meditation", modules: undefined, price, mainFileUrl: url, durationMinutes: 5, meditation: { format: "silent", hasEmbeddedMusic: false, offlineDownloadEnabled: false, whenToUse: ["Думки йдуть по колу", "Перед сном", "Між справами"] } });
   assert.deepEqual(codes(m("0", "https://x/a.mp3")), []);
   assert.deepEqual(codes(m("120", "paid:u/c/main.mp3")), []);
   assert.ok(codes(m("120", "https://x/a.mp3")).includes("file-public"));
@@ -149,4 +158,42 @@ test("module title, lesson title, lesson text and practice question respect thei
   assert.match(run({}, { body: "а".repeat(5001) }), /не більше 5000/);
   assert.match(run({}, { practice: { type: "text", prompt: "а".repeat(151) } }), /питання практики/);
   assert.equal(run({}), "");
+});
+
+// Meditations and guides follow the same rules as a program for the title, the description and the categories.
+const med = (over: Partial<AuthoredContent> = {}): AuthoredContent => ({
+  ...base({ type: "meditation", title: "Вечірнє заспокоєння" }),
+  modules: undefined, mainFileUrl: "https://x/a.mp3", durationMinutes: 10,
+  meditation: { format: "silent", hasEmbeddedMusic: false, offlineDownloadEnabled: false, whenToUse: ["Думки йдуть по колу", "Перед сном", "Між справами"] },
+  tags: ["stress", "ai-none"],
+  ...over,
+});
+const guide = (over: Partial<AuthoredContent> = {}): AuthoredContent => ({
+  ...base({ type: "guide", title: "Як пережити тривожний день" }),
+  modules: undefined, mainFileUrl: "https://x/g.pdf",
+  guide: { guideType: "practical", pages: 12, readMinutes: 30, relevantIf: [], outcomes: [] },
+  tags: ["stress"],
+  ...over,
+});
+
+test("a complete meditation and a complete guide have no problems", () => {
+  assert.deepEqual(validatePublishable(med()), []);
+  assert.deepEqual(validatePublishable(guide()), []);
+});
+
+test("meditation and guide: the description needs the same length as a program's", () => {
+  assert.ok(codes(med({ description: "Коротко." })).includes("description-length"));
+  assert.ok(codes(guide({ description: "Коротко." })).includes("description-length"));
+  assert.ok(codes(med({ title: "Ab" })).includes("title-length"));
+});
+
+test("meditation and guide: 1-3 categories are required", () => {
+  assert.ok(codes(med({ tags: ["ai-none"] })).includes("categories"));
+  assert.ok(codes(guide({ tags: [] })).includes("categories"));
+  assert.ok(codes(guide({ tags: ["stress", "anxiety", "burnout", "recovery"] })).includes("categories"));
+});
+
+test("a meditation or a guide needs no video, benefits, AI declaration or modules", () => {
+  const c = [...codes(med({ introVideoUrl: undefined })), ...codes(guide({ introVideoUrl: undefined }))];
+  for (const x of ["intro-video", "benefits", "ai-declaration", "modules"]) assert.ok(!c.includes(x), x);
 });

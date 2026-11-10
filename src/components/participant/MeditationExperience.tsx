@@ -69,7 +69,6 @@ import AskAuthorBox from "./AskAuthorBox";
 import { useOpenAuthorProfile } from "../../context/AuthorProfileContext";
 import MeditationVisualObject from "./MeditationVisualObject";
 import MeditationReportModal from "./MeditationReportModal";
-import MeditationTranscriptView from "./MeditationTranscriptView";
 import { publicTranscript } from "../../utils/meditationTranscript";
 import MeditationDownloadPicker, { type MeditationDownloadChoice } from "./MeditationDownloadPicker";
 
@@ -256,6 +255,12 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
   // primary user actions"). Just a tiny local toggle; opening the real
   // report modal below closes it.
   const [showActionsMenu, setShowActionsMenu] = useState(false);
+  // The text of the practice opens as its own page while the sound keeps playing (the player lives in the context).
+  const [textOpen, setTextOpen] = useState(false);
+  // the page with the text is exactly as tall as the player block it opens from
+  const playerCardRef = useRef<HTMLDivElement | null>(null);
+  const [textCardHeight, setTextCardHeight] = useState<number | null>(null);
+  useEffect(() => { if (view !== "player") setTextOpen(false); }, [view]);
 
   // "Резюме позиції" — the real saved place from meditation_audio_
   // positions (not the demo enrollment percent). Drives two things per
@@ -908,10 +913,10 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
                 stack. Order flips on mobile — text first, object
                 second — so the practical content never sits below a
                 tall decorative shape on a small screen. */}
-            <div className="grid lg:grid-cols-[1fr_400px] gap-x-16 gap-y-10 items-center mb-14">
+            <div className="grid lg:grid-cols-[1fr_400px] gap-x-16 gap-y-10 items-center mb-10">
               <div className="order-2 lg:order-1 text-left">
                 <div className="flex flex-wrap items-center gap-x-1.5 text-[12px] text-black/40 mb-4">
-                  <span className="font-medium text-black/55">Sensoria</span>
+                  <span className="font-medium text-black/55">{meditation.author || "Sensoria"}</span>
                   <span>·</span>
                   <span>{meditation.duration}</span>
                   {meditation.backgroundSoundIds && meditation.backgroundSoundIds.length > 0 && (
@@ -1136,16 +1141,16 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
               // so it still reads as an emotional profile, not a
               // uniform bullet list.
               <div
-                className="mb-10 rounded-[24px] p-6 md:p-7"
-                style={{ background: `linear-gradient(135deg, ${pc1}14, ${pc3}10)` }}
+                className="mb-10 rounded-[24px] border border-[#e6e1fa] bg-[#f8f6ff] p-6 md:p-7"
               >
-                <div className="text-[16px] font-bold text-black/80 mb-3.5">Ця практика може підійти, якщо</div>
-                <ul className="flex flex-col gap-2.5 text-[14px] text-black/60 leading-relaxed">
+                <div className="text-[17px] font-bold text-[#1d1a3b] mb-3.5">Ця практика може підійти, якщо</div>
+                <ul className="flex flex-col gap-2.5 text-[15px] text-[#2d2a5c] leading-relaxed">
                   {meditation.whenToUse.map((line, i) => {
-                    const color = [pc1, pc2, pc3][i % 3];
+                    const color = ["#5b3df5", "#8a63f7", "#2f6bff"][i % 3];
                     const shape = i % 3;
                     return (
                       <li key={line} className="flex items-center gap-3">
+                        <span className="flex w-3 shrink-0 items-center justify-center">
                         <span
                           className="shrink-0"
                           style={
@@ -1156,6 +1161,7 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
                               : { width: 7, height: 7, borderRadius: "40% 60% 55% 45%/55% 40% 60% 45%", background: color, opacity: 0.75 }
                           }
                         />
+                        </span>
                         <span>{line}</span>
                       </li>
                     );
@@ -1175,7 +1181,7 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
                 uses for compact content panels) instead of bare
                 typography floating on the white card, with numbered
                 markers connected by a slightly bolder accent line. */}
-            <div className="rounded-[20px] border border-[#dbe3ff] bg-[#f8faff] p-6 md:p-7 mb-10">
+            <div className="rounded-[24px] border border-[#dbe3ff] bg-[#f8faff] p-6 md:p-7 mb-10">
               <h2 className="text-[19px] font-bold mb-1 text-black/80">Чого очікувати</h2>
               <p className="text-[13px] text-black/40 mb-7">{meditation.duration} без поспіху.</p>
               <div className="grid md:grid-cols-3 gap-8 md:gap-6">
@@ -1221,6 +1227,60 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
           </div>
         </div>
       )}
+
+      {view === "player" && textOpen && (() => {
+        const paragraphs = publicTranscript(meditation);
+        if (!paragraphs) return null;
+        return (
+          <div className="fixed inset-0 z-10 bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6]" role="dialog" aria-modal="true" aria-label="Текст практики">
+            <div className="h-screen px-6 pt-[84px] pb-6 flex items-center justify-center">
+              <div style={textCardHeight ? { height: textCardHeight } : undefined} className="flex max-h-full min-h-[520px] w-full max-w-[1240px] flex-col overflow-hidden rounded-[32px] border border-black/[0.04] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
+                {/* TOP — the text, scrolls inside the block */}
+                <div className="relative flex min-h-0 flex-1 flex-col">
+                  <div className="min-h-0 flex-1 overflow-y-auto">
+                    <div className="mx-auto w-full max-w-[1040px] px-10 pt-10 pb-12 md:px-16">
+                      <div className="text-[13px] font-semibold uppercase tracking-[0.14em] text-[#4a2fd0]">Текст практики</div>
+                      <h2 className="mt-2 mb-6 text-[30px] font-bold leading-tight text-[#1d1a3b]">{meditation.title}</h2>
+                      <div className="flex flex-col gap-6 text-[19px] leading-[1.8] text-[#2d2a5c]">
+                        {paragraphs.map((p, i) => (
+                          <p key={i}>{p}</p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" />
+                </div>
+
+                {/* BOTTOM — the sound keeps going: the same controls as on the player screen */}
+                <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-3 border-t border-[#ece9fe] bg-[#faf9ff] px-10 py-5 md:px-16">
+                  <button
+                    type="button"
+                    onClick={() => player.togglePlay()}
+                    aria-label={player.isPlaying ? "Пауза" : "Відтворити"}
+                    disabled={player.isLoading}
+                    className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[#5b3df5] text-white shadow-[0_10px_24px_-10px_rgba(91,61,245,0.9)] transition hover:bg-[#4a2fd0] focus:outline-none focus-visible:ring-4 focus-visible:ring-[#5b3df5]/25 disabled:opacity-60"
+                  >
+                    {player.isLoading ? "…" : player.isPlaying ? <Icon name="pause" size={20} filled /> : <Icon name="play" size={20} filled />}
+                  </button>
+                  <div className="shrink-0 text-[17px] font-semibold tabular-nums text-[#1d1a3b]">
+                    {formatClock(player.currentTime)} <span className="font-normal text-[#6b6a85]">/ {formatClock(totalSeconds)}</span>
+                  </div>
+                  <div className="min-w-[160px] flex-1">
+                    <QuietSlider value={Math.min(player.currentTime, totalSeconds || 0)} max={totalSeconds || 0} step={0.5} onChange={(v) => player.seekTo(v)} aria="Перемотка" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTextOpen(false)}
+                    className="inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-full border border-[#d9d4f5] bg-white px-5 text-[14px] font-semibold text-[#4a2fd0] transition hover:bg-[#f3efff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50"
+                  >
+                    ← Назад до практики
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {view === "checkin" && (
         <div className="pt-[60px] min-h-screen flex items-center justify-center px-6">
@@ -1333,16 +1393,16 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
           overflow-y-auto means a short window scrolls INSIDE the
           card, never stretches the page. */}
       {view === "player" && (
-        <div className="h-screen py-[60px] px-6 flex items-center justify-center">
-          <div className="w-full max-w-[1040px] max-h-full bg-white rounded-[32px] shadow-[0_24px_70px_rgba(15,23,42,0.08)] border border-black/[0.04] flex flex-col overflow-hidden">
+        <div className="h-screen px-6 pt-[84px] pb-6 flex items-center justify-center">
+          <div ref={playerCardRef} className="w-full max-w-[1240px] max-h-full bg-white rounded-[32px] shadow-[0_24px_70px_rgba(15,23,42,0.08)] border border-black/[0.04] flex flex-col overflow-hidden">
             <div className="flex-1 min-h-0 overflow-y-auto">
-              <div className="grid md:grid-cols-[1fr_320px]">
+              <div className="grid md:grid-cols-[1fr_480px]">
                 {/* LEFT — the primary loop */}
-                <div className="flex flex-col items-center text-center px-10 py-10 md:border-r md:border-black/[0.05]">
+                <div className="flex flex-col items-center justify-center text-center px-10 py-9 md:border-r md:border-[#ece9fe]">
                   <div className="text-[12px] font-medium text-emerald-600/70 uppercase tracking-wider mb-1.5">
                     Медитація
                   </div>
-                  <h2 className="text-[22px] font-bold text-black/85 mb-7">{meditation.title}</h2>
+                  <h2 className="text-[22px] font-bold text-black/85 mb-5">{meditation.title}</h2>
 
                   {/* Progress ring — a plain SVG circle here rather than
                       reusing ui/CircularProgress: that component is
@@ -1351,7 +1411,7 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
                       play/pause control inside it. Now driven by the
                       real <audio> element's currentTime/duration
                       (context/MeditationPlayerContext), not a timer. */}
-                  <div className="relative w-[210px] h-[210px] mx-auto mb-7">
+                  <div className="relative w-[192px] h-[192px] mx-auto mb-6">
                     <div className="absolute inset-[10px] rounded-full bg-gradient-to-br from-emerald-100/60 to-cyan-100/60 blur-xl" />
                     <svg viewBox="0 0 220 220" className="relative w-full h-full -rotate-90">
                       <circle cx="110" cy="110" r="100" fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth="10" />
@@ -1455,154 +1515,96 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
                     "зроби доп опції більш видними"): no toggle
                     anymore, always visible next to the player instead
                     of collapsed behind a click. */}
-                <div className="px-8 py-10 bg-slate-50/60 text-left">
-                  <div className="text-[11px] font-semibold text-black/40 uppercase tracking-wider mb-6">
-                    Налаштування
-                  </div>
-
-                  <div className="flex flex-col gap-7">
-                    {/* Таймер — Sasha's explicit call (2026-08-28):
-                        особливо для медитацій без постійного
-                        супроводу, де сенс просто посидіти обраний
-                        відрізок часу. Незалежний від довжини самого
-                        треку — picking a length restarts the
-                        countdown; once it reaches zero, both audio
-                        layers fade out to silence over a few seconds
-                        and the practice ends on its own (context/
-                        MeditationPlayerContext's completeViaTimer) —
-                        per Sasha's later call (2026-08-30, sleep-mode
-                        request), a plain gradual fade instead of a
-                        chime. "Вимкнути" clears it and lets the
-                        session just run to the track's own end. */}
-                    <div>
-                      <div className="text-[11px] text-black/40 uppercase tracking-wide mb-2.5">Таймер</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {TIMER_MINUTES.map((mins) => {
-                          const active = player.timerMinutes === mins;
-                          return (
-                            <button
-                              key={mins}
-                              type="button"
-                              onClick={() => player.setTimerMinutes(mins)}
-                              className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition ${
-                                active
-                                  ? "bg-gradient-to-r from-emerald-400 to-emerald-500 text-white shadow-[0_2px_8px_rgba(16,185,129,0.35)]"
-                                  : "bg-white border border-black/[0.06] text-black/50 hover:bg-slate-100"
-                              }`}
-                            >
-                              {mins} хв
-                            </button>
-                          );
-                        })}
-                        {player.timerMinutes !== null && (
+                <div className="flex flex-col justify-center gap-8 px-8 py-9 text-left">
+                  <section>
+                    <h3 className="mb-2.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-[#6b6a85]">Таймер</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {TIMER_MINUTES.map((mins) => {
+                        const active = player.timerMinutes === mins;
+                        return (
                           <button
+                            key={mins}
                             type="button"
-                            onClick={() => player.setTimerMinutes(null)}
-                            className="px-3 py-1.5 rounded-full text-[12px] font-medium bg-white border border-black/[0.06] text-black/40 hover:bg-slate-100 transition"
+                            aria-pressed={active}
+                            onClick={() => player.setTimerMinutes(mins)}
+                            className={`min-h-[38px] rounded-full px-4 text-[14px] font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 ${active ? "bg-[#5b3df5] text-white shadow-[0_6px_16px_-8px_rgba(91,61,245,0.8)]" : "bg-[#f4f2fc] text-[#2d2a5c] hover:bg-[#ece9fe]"}`}
                           >
-                            Вимкнути
+                            {mins} хв
                           </button>
-                        )}
-                      </div>
-                      {player.timerMinutes !== null && player.timerRemainingSeconds !== null && (
-                        <div className="text-[12px] text-black/40 mt-2">
-                          До плавного завершення: {formatClock(player.timerRemainingSeconds)}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 🎧 Фоновий звук — per Sasha's follow-up call
-                        (2026-08-28): not locked to whatever the
-                        author configured, the participant can pick,
-                        change, or turn it off live, any time during
-                        playback. Per Sasha's 2026-09-24 follow-up
-                        ("человек может выбирать сколько захочет звуков
-                        на фон"), this is now multi-select — any number
-                        of chips can be active at once, all mixed
-                        together, not a mutually-exclusive choice. */}
-                    <div>
-                      <div className="text-[11px] text-black/40 uppercase tracking-wide mb-2.5">Фоновий звук</div>
-                      <div className="flex flex-wrap gap-1.5">
+                        );
+                      })}
+                      {player.timerMinutes !== null && (
                         <button
                           type="button"
-                          onClick={() => player.clearBackgroundSounds()}
-                          className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition ${
-                            !player.hasBackgroundSound
-                              ? "bg-gradient-to-r from-cyan-400 to-cyan-500 text-white shadow-[0_2px_8px_rgba(6,182,212,0.35)]"
-                              : "bg-white border border-black/[0.06] text-black/50 hover:bg-slate-100"
-                          }`}
+                          onClick={() => player.setTimerMinutes(null)}
+                          className="min-h-[38px] rounded-full px-3 text-[14px] font-medium text-[#4a2fd0] underline-offset-4 transition hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50"
                         >
-                          Без фону
+                          Вимкнути
                         </button>
-                        {availableBackgroundTracks(meditation.hasEmbeddedMusic).map((track) => {
-                          const active = player.backgroundSoundIds.includes(track.id);
-                          return (
-                            <button
-                              key={track.id}
-                              type="button"
-                              onClick={() => player.toggleBackgroundSound(track.id)}
-                              className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition ${
-                                active
-                                  ? "bg-gradient-to-r from-cyan-400 to-cyan-500 text-white shadow-[0_2px_8px_rgba(6,182,212,0.35)]"
-                                  : "bg-white border border-black/[0.06] text-black/50 hover:bg-slate-100"
-                              }`}
-                            >
-                              {track.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Гучність — окремо для голосу і фонового звуку
-                        (context/MeditationPlayerContext.tsx's second
-                        audio layer), per Sasha's explicit call
-                        (2026-08-28). "Фон" only shows when a
-                        background sound is currently active. */}
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-[12px] text-black/40 w-10">Голос</span>
-                        <input
-                          type="range"
-                          min={0}
-                          max={1}
-                          step={0.01}
-                          value={player.voiceVolume}
-                          onChange={(e) => player.setVoiceVolume(Number(e.target.value))}
-                          className="flex-1 accent-emerald-500"
-                          aria-label="Гучність голосу"
-                        />
-                      </div>
-                      {player.hasBackgroundSound && (
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-[12px] text-black/40 w-10">Фон</span>
-                          <input
-                            type="range"
-                            min={0}
-                            max={1}
-                            step={0.01}
-                            value={player.backgroundVolume}
-                            onChange={(e) => player.setBackgroundVolume(Number(e.target.value))}
-                            className="flex-1 accent-cyan-500"
-                            aria-label="Гучність фонового звуку"
-                          />
-                        </div>
                       )}
                     </div>
-                  </div>
+                    {player.timerMinutes !== null && player.timerRemainingSeconds !== null && (
+                      <div className="mt-2 text-[13px] text-[#6b6a85]">До плавного завершення: {formatClock(player.timerRemainingSeconds)}</div>
+                    )}
+                  </section>
+
+                  <section className="border-t border-[#ece9fe] pt-8">
+                    <h3 className="mb-2.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-[#6b6a85]">Фоновий звук</h3>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        aria-pressed={!player.hasBackgroundSound}
+                        onClick={() => player.clearBackgroundSounds()}
+                        className={`min-h-[38px] rounded-full px-4 text-[14px] font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 ${!player.hasBackgroundSound ? "bg-[#5b3df5] text-white shadow-[0_6px_16px_-8px_rgba(91,61,245,0.8)]" : "bg-[#f4f2fc] text-[#2d2a5c] hover:bg-[#ece9fe]"}`}
+                      >
+                        Без фону
+                      </button>
+                      {availableBackgroundTracks(meditation.hasEmbeddedMusic).map((track) => {
+                        const active = player.backgroundSoundIds.includes(track.id);
+                        return (
+                          <button
+                            key={track.id}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => player.toggleBackgroundSound(track.id)}
+                            className={`min-h-[38px] rounded-full px-4 text-[14px] font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 ${active ? "bg-[#5b3df5] text-white shadow-[0_6px_16px_-8px_rgba(91,61,245,0.8)]" : "bg-[#f4f2fc] text-[#2d2a5c] hover:bg-[#ece9fe]"}`}
+                          >
+                            {track.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  <section className="border-t border-[#ece9fe] pt-8">
+                    <h3 className="mb-2.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-[#6b6a85]">Гучність</h3>
+                    <div className="flex flex-col gap-5">
+                      <QuietSlider label="Голос" value={player.voiceVolume} onChange={player.setVoiceVolume} aria="Гучність голосу" />
+                      {player.hasBackgroundSound && (
+                        <QuietSlider label="Фон" value={player.backgroundVolume} onChange={player.setBackgroundVolume} aria="Гучність фонового звуку" />
+                      )}
+                    </div>
+                  </section>
                 </div>
               </div>
             </div>
 
-            {publicTranscript(meditation) && (
-              <div className="shrink-0 max-h-[40vh] overflow-y-auto px-10 pb-4">
-                <MeditationTranscriptView meditation={meditation} />
-              </div>
-            )}
             {/* Bottom bar — spans the full width under both columns. */}
             <div className="shrink-0 border-t border-black/[0.05] px-10 py-4 flex items-center justify-between gap-4 flex-wrap">
-              <div className="text-[11px] text-black/30">
-                Можна заблокувати екран або вийти з цього екрана — практика продовжить відтворюватися.
+              <div className="flex flex-wrap items-center gap-4">
+                {publicTranscript(meditation) && (
+                  <button
+                    type="button"
+                    onClick={() => { setTextCardHeight(playerCardRef.current?.offsetHeight ?? null); setTextOpen(true); }}
+                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#d9d4f5] bg-[#f8f6ff] px-5 text-[14px] font-semibold text-[#4a2fd0] transition hover:bg-[#f0ecff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50"
+                  >
+                    <Icon name="note" size={18} />
+                    Текст практики
+                  </button>
+                )}
+                <div className="text-[11px] text-black/30">
+                  Можна заблокувати екран або вийти з цього екрана — практика продовжить відтворюватися.
+                </div>
               </div>
               <button
                 onClick={finishEarly}
@@ -1623,22 +1625,23 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
           to begin with. Just where it stopped, and a way back in
           either direction. */}
       {view === "stopped" && (
-        <div className="min-h-screen flex items-center justify-center p-8">
-          <div className="max-w-[400px] w-full bg-white/70 backdrop-blur-md rounded-[32px] shadow-[0_24px_70px_rgba(15,23,42,0.06)] border border-white/60 px-8 py-10 text-center">
-            <div className="mb-3 flex justify-center text-emerald-600"><Icon name="leaf" size={36} /></div>
-            <h2 className="text-[19px] font-bold mb-2">Медитацію зупинено</h2>
-            <div className="text-[14px] text-black/45 mb-1">
-              {formatClock(player.currentTime)} / {formatClock(totalSeconds)}
+        <div className="min-h-screen flex items-center justify-center px-6 pt-[84px] pb-6">
+          <div className="w-full max-w-[460px] rounded-[32px] border border-black/[0.04] bg-white px-10 py-10 text-center shadow-[0_24px_70px_rgba(15,23,42,0.12)]">
+            <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-full bg-[#f3efff] text-[#4a2fd0]"><Icon name="leaf" size={28} /></div>
+            <h2 className="mb-2 text-[24px] font-bold text-[#1d1a3b]">Медитацію зупинено</h2>
+            <div className="mb-1 text-[17px] font-semibold tabular-nums text-[#2d2a5c]">
+              {formatClock(player.currentTime)} <span className="font-normal text-[#6b6a85]">/ {formatClock(totalSeconds)}</span>
             </div>
-            <p className="text-[13px] text-black/40 mb-8">Ви можете повернутися до неї будь-коли.</p>
-            <div className="flex flex-col items-center gap-2.5">
+            <p className="mb-8 text-[15px] text-[#4b4a66]">Ви можете повернутися до неї будь-коли.</p>
+            <div className="flex flex-col items-center gap-3">
               <button
                 onClick={resumeFromStopped}
-                className="px-6 py-3 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white text-[14px] font-semibold hover:opacity-90 transition shadow-[0_10px_24px_rgba(99,102,241,0.35)]"
+                className="inline-flex min-h-[48px] items-center gap-2 rounded-full bg-[#5b3df5] px-8 text-[15px] font-semibold text-white shadow-[0_12px_26px_-12px_rgba(91,61,245,0.9)] transition hover:bg-[#4a2fd0] focus:outline-none focus-visible:ring-4 focus-visible:ring-[#5b3df5]/25"
               >
-                ▶ Продовжити
+                <Icon name="play" size={16} filled />
+                Продовжити
               </button>
-              <button onClick={onClose} className="text-[13px] text-black/40 hover:text-black/65 transition">
+              <button onClick={onClose} className="min-h-[44px] rounded-full px-5 text-[14px] font-medium text-[#4a2fd0] transition hover:bg-[#f3efff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50">
                 Повернутися до навчання
               </button>
             </div>
@@ -1955,5 +1958,26 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
       )}
     </div>,
     document.body
+  );
+}
+
+// Volume control in the Sensoria style: a slim lavender line, violet where it is filled, a white dot with a violet ring.
+function QuietSlider({ label, value, onChange, aria, max = 1, step = 0.01 }: { label?: string; value: number; onChange: (v: number) => void; aria: string; max?: number; step?: number }) {
+  const pct = max > 0 ? Math.round(Math.min(1, Math.max(0, value / max)) * 1000) / 10 : 0;
+  return (
+    <label className="flex items-center gap-5">
+      {label && <span className="w-12 shrink-0 text-[14px] text-[#2d2a5c]">{label}</span>}
+      <input
+        type="range"
+        min={0}
+        max={max}
+        step={step}
+        value={value}
+        aria-label={aria}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ background: `linear-gradient(to right, #5b3df5 ${pct}%, #e3def9 ${pct}%)` }}
+        className="h-1 flex-1 cursor-pointer appearance-none rounded-full focus:outline-none [&::-moz-range-thumb]:h-[18px] [&::-moz-range-thumb]:w-[18px] [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-solid [&::-moz-range-thumb]:border-[#5b3df5] [&::-moz-range-thumb]:bg-white [&::-webkit-slider-thumb]:h-[18px] [&::-webkit-slider-thumb]:w-[18px] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-solid [&::-webkit-slider-thumb]:border-[#5b3df5] [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_2px_8px_rgba(91,61,245,0.35)] focus-visible:[&::-webkit-slider-thumb]:ring-4 focus-visible:[&::-webkit-slider-thumb]:ring-[#5b3df5]/25"
+      />
+    </label>
   );
 }

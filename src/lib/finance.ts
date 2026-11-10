@@ -167,4 +167,10 @@ export const requestPayout = (amountKop: number) => callFinance<{ ok: true; payo
 export const saveBankAccount = (v: { iban: string; bankName: string; holderName: string; taxId: string }) =>
   callFinance<{ ok: true; status: string; unchanged?: boolean }>({ action: "saveBankAccount", ...v });
 export const markFinanceNotificationsRead = () => callFinance<{ ok: true }>({ action: "markNotificationsRead" });
+
+// ── paying a material on monobank (the server decides the amount and the split; the browser only names the material) ──
+export const startMonoCheckout = (contentId: string) =>
+  callFinance<{ ok: true; pageUrl: string; ref: string }>({ action: "monoCheckout", contentId, origin: window.location.origin });
+export const fetchMonoStatus = (pay: string) =>
+  callFinance<{ ok: true; status: string; purchaseId: string | null; contentId: string }>({ action: "monoStatus", ref: pay });
 export { callFinance };

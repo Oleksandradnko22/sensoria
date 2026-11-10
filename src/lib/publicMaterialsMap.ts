@@ -18,6 +18,7 @@ export type ContentRow = {
   created_at: string;
   duration_minutes: number | null;
   author?: { name: string | null } | { name: string | null }[] | null;
+  cover_url?: string | null;
   content_meditation_meta?: Record<string, unknown> | Record<string, unknown>[] | null;
   content_meditation_body?: Record<string, unknown> | Record<string, unknown>[] | null;
   content_guide_meta?: Record<string, unknown> | Record<string, unknown>[] | null;
@@ -46,6 +47,9 @@ export function meditationFromRow(row: ContentRow): Meditation | null {
     offlineDownloadEnabled: meta.offline_download_enabled === true,
     hasEmbeddedMusic: meta.has_embedded_music === true,
     transcript: (body?.transcript as Meditation["transcript"]) ?? undefined,
+    price: String(row.price ?? 0),
+    author: one(row.author)?.name || undefined,
+    coverUrl: row.cover_url || undefined,
   };
 }
 

@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./ui/Icon";
 import HeroArt from "./programDetail/HeroArt";
+import { coverImageStyle, coverUrlForFrame } from "../utils/coverFocus";
 import GuideAuthorCard from "./guideDetail/GuideAuthorCard";
 import { categoryLabels } from "../data/categoryLabels";
 import type { Meditation } from "../data/meditations";
 import { heroVisualForTags } from "../utils/heroVisual";
 import { requestOpenCart, useCart } from "../lib/cartStore";
+import { formatPrice, isFreePrice } from "../utils/price";
 import { useOwnedKeys } from "../lib/useOwnedKeys";
 import { useOpenAuthorProfile } from "../context/AuthorProfileContext";
 
@@ -54,7 +56,9 @@ function MetaIcon({ d }: { d: string }) {
 // Everything shown comes from the meditation's own data; nothing is invented.
 export default function MeditationDetailModal({ meditation, onClose, userId, isParticipant = false, onStart, authorId, authorName, demo = false }: Props) {
   const openAuthorProfile = useOpenAuthorProfile();
-  const author = authorName || "Sensoria";
+  const author = authorName || meditation.author || "Sensoria";
+  const price = meditation.price ?? "0";
+  const free = isFreePrice(price);
   const cartApi = useCart();
   const ref = { kind: "meditation" as const, id: meditation.id };
   const inCart = cartApi.has(ref);
@@ -109,7 +113,7 @@ export default function MeditationDetailModal({ meditation, onClose, userId, isP
   // always exactly four: what the practice is, what you can set, and the last one depends on the download choice
   const facts = [
     { title: `Аудіопрактика ${meditation.durationMinutes} хв`, hint: "Одна сесія: сядьте зручно й увімкніть звук." },
-    { title: "Фоновий звук на вибір", hint: "Дощ, природа, море чи музика: ви обираєте самі." },
+    { title: "Фоновий звук на вибір", hint: meditation.hasEmbeddedMusic ? "Дощ, природа чи море: музика вже є в записі." : "Дощ, природа, море чи музика: ви обираєте самі." },
     { title: "Свій баланс звуку", hint: "Гучність голосу й фону регулюється окремо." },
     meditation.offlineDownloadEnabled
       ? { title: "Можна завантажити", hint: "Слухайте без інтернету, коли потрібно." }
@@ -122,7 +126,16 @@ export default function MeditationDetailModal({ meditation, onClose, userId, isP
       <section className="relative isolate overflow-hidden text-white" style={{ background: HERO_BG }}>
         <div className="relative mx-auto w-full max-w-[1200px] px-4 pb-24 pt-8 sm:px-6 sm:pb-28 lg:px-8 lg:pb-32">
           <div aria-hidden="true" className="pointer-events-none absolute right-8 top-[72px] hidden aspect-square w-[280px] lg:block xl:right-12 xl:w-[320px]">
-            <HeroArt visual={visual} />
+            {meditation.coverUrl ? (
+              <img
+                src={coverUrlForFrame(meditation.coverUrl, meditation.coverFocus, "square")}
+                alt=""
+                style={coverImageStyle(meditation.coverFocus, "square")}
+                className="h-[86%] w-full rounded-[28px] object-cover shadow-[0_24px_60px_-20px_rgba(20,10,80,0.6)] ring-1 ring-white/30"
+              />
+            ) : (
+              <HeroArt visual={visual} />
+            )}
           </div>
 
           <div className="mb-8 flex items-center justify-between gap-4">
@@ -151,8 +164,8 @@ export default function MeditationDetailModal({ meditation, onClose, userId, isP
                 Медитація
               </span>
               {topics.length > 0 && <span className="rounded-full bg-white/20 px-3.5 py-1.5 text-[13px] font-medium text-white ring-1 ring-white/25 backdrop-blur-sm">{topics.join(" • ")}</span>}
-              <span className="rounded-full bg-emerald-700 px-3.5 py-1.5 text-[13px] font-semibold text-white">Безкоштовно</span>
-              <span className="rounded-full bg-[#382bd7] px-3.5 py-1.5 text-[13px] font-semibold text-white">Sensoria</span>
+              {free && <span className="rounded-full bg-emerald-700 px-3.5 py-1.5 text-[13px] font-semibold text-white">Безкоштовно</span>}
+              <span className="rounded-full bg-[#382bd7] px-3.5 py-1.5 text-[13px] font-semibold text-white">{author}</span>
             </div>
 
             <h1 className="mt-5 text-[34px] font-bold leading-[1.08] tracking-tight sm:text-[46px] lg:text-[54px]">{meditation.title}</h1>
@@ -208,7 +221,7 @@ export default function MeditationDetailModal({ meditation, onClose, userId, isP
             <div className="flex flex-col justify-center gap-4 border-t border-slate-200/70 p-5 sm:p-7 lg:border-l lg:border-t-0">
               <div>
                 <div className="text-[14px] font-medium text-slate-500">Вартість</div>
-                <div className="mt-0.5 text-[38px] font-bold leading-tight text-emerald-700">Безкоштовно</div>
+                <div className={`mt-0.5 text-[38px] font-bold leading-tight ${free ? "text-emerald-700" : "text-[#0f172a]"}`}>{formatPrice(price)}</div>
               </div>
 
               <div className="w-full">

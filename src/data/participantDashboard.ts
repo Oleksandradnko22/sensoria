@@ -221,8 +221,8 @@ export function getContentInfo(
   return m
     ? {
         title: m.title,
-        author: "Sensoria",
-        price: "0",
+        author: m.author || "Sensoria",
+        price: m.price ?? "0",
         description: m.description,
         tags: m.tags,
         duration: m.duration,

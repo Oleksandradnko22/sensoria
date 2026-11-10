@@ -4,12 +4,13 @@
 import { supabase } from "./supabaseClient.ts";
 import { meditations } from "../data/meditations.ts";
 import { guides } from "../data/guides.ts";
+import { parseCoverFocus } from "../utils/coverFocus.ts";
 import { guideFromRow, meditationFromRow, mergeIntoList, type ContentRow } from "./publicMaterialsMap.ts";
 import { isPaidFileRef, signPaidFileRefs } from "./storage.ts";
 import { bumpMaterialsVersion, markMaterialsReady } from "./materialsStore.ts";
 
 const SELECT =
-  "id, kind, slug, title, description, price, tags, created_at, duration_minutes, author:profiles(name), " +
+  "id, kind, slug, title, description, price, cover_url, tags, created_at, duration_minutes, author:profiles(name), " +
   "content_meditation_meta(*), content_meditation_body(*), content_guide_meta(*), content_guide_body(*)";
 
 // Fields that keep the code copy's value for a material that exists in both places: the editorial author name
@@ -33,6 +34,17 @@ export function loadMaterialsFromDb(): Promise<void> {
     const m = rows.map(meditationFromRow).filter((x): x is NonNullable<typeof x> => !!x);
     const g = rows.map(guideFromRow).filter((x): x is NonNullable<typeof x> => !!x);
     // paid files are stored as references; swap them for signed links (only people with access get one)
+    // cover focal points live in a separate column; a missing column simply means "centred"
+    const withCover = m.filter((x) => x.coverUrl);
+    if (withCover.length) {
+      const ids = rows.filter((r) => r.kind === "meditation" && r.cover_url).map((r) => r.id);
+      const focusRes = await client.from("content").select("id, slug, cover_focus").in("id", ids);
+      if (!focusRes.error) (focusRes.data ?? []).forEach((r) => {
+        const f = parseCoverFocus(r.cover_focus);
+        const med = m.find((x) => x.id === r.slug);
+        if (f && med) med.coverFocus = f;
+      });
+    }
     const signed = await signPaidFileRefs([...m.map((x) => x.audioUrl), ...g.map((x) => x.fileUrl)]);
     m.forEach((x) => {
       if (isPaidFileRef(x.audioUrl)) x.audioUrl = signed.get(x.audioUrl) ?? "";

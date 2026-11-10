@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Текст практики: макет</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f7f6ff;color:#1d1a3b;padding:32px 20px 60px}
+.wrap{max-width:980px;margin:0 auto}
+h1{font-size:26px;margin:0 0 6px}p.lead{margin:0 0 28px;color:#4b4a66;font-size:16px}
+h2{font-size:18px;margin:36px 0 12px;color:#4a2fd0}
+.card{background:#fff;border:1px solid #e3def9;border-radius:28px;box-shadow:0 24px 60px -34px rgba(60,50,140,.5);overflow:hidden}
+.player{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.left{padding:36px;background:linear-gradient(160deg,#0e9f9d,#6ee7b7);color:#fff;display:flex;flex-direction:column;justify-content:space-between;min-height:340px}
+.left small{opacity:.9;font-size:14px}.left h3{font-size:30px;margin:6px 0 4px}.left .by{font-size:15px;opacity:.95}
+.right{padding:36px;display:flex;flex-direction:column;justify-content:center;gap:22px}
+.bar{height:8px;border-radius:4px;background:#ece9fe;position:relative}.bar i{position:absolute;left:0;top:0;bottom:0;width:38%;border-radius:4px;background:#5b3df5}
+.time{display:flex;justify-content:space-between;font-size:14px;color:#4b4a66}
+.ctrls{display:flex;justify-content:center;align-items:center;gap:18px}
+.play{width:68px;height:68px;border-radius:50%;background:#5b3df5;display:grid;place-items:center;box-shadow:0 12px 26px -12px rgba(91,61,245,.9)}
+.play svg{width:26px;height:26px;fill:#fff}
+.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{padding:9px 14px;border-radius:999px;border:1px solid #d9d4f5;font-size:14px;font-weight:600;background:#fff;min-height:44px;display:flex;align-items:center}.chip.on{background:#f3efff;border-color:#5b3df5;color:#4a2fd0}
+.tr{border-top:1px solid #ece9fe;padding:22px 36px 28px;background:#faf9ff}
+.tr-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.tr-head b{font-size:16px;display:flex;align-items:center;gap:10px}
+.ic{width:34px;height:34px;border-radius:10px;background:#ece9fe;color:#4a2fd0;display:grid;place-items:center}
+.btn{min-height:44px;padding:0 18px;border-radius:999px;border:1px solid #d9d4f5;background:#fff;font-weight:600;font-size:14px;color:#4a2fd0}
+.tr-body{max-height:200px;overflow:auto;font-size:17px;line-height:1.7;color:#2d2a5c}.tr-body p{margin:0 0 12px}
+.tr-body .now{background:#ece9fe;border-radius:8px;padding:2px 6px}
+.note{font-size:13px;color:#4b4a66;margin-top:10px}
+.author{padding:26px;display:grid;gap:14px}
+.lab{font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px}.lab span.opt{font-weight:400;color:#6b6a85;font-size:13px}
+.ta{border:1px solid #d9d4f5;border-radius:14px;padding:14px 16px;min-height:130px;font-size:15px;line-height:1.6;color:#2d2a5c;background:#fff}
+.hint{border-radius:14px;background:#f3efff;border:1px solid #e3def9;padding:12px 16px;font-size:14px;color:#2d2a5c}
+@media(max-width:760px){.player{grid-template-columns:1fr}}
+</style></head><body><div class="wrap">
+<h1>Текст практики: як це виглядатиме</h1>
+<p class="lead">Макет для медитації «Вечірнє заспокоєння». Текст необов'язковий: якщо автор його додав, під плеєром з'являється блок для читання.</p>
+
+<h2>1. Учасник: екран медитації, є текст</h2>
+<div class="card">
+ <div class="player">
+  <div class="left"><div><small>Медитація · 10 хв</small><h3>Вечірнє заспокоєння</h3><div class="by">Олена Коваленко, психолог</div></div><small>Фонова музика: Sensoria</small></div>
+  <div class="right">
+   <div><div class="bar"><i></i></div><div class="time"><span>3:48</span><span>10:00</span></div></div>
+   <div class="ctrls"><div class="play"><svg viewBox="0 0 24 24"><path d="M8.5 5.5v13M15.5 5.5v13" stroke="#fff" stroke-width="3.5" stroke-linecap="round" fill="none"/></svg></div></div>
+   <div class="chips"><span class="chip on">Дощ</span><span class="chip">Ліс</span><span class="chip">Море</span><span class="chip">Вогонь</span></div>
+  </div>
+ </div>
+ <div class="tr">
+  <div class="tr-head"><b><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M9 12h6M9 16h4"/></svg></span>Текст практики</b><button class="btn">Згорнути</button></div>
+  <div class="tr-body">
+   <p>Сядьте зручно. Нехай плечі опустяться, а дихання стане повільним.</p>
+   <p class="now">Зробіть вдих на чотири рахунки, і повільно видихніть на шість.</p>
+   <p>Відчуйте, як напруга дня поступово залишає тіло. Нікуди не поспішайте.</p>
+   <p>Коли будете готові, повертайтеся уважністю до кімнати.</p>
+  </div>
+  <div class="note">Поточний абзац підсвічується, поки звучить запис. Текст додав автор.</div>
+ </div>
+</div>
+
+<h2>2. Учасник: тексту немає</h2>
+<div class="card"><div class="player"><div class="left"><div><small>Медитація · 10 хв</small><h3>Вечірнє заспокоєння</h3><div class="by">Олена Коваленко, психолог</div></div></div><div class="right"><div class="bar"><i></i></div><div class="ctrls"><div class="play"><svg viewBox="0 0 24 24"><path d="M8.5 5.5v13M15.5 5.5v13" stroke="#fff" stroke-width="3.5" stroke-linecap="round" fill="none"/></svg></div></div></div></div></div>
+<div class="note">Блок просто не показується, порожнього місця не лишається.</div>
+
+<h2>3. Автор: необов'язкове поле на кроці «Аудіо та про запис»</h2>
+<div class="card author">
+ <div class="lab">Текст практики <span class="opt">(необов'язково)</span></div>
+ <div class="ta">Сядьте зручно. Нехай плечі опустяться, а дихання стане повільним…</div>
+ <div class="hint">Текст допомагає людям, які погано чують, і тим, кому зручніше читати. Учасники побачать його під плеєром.</div>
+</div>
+</div></body></html>

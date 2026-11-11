@@ -13,6 +13,7 @@
     "build:materials-seed": "node --experimental-strip-types scripts/build-materials-seed.mjs"
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "@supabase/supabase-js": "^2.45.0",
     "framer-motion": "^12.38.0",
     "react": "^19.2.5",

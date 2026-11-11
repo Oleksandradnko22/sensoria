@@ -12,7 +12,7 @@ import CategoryGlyph from "./CategoryGlyph";
 import ConfirmDialog from "./ConfirmDialog";
 import CoverMaker from "./CoverMaker";
 import { MAX_PROGRAM_CATEGORIES, categoriesProblem, categoryTags, primaryCategory, makePrimaryCategory, orderTags, toggleCategoryTag } from "../../utils/programCategories";
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import { MAX_LESSONS_PER_MODULE, MAX_MODULES, lessonLimitReached } from "../../utils/programModule";
 import { deriveLessonType } from "../../utils/lessonType";
 import { lessonChecks, validatePublishable } from "../../utils/programPublish";
@@ -46,6 +46,9 @@ import { checkYoutubeVideo, UNAVAILABLE_VIDEO_MESSAGE, type VideoAvailability } 
 import { usesProfileIntro, withProfileIntro } from "../../utils/introVideoSource";
 import { hasAcceptedAuthorAgreement, acceptAuthorAgreement } from "../../lib/consents";
 import AuthorAgreementDialog from "./AuthorAgreementDialog";
+import { emptyStudioState, type StudioState } from "../../utils/meditationStudio";
+// the studio (and its MP3 packer) is loaded only when an author opens it
+const MeditationStudio = lazy(() => import("./MeditationStudio"));
 
 // Only the types that actually change anything in the Lesson Player —
 // "image"/"pdf"/"mixed" still exist in ContentItemType (and the
@@ -163,6 +166,9 @@ export default function AuthorCourseEditor({
   // Guide builder: the blocks of an interactive guide live here; the page itself is components/author/GuideBuilder.tsx.
   const [guideBlocks, setGuideBlocks] = useState<GuideContent>(editing?.guideBlocks ?? []);
   const [builderOpen, setBuilderOpen] = useState(false);
+  // Meditation recording studio: takes stay here while the editor is open, so closing the studio loses nothing.
+  const [studioOpen, setStudioOpen] = useState(false);
+  const studioStore = useRef<StudioState>(emptyStudioState());
   // always the latest blocks (saving right after onChange must not see the old ones) and the blocks as they were when the builder opened
   const guideBlocksRef = useRef<GuideContent>(guideBlocks);
   guideBlocksRef.current = guideBlocks;
@@ -483,14 +489,14 @@ export default function AuthorCourseEditor({
     }
   };
 
-  const handleMainFileUpload = async (file: File) => {
+  const handleMainFileUpload = async (file: File): Promise<boolean> => {
     if (!authorId) {
       setError("Не вдалося визначити автора — увійдіть ще раз.");
-      return;
+      return false;
     }
     if (type === "meditation" && file.size > MEDITATION_MAX_AUDIO_BYTES) {
       setError(`Файл завеликий: до ${Math.round(MEDITATION_MAX_AUDIO_BYTES / 1024 / 1024)} МБ. Стисніть запис (mp3, 128 кбіт/с) і завантажте ще раз.`);
-      return;
+      return false;
     }
     setMainFileUploading(true);
     setError(null);
@@ -508,12 +514,14 @@ export default function AuthorCourseEditor({
         // The real length of the recording, so a wrong typed number can't reach the catalog and the player.
         const minutes = await audioMinutes(file);
         if (minutes) {
-          if (minutes > MEDITATION_MAX_MINUTES) { setError(`Запис довший за ${MEDITATION_MAX_MINUTES} хвилин. Скоротіть його або розділіть на кілька медитацій.`); setMainFileUrl(""); return; }
+          if (minutes > MEDITATION_MAX_MINUTES) { setError(`Запис довший за ${MEDITATION_MAX_MINUTES} хвилин. Скоротіть його або розділіть на кілька медитацій.`); setMainFileUrl(""); return false; }
           setDurationMinutes(String(Math.max(1, Math.round(minutes)))); setDurationAuto(true);
         }
       }
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не вдалося завантажити файл.");
+      return false;
     } finally {
       setMainFileUploading(false);
     }
@@ -1168,7 +1176,7 @@ export default function AuthorCourseEditor({
       <div className="rounded-2xl border border-[#e3def9] bg-gradient-to-r from-[#f6f4ff] to-[#ece9fe] p-4 sm:p-5">
         <div className="text-[15px] font-semibold text-[#1d1a3b]">{isGuide ? "Файл або конструктор" : "Аудіо медитації"} {!(isGuide && structuredGuide) && <span className="text-rose-600" aria-hidden="true">*</span>}</div>
         <ul className="mt-2 flex flex-col gap-1.5 text-[14px] leading-snug text-[#2d2a5c]">
-          {(isGuide ? ["Завантажте готовий PDF, до 30 МБ: читач побачить його як є", "Або створіть гайд у конструкторі: він буде інтерактивним (розділи, шкали, практики, нотатки), а PDF-версію читач отримає автоматично, якщо ви дозволите завантаження"] : ["MP3 або WAV, до 200 МБ", "Чистий запис без фонового шуму, рівна гучність голосу"]).map((t) => (
+          {(isGuide ? ["Завантажте готовий PDF, до 30 МБ: читач побачить його як є", "Або створіть гайд у конструкторі: він буде інтерактивним (розділи, шкали, практики, нотатки), а PDF-версію читач отримає автоматично, якщо ви дозволите завантаження"] : ["Завантажте готовий запис: MP3 або WAV, до 200 МБ", "Або запишіть у студії Sensoria: читаєте текст практики фрагмент за фрагментом, додаєте паузи й фон, а студія сама вирівняє звук"]).map((t) => (
             <li key={t} className="flex items-start gap-2.5">
               <span aria-hidden="true" className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#5b3df5] text-white"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></span>
               {t}
@@ -1191,6 +1199,12 @@ export default function AuthorCourseEditor({
               }}
             />
           </label>
+          {!isGuide && (
+            <button type="button" onClick={() => setStudioOpen(true)} disabled={mainFileUploading} className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#5b3df5] bg-white px-5 text-[14px] font-semibold text-[#4a2fd0] transition hover:bg-[#f3efff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 disabled:opacity-50">
+              <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-rose-500" />
+              Записати в студії
+            </button>
+          )}
           {isGuide && (
             <button type="button" onClick={() => { builderStart.current = guideBlocks; if (guideBlocks.length === 0) { const s = starterBlocks(); guideBlocksRef.current = s; setGuideBlocks(s); } setBuilderOpen(true); }} className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#5b3df5] bg-white px-5 text-[14px] font-semibold text-[#4a2fd0] transition hover:bg-[#f3efff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50">
               <span aria-hidden="true" className="text-[18px] leading-none">{structuredGuide ? "✎" : "+"}</span>
@@ -1234,6 +1248,25 @@ export default function AuthorCourseEditor({
             handleCoverUpload(file, true);
           }}
         />
+      )}
+      {studioOpen && authorId && (
+        <Suspense fallback={<div role="status" className="fixed inset-0 z-[998] grid place-items-center bg-[#f4f0ff] text-[15px] text-[#4a2fd0]">Відкриваємо студію…</div>}>
+          <MeditationStudio
+            title={title}
+            transcript={transcriptText}
+            maxChars={TRANSCRIPT_MAX_CHARS}
+            maxMinutes={MEDITATION_MAX_MINUTES}
+            store={studioStore}
+            onTranscriptChange={setTranscriptText}
+            onDone={async (file, info) => {
+              if (!(await handleMainFileUpload(file))) return "Не вдалося зберегти запис. Перевірте з'єднання й спробуйте ще раз.";
+              // music is mixed into the recording: participants are then not offered a second music on top
+              if (info.hasMusic) setHasEmbeddedMusic(true);
+              return null;
+            }}
+            onClose={() => setStudioOpen(false)}
+          />
+        </Suspense>
       )}
       {builderOpen && authorId && (
         <GuideBuilder

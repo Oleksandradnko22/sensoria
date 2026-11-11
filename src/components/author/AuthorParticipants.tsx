@@ -11,6 +11,7 @@ import {
   type ParticipantEngagementSummary,
 } from "../../lib/authorParticipants";
 import { fetchProgramItems } from "../../lib/publicContent";
+import { SHOW_AUTHOR_DEMO } from "../../utils/demoMode";
 import type { ContentModule } from "../../data/contentTypes";
 
 const segmentLabel: Record<ParticipantSegment, string> = {
@@ -42,7 +43,6 @@ type Row = {
   progressPercent: number;
   lastActive: string;
   segment: ParticipantSegment;
-  certificateIssued: boolean;
 };
 
 type Props = {
@@ -53,12 +53,6 @@ export default function AuthorParticipants({ content }: Props) {
   const [search, setSearch] = useState("");
   const [segment, setSegment] = useState<"all" | ParticipantSegment>("all");
   const [contentFilter, setContentFilter] = useState<"all" | string>("all");
-  // Certificates — still a purely local, this-session-only toggle (see
-  // AuthorParticipants' original comment); real persistence is a
-  // separate, later decision per Sasha (2026-08-27), not part of this
-  // pass. Keyed by the same synthetic row id as everything else here.
-  const [issued, setIssued] = useState<Record<string, boolean>>({});
-
   const contentTitle = (id: string) => content.find((c) => c.id === id)?.title ?? id;
 
   const [realParticipants, setRealParticipants] = useState<AuthorParticipant[]>([]);
@@ -82,7 +76,7 @@ export default function AuthorParticipants({ content }: Props) {
   }, [realContentIds]);
 
   const rows: Row[] = useMemo(() => {
-    const demoRows: Row[] = participantsData.map((p) => ({
+    const demoRows: Row[] = (SHOW_AUTHOR_DEMO ? participantsData : []).map((p) => ({
       id: p.id,
       isReal: false,
       name: p.name,
@@ -91,7 +85,6 @@ export default function AuthorParticipants({ content }: Props) {
       progressPercent: p.progressPercent,
       lastActive: p.lastActive,
       segment: p.segment,
-      certificateIssued: issued[p.id] ?? p.certificateIssued,
     }));
     const realRows: Row[] = realParticipants.map((p) => {
       const id = `${p.userId}:${p.contentId}`;
@@ -104,19 +97,17 @@ export default function AuthorParticipants({ content }: Props) {
         progressPercent: p.progressPercent,
         lastActive: p.lastActiveAt.slice(0, 10),
         segment: p.segment,
-        certificateIssued: issued[id] ?? false,
       };
     });
     return [...realRows, ...demoRows];
-  }, [realParticipants, issued]);
+  }, [realParticipants]);
 
   const filtered = rows.filter((p) => {
     if (segment !== "all" && p.segment !== segment) return false;
     if (contentFilter !== "all" && p.contentId !== contentFilter) return false;
     if (
       search &&
-      !p.name.toLowerCase().includes(search.toLowerCase()) &&
-      !p.email.toLowerCase().includes(search.toLowerCase())
+      !p.name.toLowerCase().includes(search.toLowerCase())
     )
       return false;
     return true;
@@ -168,7 +159,7 @@ export default function AuthorParticipants({ content }: Props) {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Пошук за ім'ям або email"
+          placeholder="Пошук за ім'ям"
           className="px-4 py-2.5 rounded-xl border border-black/10 text-[14px] focus:outline-none focus:border-black/30 min-w-[240px]"
         />
 
@@ -236,7 +227,6 @@ export default function AuthorParticipants({ content }: Props) {
                     </span>
                   )}
                 </div>
-                <div className="text-[12px] text-black/40 truncate">{p.email}</div>
               </div>
 
               <div className="text-[13px] text-black/70 truncate">
@@ -263,22 +253,7 @@ export default function AuthorParticipants({ content }: Props) {
                 </span>
               </div>
 
-              <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
-                {p.progressPercent === 100 && (
-                  <button
-                    onClick={() =>
-                      setIssued((prev) => ({ ...prev, [p.id]: !p.certificateIssued }))
-                    }
-                    className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition ${
-                      p.certificateIssued
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-black/5 hover:bg-black/10"
-                    }`}
-                  >
-                    {p.certificateIssued ? "Сертифікат видано ✓" : "Видати сертифікат"}
-                  </button>
-                )}
-              </div>
+              <div />
             </div>
 
             {/* ENGAGEMENT SUMMARY — aggregated counts only, never the

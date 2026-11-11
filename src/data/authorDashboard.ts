@@ -253,7 +253,6 @@ export type ParticipantProgress = {
   lastActive: string;
   enrolledAt: string;
   segment: ParticipantSegment;
-  certificateIssued: boolean;
 };
 
 export const participants: ParticipantProgress[] = [
@@ -266,7 +265,6 @@ export const participants: ParticipantProgress[] = [
     lastActive: "2026-08-10",
     enrolledAt: "2026-05-01",
     segment: "active",
-    certificateIssued: true,
   },
   {
     id: "s2",
@@ -277,7 +275,6 @@ export const participants: ParticipantProgress[] = [
     lastActive: "2026-08-09",
     enrolledAt: "2026-06-14",
     segment: "active",
-    certificateIssued: false,
   },
   {
     id: "s3",
@@ -288,7 +285,6 @@ export const participants: ParticipantProgress[] = [
     lastActive: "2026-07-02",
     enrolledAt: "2026-06-20",
     segment: "inactive",
-    certificateIssued: false,
   },
   {
     id: "s4",
@@ -299,7 +295,6 @@ export const participants: ParticipantProgress[] = [
     lastActive: "2026-08-08",
     enrolledAt: "2026-07-01",
     segment: "active",
-    certificateIssued: false,
   },
   {
     id: "s5",
@@ -310,7 +305,6 @@ export const participants: ParticipantProgress[] = [
     lastActive: "2026-08-11",
     enrolledAt: "2026-08-10",
     segment: "new",
-    certificateIssued: false,
   },
   {
     id: "s6",
@@ -321,7 +315,6 @@ export const participants: ParticipantProgress[] = [
     lastActive: "2026-08-01",
     enrolledAt: "2026-07-20",
     segment: "active",
-    certificateIssued: false,
   },
 ];
 

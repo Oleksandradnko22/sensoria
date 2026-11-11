@@ -1,6 +1,7 @@
 // The signed-in person's OWN chat-ban state (read-only here — bans are
 // created by the send-message Edge Function and lifted by an admin; the
 // columns are pinned against client writes by a DB trigger).
+import { fetchMyPrivateProfile } from "./privateProfile.ts";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabaseClient.ts";
 import type { ChatBanFields } from "../utils/chatBan.ts";
@@ -13,14 +14,10 @@ export async function fetchMyChatBan(userId: string): Promise<ChatBanFields | nu
     if (demo.moderationDemoOn()) return demo.DEMO_MY_CHAT_BAN;
   }
   if (!supabase) return null;
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("chat_banned_until, chat_ban_permanent")
-    .eq("id", userId)
-    .maybeSingle();
-  // Error (e.g. migration not run yet) → treat as "no ban"; the server is
-  // the source of truth anyway and refuses banned senders.
-  if (error || !data) return null;
+  // private field: read through my_private_profile (lib/privateProfile.ts). Unreadable → treat as "no ban"; the
+  // server is the source of truth anyway and refuses banned senders.
+  const data = await fetchMyPrivateProfile(userId).catch(() => null);
+  if (!data) return null;
   return { permanent: !!data.chat_ban_permanent, untilIso: data.chat_banned_until ?? null };
 }
 

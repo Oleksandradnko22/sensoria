@@ -7,6 +7,7 @@
 // touched" — the caller's own hardcoded defaults fill the gap, so this
 // column only needs to store what someone actually changed.
 
+import { fetchMyPrivateProfile } from "./privateProfile.ts";
 import { supabase } from "./supabaseClient.ts";
 
 export type NotificationPref = { email: boolean };
@@ -17,13 +18,10 @@ export async function fetchNotificationPrefs(
   opts: { strict?: boolean } = {}
 ): Promise<NotificationPrefs> {
   if (!supabase) return {};
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("notification_prefs")
-    .eq("id", profileId)
-    .single();
-  if (error && opts.strict) throw error;
-  if (error || !data) return {};
+  // a person's settings are private: read through my_private_profile (lib/privateProfile.ts)
+  const data = await fetchMyPrivateProfile(profileId);
+  if (!data && opts.strict) throw new Error("Не вдалося прочитати налаштування сповіщень.");
+  if (!data) return {};
   return (data.notification_prefs as NotificationPrefs) ?? {};
 }
 

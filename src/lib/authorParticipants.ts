@@ -75,8 +75,8 @@ export async function fetchRealParticipants(contentIds: string[]): Promise<Autho
 
   const userIds = Array.from(new Set(rows.map((r) => r.user_id)));
   const { data: profileRows } = userIds.length
-    ? await client.from("profiles").select("id, name, email").in("id", userIds)
-    : { data: [] as { id: string; name: string; email: string }[] };
+    ? await client.from("profiles").select("id, name").in("id", userIds)
+    : { data: [] as { id: string; name: string }[] };
   const profileById = new Map((profileRows ?? []).map((p) => [p.id, p]));
 
   const distinctContentIds = Array.from(new Set(rows.map((r) => r.content_id)));
@@ -97,7 +97,8 @@ export async function fetchRealParticipants(contentIds: string[]): Promise<Autho
       userId: row.user_id,
       contentId: row.content_id,
       name: profile?.name ?? "Учасник Sensoria",
-      email: profile?.email ?? "",
+      // an author never gets a participant's email: contact goes through «Повідомлення»
+      email: "",
       progressPercent: percent,
       isCompleted,
       lastActiveAt: row.updated_at,
@@ -128,17 +129,9 @@ export async function fetchParticipantEngagement(
 
   const itemIds = modules ? modules.flatMap((m) => m.items.map((it) => it.id)) : [];
 
-  const [practiceResult, reflectionResult, moodResult, feedbackResult] = await Promise.all([
-    client
-      .from("content_item_practice_responses")
-      .select("id", { count: "exact", head: true })
-      .eq("program_id", programId)
-      .eq("user_id", userId),
-    client
-      .from("content_item_reflections")
-      .select("id", { count: "exact", head: true })
-      .eq("program_id", programId)
-      .eq("user_id", userId),
+  // a person's practice answers and reflections are their private journal: the author only gets how many there are
+  const [countsResult, moodResult, feedbackResult] = await Promise.all([
+    client.rpc("author_engagement_counts", { p_program: programId, p_user: userId }),
     client
       .from("content_item_mood_checkins")
       .select("before_value, after_value")
@@ -165,11 +158,13 @@ export async function fetchParticipantEngagement(
         }
       : null;
 
+  const countsRow = Array.isArray(countsResult.data) ? countsResult.data[0] : countsResult.data;
+  const counts = (countsResult.error ? null : countsRow) as { practice_count?: number; reflection_count?: number } | null;
   const feedbackRows = (feedbackResult.data ?? []) as { is_helpful: boolean }[];
 
   return {
-    practiceResponsesCount: practiceResult.count ?? 0,
-    reflectionsCount: reflectionResult.count ?? 0,
+    practiceResponsesCount: Number(counts?.practice_count) || 0,
+    reflectionsCount: Number(counts?.reflection_count) || 0,
     moodAverage,
     feedbackHelpfulCount: feedbackRows.filter((r) => r.is_helpful).length,
     feedbackNotHelpfulCount: feedbackRows.filter((r) => !r.is_helpful).length,

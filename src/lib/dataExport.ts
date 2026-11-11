@@ -6,6 +6,7 @@
 // function that would have to be trusted to only ever return the
 // caller's own data.
 
+import { fetchMyPrivateProfile } from "./privateProfile.ts";
 import { supabase } from "./supabaseClient.ts";
 
 function requireSupabase() {
@@ -66,7 +67,11 @@ export async function exportMyData(profileId: string): Promise<Record<string, un
   const client = requireSupabase();
 
   const [profileRes, messagesRes, coreRes, extraRes] = await Promise.all([
-    client.from("profiles").select("*").eq("id", profileId).single(),
+    // public card + own private fields (others' rows expose only the card: supabase/privacy-profiles-reflections.sql)
+    Promise.all([
+      client.from("profiles").select("id, role, name, avatar_initials, avatar_url, member_since, created_at, left_platform_at").eq("id", profileId).single(),
+      fetchMyPrivateProfile(profileId),
+    ]).then(([pub, priv]) => ({ data: pub.data ? { ...pub.data, ...(priv ?? {}) } : null, error: pub.error })),
     // explicit columns: the original text of deleted messages stays server-side
     client
       .from("messages")

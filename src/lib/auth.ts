@@ -6,6 +6,7 @@
 // profiles row server-side (see that file's comments for why it's a
 // trigger and not a client-side insert).
 
+import { fetchMyPrivateProfile } from "./privateProfile.ts";
 import { supabase, createIsolatedClient } from "./supabaseClient.ts";
 import { removeCurrentDeviceSession } from "./deviceSessions.ts";
 import type { UserRole } from "../utils/session.ts";
@@ -191,16 +192,20 @@ export async function fetchCurrentProfile(): Promise<Profile | null> {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, role, name, email, avatar_url, is_admin, is_banned, member_since, deletion_requested_at"
+      "id, role, name, avatar_url, is_admin, member_since"
     )
     .eq("id", user.id)
     .single();
   if (error || !data) return null;
+  // email, ban and deletion flags are private: read through my_private_profile (lib/privateProfile.ts)
+  const priv = await fetchMyPrivateProfile(user.id);
+  if (!priv) return null;
+  const { email, is_banned, deletion_requested_at } = priv;
 
   // Simplest real enforcement of a ban for now: treat it exactly like
   // not being logged in at all, rather than building a dedicated
   // "you've been banned" screen this pass.
-  if (data.is_banned) {
+  if (is_banned) {
     await supabase.auth.signOut();
     return null;
   }
@@ -215,8 +220,8 @@ export async function fetchCurrentProfile(): Promise<Profile | null> {
   // happened. Fire-and-forget: the object returned below already uses
   // the authoritative value either way, this just saves it for next
   // time so the row doesn't stay stale.
-  const authoritativeEmail = user.email ?? data.email;
-  if (authoritativeEmail !== data.email) {
+  const authoritativeEmail = user.email ?? email;
+  if (authoritativeEmail !== email) {
     void supabase.from("profiles").update({ email: authoritativeEmail }).eq("id", user.id);
   }
 
@@ -234,7 +239,7 @@ export async function fetchCurrentProfile(): Promise<Profile | null> {
     avatarUrl: data.avatar_url,
     isAdmin: data.is_admin,
     memberSince: data.member_since,
-    deletionRequestedAt: data.deletion_requested_at,
+    deletionRequestedAt: deletion_requested_at,
   };
 }
 

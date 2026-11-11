@@ -636,6 +636,48 @@ Deno.serve(async (req) => {
     const senderId = userData.user.id;
 
     const payload = await req.json().catch(() => null);
+
+    // ── BROADCAST: one message from an author to their participants (supabase/messages-scale.sql) ──
+    // Delivered as ordinary messages (each person sees it in their own inbox), moderated like any message,
+    // at most one per 24 hours, at most 1500 characters and 5000 people; no e-mails (in-app only, no mass mail).
+    if (payload?.action === "broadcast") {
+      const admin = createClient(supabaseUrl, serviceKey);
+      const bText = typeof payload?.text === "string" ? payload.text.trim() : "";
+      const bContent = typeof payload?.contentId === "string" && /^[0-9a-f-]{36}$/i.test(payload.contentId) ? payload.contentId : null;
+      if (bText.length < 10 || bText.length > 1500) return json({ error: "Текст розсилки — від 10 до 1500 символів." }, 400);
+      const { data: me } = await admin.from("profiles").select("role, is_admin, chat_banned_until, chat_ban_permanent").eq("id", senderId).maybeSingle();
+      if (!me || me.role !== "author") return json({ error: "Розсилка доступна лише авторам." }, 403);
+      const banUntil = me.chat_banned_until ? Date.parse(me.chat_banned_until) : NaN;
+      if (!me.is_admin && (me.chat_ban_permanent || (Number.isFinite(banUntil) && banUntil > Date.now()))) {
+        return json({ error: "Чат для вашого акаунта заблоковано, тому розсилка зараз недоступна." }, 403);
+      }
+      const mod = moderateMessage(bText);
+      if (mod.action === "BLOCK") {
+        return json({ error: "Розсилка містить контакти, посилання для спілкування поза Sensoria або грубі слова, тому її не можна надіслати." }, 400);
+      }
+      const day = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: recent } = await admin.from("author_broadcasts").select("created_at").eq("author_id", senderId).gte("created_at", day).order("created_at", { ascending: false }).limit(1);
+      if (recent && recent.length > 0) {
+        const next = new Date(Date.parse(recent[0].created_at) + 24 * 60 * 60 * 1000);
+        return json({ error: `Розсилку можна надсилати раз на добу. Наступна — після ${next.toLocaleString("uk-UA", { timeZone: "Europe/Kyiv", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}.` }, 429);
+      }
+      if (bContent) {
+        const { data: own } = await admin.from("content").select("id").eq("id", bContent).eq("author_id", senderId).maybeSingle();
+        if (!own) return json({ error: "Матеріал не знайдено." }, 404);
+      }
+      const { data: rec, error: recError } = await admin.rpc("author_broadcast_recipients", { p_author: senderId, p_content: bContent });
+      if (recError) return json({ error: "Розсилка ще не підключена в базі (supabase/messages-scale.sql)." }, 500);
+      const ids = Array.from(new Set(((rec ?? []) as { user_id: string }[]).map((r) => r.user_id))).slice(0, 5000);
+      if (ids.length === 0) return json({ error: "Поки немає учасників, яким можна надіслати розсилку." }, 400);
+      for (let i = 0; i < ids.length; i += 500) {
+        const rows = ids.slice(i, i + 500).map((rid) => ({ sender_id: senderId, recipient_id: rid, content_id: bContent, body: bText, moderation_action: mod.action }));
+        const { error: insErr } = await admin.from("messages").insert(rows);
+        if (insErr) return json({ error: insErr.message }, 500);
+      }
+      await admin.from("author_broadcasts").insert({ author_id: senderId, content_id: bContent, body: bText, recipients: ids.length });
+      return json({ ok: true, sent: ids.length, warned: mod.action === "WARN" });
+    }
+
     const recipientId = payload?.recipientId as string | undefined;
     const contentId = (payload?.contentId as string | null | undefined) ?? null;
     const text = payload?.text as string | undefined;

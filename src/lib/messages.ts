@@ -111,6 +111,12 @@ export async function fetchConversations(
   opts: { strict?: boolean } = {}
 ): Promise<RealConversation[]> {
   const client = requireSupabase();
+  // fast path: the newest 50 conversations built in the database (supabase/messages-scale.sql)
+  const fast = await client.rpc("my_conversations", { p_limit: 50, p_offset: 0, p_search: null, p_filter: "everything" });
+  if (!fast.error && fast.data) {
+    const items = ((fast.data as { items?: { other_id: string; content_id: string | null; last_at: string; preview: string; unread: boolean; other_name: string; other_avatar: string | null; content_title: string | null }[] }).items ?? []);
+    return items.map((i) => ({ otherId: i.other_id, otherName: i.other_name, otherAvatarUrl: i.other_avatar, contentId: i.content_id, contentTitle: i.content_title, preview: i.preview, date: i.last_at, unread: i.unread }));
+  }
   const listQ = (cols: string) =>
     client.from("messages").select(cols).or(`sender_id.eq.${myId},recipient_id.eq.${myId}`).order("created_at", { ascending: true });
   // `deleted_at` exists after messages-delete-migration.sql; until then fall back
@@ -188,6 +194,11 @@ export async function fetchThread(
   opts: { strict?: boolean } = {}
 ): Promise<ThreadMessage[]> {
   const client = requireSupabase();
+  // fast path: the newest 100 messages of this conversation only (supabase/messages-scale.sql)
+  const fast = await client.rpc("my_thread", { p_other: otherId, p_content: contentId, p_before: null, p_limit: 100 });
+  if (!fast.error && Array.isArray(fast.data)) {
+    return (fast.data as { id: string; sender_id: string; body: string; created_at: string; deleted: boolean }[]).map((r) => ({ id: r.id, senderId: r.sender_id, body: r.body, deleted: r.deleted, createdAt: r.created_at }));
+  }
   const threadQ = (cols: string) =>
     client
       .from("messages")
@@ -303,4 +314,62 @@ export async function deleteConversation(otherId: string, contentId: string | nu
   const client = requireSupabase();
   const { error } = await client.rpc("hide_conversation", { p_other: otherId, p_content: contentId });
   if (error) throw error;
+}
+
+// ── light loading (supabase/messages-scale.sql); falls back to the old full read while that file isn't applied ──
+
+export type ConversationFilter = "all" | "unread" | "archive";
+export type ConversationsPage = { total: number; unread: number; archived: number; items: RealConversation[]; paged: boolean };
+
+export async function fetchConversationsPage(
+  myId: string,
+  q: { limit: number; offset: number; search?: string; filter?: ConversationFilter }
+): Promise<ConversationsPage> {
+  const client = requireSupabase();
+  const { data, error } = await client.rpc("my_conversations", { p_limit: q.limit, p_offset: q.offset, p_search: q.search?.trim() || null, p_filter: q.filter ?? "all" });
+  if (!error && data) {
+    const d = data as { total: number; unread: number; archived: number; items: { other_id: string; content_id: string | null; last_at: string; preview: string; unread: boolean; other_name: string; other_avatar: string | null; content_title: string | null }[] };
+    return {
+      total: d.total ?? 0,
+      unread: d.unread ?? 0,
+      archived: d.archived ?? 0,
+      paged: true,
+      items: (d.items ?? []).map((i) => ({ otherId: i.other_id, otherName: i.other_name, otherAvatarUrl: i.other_avatar, contentId: i.content_id, contentTitle: i.content_title, preview: i.preview, date: i.last_at, unread: i.unread })),
+    };
+  }
+  // old database: everything at once, filtered here
+  const all = await fetchConversations(myId);
+  const s = q.search?.trim().toLowerCase();
+  const list = all.filter((c) => (q.filter === "unread" ? c.unread : true) && (!s || `${c.otherName} ${c.contentTitle ?? ""} ${c.preview}`.toLowerCase().includes(s)));
+  return { total: list.length, unread: all.filter((c) => c.unread).length, archived: 0, paged: false, items: q.filter === "archive" ? [] : list.slice(q.offset, q.offset + q.limit) };
+}
+
+/** The newest `limit` messages of a conversation, or the ones before `before` (older pages). */
+export async function fetchThreadPage(myId: string, otherId: string, contentId: string | null, before: string | null, limit = 50): Promise<{ messages: ThreadMessage[]; hasMore: boolean }> {
+  const client = requireSupabase();
+  const { data, error } = await client.rpc("my_thread", { p_other: otherId, p_content: contentId, p_before: before, p_limit: limit });
+  if (!error && Array.isArray(data)) {
+    const messages = (data as { id: string; sender_id: string; body: string; created_at: string; deleted: boolean }[]).map((r) => ({ id: r.id, senderId: r.sender_id, body: r.body, deleted: r.deleted, createdAt: r.created_at }));
+    return { messages, hasMore: messages.length === limit };
+  }
+  if (before) return { messages: [], hasMore: false };
+  return { messages: await fetchThread(myId, otherId, contentId), hasMore: false };
+}
+
+export type Broadcast = { id: string; contentId: string | null; body: string; recipients: number; createdAt: string };
+
+/** An author's message to all participants (or one material's): moderated, once a day, in-app only. */
+export async function sendBroadcast(params: { contentId: string | null; text: string }): Promise<{ sent: number; warned: boolean }> {
+  const client = requireSupabase();
+  const { data, error } = await client.functions.invoke("send-message", { body: { action: "broadcast", contentId: params.contentId, text: params.text } });
+  if (error) throw await describeFunctionsError(error);
+  if (data?.error) throw new Error(data.error);
+  return { sent: Number(data?.sent) || 0, warned: !!data?.warned };
+}
+
+export async function fetchMyBroadcasts(): Promise<Broadcast[]> {
+  const client = requireSupabase();
+  const { data, error } = await client.from("author_broadcasts").select("id, content_id, body, recipients, created_at").order("created_at", { ascending: false }).limit(10);
+  if (error || !data) return [];
+  return data.map((b) => ({ id: b.id, contentId: b.content_id, body: b.body, recipients: b.recipients, createdAt: b.created_at }));
 }

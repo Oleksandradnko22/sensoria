@@ -247,3 +247,10 @@ html {
 body {
   overflow-wrap: anywhere;
 }
+
+/* Thin scrollbars in Sensoria's colours (inner lists, chats). */
+.sensoria-scroll { scrollbar-width: thin; scrollbar-color: #c9bff7 transparent; }
+.sensoria-scroll::-webkit-scrollbar { width: 6px; }
+.sensoria-scroll::-webkit-scrollbar-track { background: transparent; }
+.sensoria-scroll::-webkit-scrollbar-thumb { background: #c9bff7; border-radius: 999px; }
+.sensoria-scroll::-webkit-scrollbar-thumb:hover { background: #a99af0; }

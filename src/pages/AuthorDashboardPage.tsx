@@ -430,6 +430,7 @@ export default function AuthorDashboardPage({
               {visitedSections.has("messages") && (
                 <div className={section === "messages" ? "" : "hidden"}>
                   <AuthorMessages
+                    content={contentList}
                     onUnreadCountChange={setUnreadMessages}
                     readIds={messageReadIds}
                     onMarkRead={markMessageRead}

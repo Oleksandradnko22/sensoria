@@ -84,6 +84,12 @@ export function validatePublishable(content: AuthoredContent, opts?: { isSpecial
     if (price === 0 && isPrivate) add("file-private", "Матеріал безкоштовний, а файл захищений. Завантажте файл ще раз, щоб його могли відкрити.");
   }
 
+  // the same for the lesson files of a paid program (audio, pictures, PDFs); the editor moves them by itself
+  if (content.type === "program" && Number.isFinite(price) && price > 0) {
+    const open = (content.modules ?? []).some((m) => (m.items ?? []).some((it) => [it.audioUrl, it.imageUrl, it.fileUrl].some((u) => has(u) && /\/storage\/v1\/object\/public\/content-files\//.test(u!))));
+    if (open) add("lesson-files-public", "Програма платна, а файли уроків ще відкриті. Зачекайте кілька секунд, поки Sensoria їх захистить, або завантажте їх ще раз.");
+  }
+
   if (content.type === "meditation") {
     if (!has(content.mainFileUrl)) add("audio", "Завантажте аудіо медитації.");
     if (!content.durationMinutes || content.durationMinutes < 1) add("duration", "Вкажіть тривалість у хвилинах.");

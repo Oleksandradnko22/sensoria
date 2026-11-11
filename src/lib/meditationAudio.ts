@@ -81,6 +81,20 @@ export async function makeTake(blob: Blob): Promise<StudioTake | null> {
   return b ? { blob, start: b.start, end: b.end } : null;
 }
 
+// Plays only the voice part of a take. Returns stop().
+export async function playTake(take: StudioTake, onEnd: () => void): Promise<() => void> {
+  const ctx = new AudioContext();
+  const buf = await decode(take.blob, ctx);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ctx.destination);
+  let stopped = false;
+  const stop = () => { if (stopped) return; stopped = true; try { src.stop(); } catch { /* not started */ } void ctx.close(); };
+  src.onended = () => { stop(); onEnd(); };
+  src.start(0, take.start, Math.max(0.05, take.end - take.start));
+  return stop;
+}
+
 // ---------- background ----------
 
 // A background layer: a link to a Sensoria track or the author's own file.

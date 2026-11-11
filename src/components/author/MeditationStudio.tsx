@@ -17,7 +17,7 @@ import {
   type BgChoice,
   type StudioState,
 } from "../../utils/meditationStudio";
-import { encodeMp3, makeTake, micLevel, mixMeditation, openMicrophone, previewBackground, startRecording, type BgSource } from "../../lib/meditationAudio";
+import { encodeMp3, makeTake, micLevel, mixMeditation, openMicrophone, playTake as playTakeAudio, previewBackground, startRecording, type BgSource } from "../../lib/meditationAudio";
 import { BACKGROUND_TRACKS, findBackgroundTrack } from "../../data/meditationBackgroundSounds";
 import { Icon, type IconName } from "../ui/Icon";
 
@@ -57,13 +57,13 @@ const estimateSeconds = (text: string) => Math.max(2, text.length / 12);
 const promptSize = (t: string) => (t.length <= 120 ? "text-[26px] leading-[1.55] sm:text-[30px]" : t.length <= 220 ? "text-[22px] leading-[1.55] sm:text-[25px]" : t.length <= 320 ? "text-[19px] leading-[1.55] sm:text-[21px]" : "text-[17px] leading-[1.5] sm:text-[19px]");
 
 // short advice for a good recording, shown one at a time in the side panel
-const TIPS = [
-  { icon: "headphones" as IconName, title: "Навушники з мікрофоном", text: "Звучать чистіше за мікрофон ноутбука й не ловлять шум вентилятора." },
-  { icon: "moon" as IconName, title: "Говоріть повільніше, ніж зазвичай", text: "Медитацію слухають у спокої: м’який темп і тихий голос допомагають розслабитися." },
-  { icon: "heart" as IconName, title: "Посміхніться перед записом", text: "Легка посмішка робить голос теплішим, навіть якщо її не видно." },
-  { icon: "pause" as IconName, title: "Паузи — частина практики", text: "Після вдиху чи завдання дайте 5–10 секунд тиші: людині потрібен час." },
-  { icon: "refresh" as IconName, title: "Помилились — не страшно", text: "Перезапишіть лише цей фрагмент, решта залишиться як є." },
-];
+const TIPS: { icon: IconName; title: string; text: string }[] = [
+  { icon: "headphones", title: "Навушники з мікрофоном", text: "Чистіший звук, ніж у ноутбука." },
+  { icon: "moon", title: "Говоріть повільніше", text: "М’який темп заспокоює." },
+  { icon: "heart", title: "Посміхніться перед записом", text: "Голос стане теплішим." },
+  { icon: "pause", title: "Паузи — частина практики", text: "Дайте 5–10 секунд тиші після вдиху." },
+  { icon: "refresh", title: "Помилились — не страшно", text: "Перезапишіть лише цей фрагмент." },
+]
 
 // the text screen and the recording screen have the same height on a desktop
 const SCREEN_H = "lg:h-[min(640px,calc(100vh-150px))]";
@@ -136,6 +136,15 @@ export default function MeditationStudio({ title, transcript, maxChars, maxMinut
     stopBg.current?.();
   }, []);
 
+  // recordings live only in this page until the meditation is saved: warn before the tab is closed or reloaded
+  const hasTakes = Object.keys(state.takes).length > 0;
+  useEffect(() => {
+    if (!hasTakes) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [hasTakes]);
+
   useEffect(() => {
     if (!recording) return;
     const t0 = Date.now();
@@ -169,7 +178,7 @@ export default function MeditationStudio({ title, transcript, maxChars, maxMinut
     if (!fragment || busy) return;
     setError(null);
     stopPlay.current?.();
-    stopBg.current?.();
+    stopPreview();
     try {
       const s = await ensureMic();
       stopRef.current = startRecording(s);
@@ -232,14 +241,11 @@ export default function MeditationStudio({ title, transcript, maxChars, maxMinut
     if (was === id) return;
     const t = state.takes[id];
     if (!t) return;
-    const url = URL.createObjectURL(t.blob);
-    const a = new Audio(url);
-    const stop = () => { a.pause(); URL.revokeObjectURL(url); setPlaying(null); stopPlay.current = null; };
-    a.addEventListener("loadedmetadata", () => { a.currentTime = t.start; void a.play(); });
-    a.addEventListener("timeupdate", () => { if (a.currentTime >= t.end) stop(); });
-    a.addEventListener("ended", stop);
-    stopPlay.current = stop;
     setPlaying(id);
+    const done = () => { setPlaying((p) => (p === id ? null : p)); };
+    playTakeAudio(t, () => { stopPlay.current = null; done(); })
+      .then((stop) => { stopPlay.current = () => { stop(); stopPlay.current = null; done(); }; })
+      .catch(() => { done(); setError("Не вдалося відтворити фрагмент."); });
   };
 
   // background preview (one layer at a time)
@@ -368,8 +374,8 @@ export default function MeditationStudio({ title, transcript, maxChars, maxMinut
               </button>
             ))}
           </div>
-          {c.id && (
-            <button type="button" onClick={() => void togglePreview(which)} disabled={bgPlaying === "loading"} className="inline-flex min-h-[32px] items-center gap-1.5 rounded-full bg-[#f3efff] px-3 text-[12px] font-semibold text-[#4a2fd0] hover:bg-[#ece9fe] disabled:opacity-60">
+          {(
+            <button type="button" onClick={() => void togglePreview(which)} tabIndex={c.id ? undefined : -1} aria-hidden={!c.id || undefined} style={c.id ? undefined : { visibility: "hidden" }} disabled={bgPlaying === "loading"} className="inline-flex min-h-[32px] items-center gap-1.5 rounded-full bg-[#f3efff] px-3 text-[12px] font-semibold text-[#4a2fd0] hover:bg-[#ece9fe] disabled:opacity-60">
               {bgPlaying === "loading" ? "…" : bgPlaying === which ? <><Icon name="pause" size={14} /> Стоп</> : <><Icon name="play" size={14} /> Прослухати</>}
             </button>
           )}
@@ -390,12 +396,11 @@ export default function MeditationStudio({ title, transcript, maxChars, maxMinut
             }} />
           </label>
         </div>
-        {c.id && (
-          <label className="mt-3 flex items-center gap-3 text-[12px] font-medium text-black/60">
-            Гучність
-            <input type="range" min={0.05} max={1} step={0.05} value={c.volume} onChange={(e) => setLayer(which, { volume: Number(e.target.value) })} className="flex-1 accent-[#5b3df5]" />
-          </label>
-        )}
+        {/* always takes its place (hidden with nothing chosen), so the card never changes its height */}
+        <label aria-hidden={!c.id || undefined} className={`mt-3 flex items-center gap-3 text-[12px] font-medium text-black/60 ${c.id ? "" : "invisible"}`}>
+          Гучність
+          <input type="range" min={0.05} max={1} step={0.05} value={c.volume} disabled={!c.id} tabIndex={c.id ? undefined : -1} onChange={(e) => setLayer(which, { volume: Number(e.target.value) })} className="flex-1 accent-[#5b3df5]" />
+        </label>
         <p className="mt-2 text-[12px] text-black/50">У записі: {[trackName(state.sound) && `звук «${trackName(state.sound)}»`, trackName(state.music) && `музика «${trackName(state.music)}»`].filter(Boolean).join(", ") || "лише голос"}</p>
       </section>
     );
@@ -489,21 +494,31 @@ export default function MeditationStudio({ title, transcript, maxChars, maxMinut
             </div>
           </section>
         ) : phase === "listen" ? (
-          <section className={`${CARD} mx-auto w-full max-w-[760px] p-6 text-center`}>
-            <h2 className="text-[22px] font-semibold text-[#1f1b4d]">Ваша медитація</h2>
+          <section className={`${CARD} m-auto w-full max-w-[760px] p-7 text-center sm:p-12`}>
+            <span aria-hidden="true" className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-[#efeaff] to-[#e2dafd] text-[#4a2fd0]"><Icon name="meditation" size={32} /></span>
+            <h2 className="mt-5 text-[28px] font-semibold text-[#1f1b4d]">{result ? "Ваша медитація готова" : "Збираємо медитацію"}</h2>
+            <p className="mt-1.5 truncate text-[15px] text-black/55">{title.trim() || "Нова медитація"}</p>
             {progress && (
-              <div className="mt-6" role="status">
-                <div className="h-2 overflow-hidden rounded-full bg-[#ece9fe]"><div className="h-full rounded-full bg-gradient-to-r from-[#5232f4] to-[#774eff] transition-all" style={{ width: `${Math.round(progress.share * 100)}%` }} /></div>
-                <p className="mt-3 text-[14px] text-black/60">{progress.label} Не закривайте сторінку.</p>
+              <div className="mt-7" role="status">
+                <div className="h-2.5 overflow-hidden rounded-full bg-[#ece9fe]"><div className="h-full rounded-full bg-gradient-to-r from-[#5232f4] to-[#774eff] transition-all duration-300" style={{ width: `${Math.round(progress.share * 100)}%` }} /></div>
+                <div className="mt-3 flex items-center justify-between text-[13px]">
+                  <span className="font-medium text-[#4a2fd0]">{progress.label}</span>
+                  <span className="font-semibold text-[#2d2a5c]">{Math.round(progress.share * 100)}%</span>
+                </div>
+                <p className="mt-4 rounded-xl bg-[#f6f4ff] px-4 py-2.5 text-[13px] text-[#2d2a5c]">Вирівнюємо гучність, прибираємо гул і додаємо фон. Не закривайте сторінку.</p>
               </div>
             )}
             {result && (
               <>
-                <audio controls src={result.url} className="mt-6 w-full" />
-                <p className="mt-3 text-[14px] text-black/60">{formatClock(total)} · {(result.blob.size / 1024 / 1024).toFixed(1)} МБ · MP3</p>
-                <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-                  <button type="button" onClick={() => void save()} disabled={saving} className={PRIMARY}>{saving ? "Зберігаємо…" : "Зберегти в медитацію"}</button>
-                  <button type="button" onClick={() => setPhase("record")} disabled={saving} className={SECONDARY}>Повернутися до запису</button>
+                <ResultPlayer url={result.url} />
+                <div className="mt-4 flex flex-wrap justify-center gap-2 text-[12px] font-semibold text-[#2d2a5c]">
+                  <span className="rounded-full bg-[#f3efff] px-3 py-1">{formatClock(total)}</span>
+                  <span className="rounded-full bg-[#f3efff] px-3 py-1">{(result.blob.size / 1024 / 1024).toFixed(1)} МБ</span>
+                  <span className="rounded-full bg-[#f3efff] px-3 py-1">MP3</span>
+                </div>
+                <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
+                  <button type="button" onClick={() => void save()} disabled={saving} className={`${PRIMARY} min-h-[48px] px-6`}><Icon name="check" size={16} /> {saving ? "Зберігаємо…" : "Зберегти в медитацію"}</button>
+                  <button type="button" onClick={() => setPhase("record")} disabled={saving} className={`${SECONDARY} min-h-[48px] px-6`}><span aria-hidden="true">←</span> Повернутися до запису</button>
                 </div>
               </>
             )}
@@ -576,23 +591,20 @@ export default function MeditationStudio({ title, transcript, maxChars, maxMinut
                   : <p className="mt-1.5 text-[12px] leading-snug text-black/55">Тиха кімната й 15–20 см до мікрофона звучать найкраще.</p>}
               </section>
 
-              <section className={`${CARD} flex min-h-[150px] flex-1 flex-col overflow-hidden p-4 lg:min-h-0`} aria-label="Порада">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#4a2fd0]">Порада</span>
-                  <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => showTip((t) => (t + TIPS.length - 1) % TIPS.length)} aria-label="Попередня порада" className="grid h-7 w-7 place-items-center rounded-full text-[#4a2fd0] hover:bg-[#f3efff]">‹</button>
-                    <span className="text-[12px] text-black/45">{tip + 1}/{TIPS.length}</span>
-                    <button type="button" onClick={() => showTip((t) => (t + 1) % TIPS.length)} aria-label="Наступна порада" className="grid h-7 w-7 place-items-center rounded-full text-[#4a2fd0] hover:bg-[#f3efff]">›</button>
-                  </div>
-                </div>
-                <div className={`flex min-h-0 flex-1 items-center gap-3 transition-opacity duration-500 ease-in-out ${tipVisible ? "opacity-100" : "opacity-0"}`}>
-                  <span aria-hidden="true" className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#efeaff] to-[#e2dafd] text-[#4a2fd0]"><Icon name={TIPS[tip].icon} size={22} /></span>
-                  <div className="min-w-0">
-                    <div className="text-[14px] font-semibold text-[#1f1b4d]">{TIPS[tip].title}</div>
-                    <p className="mt-0.5 text-[13px] leading-snug text-black/60">{TIPS[tip].text}</p>
-                  </div>
-                </div>
-              </section>
+              <button
+                type="button"
+                onClick={() => showTip((t) => (t + 1) % TIPS.length)}
+                title="Наступна порада"
+                aria-label={`Порада: ${TIPS[tip].title}. ${TIPS[tip].text} Показати наступну`}
+                className={`${CARD} group flex min-h-[96px] flex-1 items-center gap-4 overflow-hidden px-5 text-left transition hover:border-[#d9d0fb] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 lg:min-h-0`}
+              >
+                <span aria-hidden="true" className={`grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#efeaff] to-[#e2dafd] text-[#4a2fd0] transition-opacity duration-500 ${tipVisible ? "opacity-100" : "opacity-0"}`}><Icon name={TIPS[tip].icon} size={20} /></span>
+                <span className={`min-w-0 flex-1 transition-opacity duration-500 ease-in-out ${tipVisible ? "opacity-100" : "opacity-0"}`}>
+                  <span className="block truncate text-[15px] font-semibold text-[#1f1b4d]">{TIPS[tip].title}</span>
+                  <span className="mt-1 block truncate text-[13px] text-black/55">{TIPS[tip].text}</span>
+                </span>
+                <span aria-hidden="true" className="grid h-9 w-9 shrink-0 -rotate-90 place-items-center rounded-full bg-[#f3efff] text-[#4a2fd0] transition group-hover:bg-[#ece9fe]"><Icon name="chevron" size={16} /></span>
+              </button>
 
               <section className={`${CARD} p-4`}>
                 <div className="grid grid-cols-3 gap-2 text-center">
@@ -651,6 +663,33 @@ function PausePicker({ label, value, onChange, disabled }: { label: string; valu
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// The finished meditation, played in a Sensoria-style player (no browser controls).
+function ResultPlayer({ url }: { url: string }) {
+  const ref = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [time, setTime] = useState(0);
+  const [dur, setDur] = useState(0);
+  const toggle = () => { const a = ref.current; if (!a) return; if (a.paused) void a.play(); else a.pause(); };
+  const seekBy = (d: number) => { const a = ref.current; if (a) a.currentTime = Math.max(0, Math.min(a.duration || 0, a.currentTime + d)); };
+  const share = dur > 0 ? time / dur : 0;
+  return (
+    <div className="mt-8 rounded-2xl bg-[#faf9ff] p-5 ring-1 ring-[#ece8fb]">
+      <audio ref={ref} src={url} preload="metadata" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)} onLoadedMetadata={(e) => setDur(e.currentTarget.duration)} />
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={() => seekBy(-15)} aria-label="Назад на 15 секунд" className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[12px] font-semibold text-[#4a2fd0] hover:bg-[#f3efff]">−15</button>
+        <button type="button" onClick={toggle} aria-label={playing ? "Пауза" : "Слухати"} className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-gradient-to-r from-[#5232f4] to-[#774eff] text-white shadow-[0_10px_24px_-12px_rgba(82,50,244,0.9)] transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 focus-visible:ring-offset-2">
+          <Icon name={playing ? "pause" : "play"} size={26} />
+        </button>
+        <button type="button" onClick={() => seekBy(15)} aria-label="Вперед на 15 секунд" className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[12px] font-semibold text-[#4a2fd0] hover:bg-[#f3efff]">+15</button>
+        <div className="min-w-0 flex-1">
+          <input type="range" min={0} max={dur || 0} step={0.1} value={time} aria-label="Позиція" onChange={(e) => { const a = ref.current; if (a) a.currentTime = Number(e.target.value); }} className="w-full accent-[#5b3df5]" style={{ background: `linear-gradient(to right, #6d4cf6 ${share * 100}%, #e4def9 ${share * 100}%)`, height: 6, borderRadius: 999, appearance: "none" }} />
+          <div className="mt-1 flex justify-between text-[12px] font-medium text-black/50"><span>{formatClock(time)}</span><span>{formatClock(dur)}</span></div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -109,7 +109,8 @@ export function voiceBounds(samples: Float32Array, sampleRate: number): { start:
     for (let j = i; j < end; j++) sum += samples[j] * samples[j];
     rms.push(i < skip ? 0 : Math.sqrt(sum / (end - i)));
   }
-  const peak = Math.max(0, ...rms);
+  let peak = 0;
+  for (const v of rms) if (v > peak) peak = v; // a loop, not Math.max(...rms): a long take has too many windows for a spread
   if (peak < 0.003) return null; // nothing but silence
   const threshold = Math.max(0.004, peak * 0.05);
   const first = rms.findIndex((v) => v > threshold);

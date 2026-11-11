@@ -29,7 +29,7 @@ import type {
 } from "../../data/authorDashboard";
 import type { PracticeType } from "../../data/contentTypes";
 import { useSession } from "../../context/SessionContext";
-import { contentFilePath, deleteContentFile, deleteStoredImage, isPaidFileRef, uploadContentFile, uploadPaidFile } from "../../lib/storage";
+import { contentFilePath, deleteContentFile, deleteStoredImage, isPaidFileRef, signPaidFileRefs, uploadContentFile, uploadPaidFile } from "../../lib/storage";
 import { notifyNewContent } from "../../lib/content";
 import { fetchAuthorStory } from "../../lib/authorStory";
 import { categoryLabels } from "../../data/categoryLabels";
@@ -285,6 +285,8 @@ export default function AuthorCourseEditor({
     editing?.mainFileUrl ?? null
   );
   const [mainFileUploading, setMainFileUploading] = useState(false);
+  // the meditation's audio was recorded in the studio (not uploaded as a file)
+  const fromStudio = /\/studio-\d+\.mp3$/.test(mainFileUrl ?? "");
   // Guide-only fields (stored in content_guide_meta / _body)
   const [guideType, setGuideType] = useState<GuideType>(editing?.guide?.guideType ?? "practical");
   const [guidePages, setGuidePages] = useState(editing?.guide?.pages ? String(editing.guide.pages) : "");
@@ -292,6 +294,19 @@ export default function AuthorCourseEditor({
   const [guideOutcomesText, setGuideOutcomesText] = useState((editing?.guide?.outcomes ?? []).join("\n"));
   // Meditation-only fields (stored in content_meditation_meta / _body)
   const [durationAuto, setDurationAuto] = useState(false);
+  // An already saved recording: its length is read from the file itself, the same as for a new upload.
+  useEffect(() => {
+    if (type !== "meditation" || !editing?.mainFileUrl) return;
+    let alive = true;
+    void (async () => {
+      const ref = editing.mainFileUrl as string;
+      const url = isPaidFileRef(ref) ? (await signPaidFileRefs([ref]).catch(() => new Map<string, string>())).get(ref) : ref;
+      const minutes = url ? await audioMinutesFromUrl(url) : null;
+      if (alive && minutes) { setDurationMinutes(String(Math.min(MEDITATION_MAX_MINUTES, minutes))); setDurationAuto(true); }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [pagesAuto, setPagesAuto] = useState(false);
   // the author lets readers download the guide (PDF file, or the PDF version of an interactive guide)
   const [allowDownload, setAllowDownload] = useState(editing?.guide?.allowDownload !== false);
@@ -409,6 +424,14 @@ export default function AuthorCourseEditor({
   // Pictures of the guide builder: every one opened with or uploaded here is remembered; after a successful save
   // those that no block points at any more are deleted (never before saving, so an unsaved guide never loses a picture).
   const knownGuideImages = useRef<Set<string>>(new Set(mediaUrls(editing?.guideBlocks)));
+  // Studio recordings: each save of the studio is a new file (studio-<time>.mp3). After the meditation is saved,
+  // the ones it no longer uses are deleted, so re-recording doesn't pile up files in storage.
+  const studioFiles = useRef<Set<string>>(new Set(/\/studio-\d+\.mp3$/.test(editing?.mainFileUrl ?? "") ? [editing!.mainFileUrl as string] : []));
+  const sweepStudioFiles = (current: string | null) => {
+    if (!authorId) return;
+    studioFiles.current.forEach((u) => { if (u !== current) void deleteStoredImage(authorId, u).catch(() => undefined); });
+    studioFiles.current = new Set(current && /\/studio-\d+\.mp3$/.test(current) ? [current] : []);
+  };
   const sweepGuideImages = (blocks: GuideContent) => {
     if (!authorId) return;
     const live = new Set(mediaUrls(blocks));
@@ -489,9 +512,77 @@ export default function AuthorCourseEditor({
     }
   };
 
-  const handleMainFileUpload = async (file: File): Promise<boolean> => {
+  // The price decides where the main file lives: paid → private bucket, free → public one. When the price crosses
+  // that line, the file already uploaded (or recorded in the studio) is moved over by itself, the author does nothing.
+  // The old copy is removed only after the material is saved.
+  const [movingFile, setMovingFile] = useState(false);
+  const staleMainFiles = useRef<Set<string>>(new Set());
+  const isPaidNow = (Number(price) || 0) > 0;
+  // A lesson file of a program follows the same rule as a guide's or a meditation's file.
+  const uploadLessonFile = (file: File, name: string) =>
+    authorId && isPaidNow ? uploadPaidFile(authorId, draftId, file, name) : uploadContentFile(authorId as string, file, `${draftId}/${name}`);
+  // Copies one stored file into the bucket the price asks for; the old copy is removed after the next save.
+  const moveStoredFile = async (from: string, paid: boolean, fallbackType: string): Promise<string> => {
+    const link = isPaidFileRef(from) ? (await signPaidFileRefs([from])).get(from) : from;
+    if (!link || !authorId) throw new Error("no link");
+    const res = await fetch(link, { cache: "reload" });
+    if (!res.ok) throw new Error("fetch");
+    const blob = await res.blob();
+    const fileName = decodeURIComponent(from.split("?")[0].split("/").pop() ?? "file");
+    const name = fileName.replace(/\.[^.]+$/, "") || "file";
+    const file = new File([blob], fileName, { type: blob.type || fallbackType });
+    const to = paid ? await uploadPaidFile(authorId, draftId, file, name) : await uploadContentFile(authorId, file, `${draftId}/${name}`);
+    if (to !== from) staleMainFiles.current.add(from);
+    staleMainFiles.current.delete(to);
+    return to;
+  };
+  // the program's lesson files (audio, pictures, PDFs) that sit in the wrong bucket for the current price
+  const misplacedLessonFiles = (mods: AuthoredModule[], paid: boolean) =>
+    mods.flatMap((m) => (m.items ?? []).flatMap((it) => (["audioUrl", "imageUrl", "fileUrl"] as const).flatMap((k) => { const u = it[k]; return u && /^(paid:|https?:)/.test(u) && isPaidFileRef(u) !== paid && (isPaidFileRef(u) || contentFilePath(u)) ? [u] : []; })));
+  useEffect(() => {
+    if (!authorId || mainFileUploading || movingFile || itemUploading) return;
+    const paid = isPaidNow;
+    const mainWrong = type !== "program" && !!mainFileUrl && paid !== isPaidFileRef(mainFileUrl);
+    const lessons = type === "program" ? misplacedLessonFiles(modules, paid) : [];
+    if (!mainWrong && lessons.length === 0) return;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setMovingFile(true);
+        setError(null);
+        try {
+          if (mainWrong && mainFileUrl) {
+            const to = await moveStoredFile(mainFileUrl, paid, type === "guide" ? "application/pdf" : "audio/mpeg");
+            if (/\/studio-\d+\.mp3$/.test(to)) studioFiles.current.add(to);
+            setMainFileUrl(to);
+          }
+          if (lessons.length > 0) {
+            const moved = new Map<string, string>();
+            for (const u of lessons) moved.set(u, await moveStoredFile(u, paid, "application/octet-stream"));
+            setModules((prev) => prev.map((m) => ({ ...m, items: (m.items ?? []).map((it) => ({ ...it, audioUrl: it.audioUrl && (moved.get(it.audioUrl) ?? it.audioUrl), imageUrl: it.imageUrl && (moved.get(it.imageUrl) ?? it.imageUrl), fileUrl: it.fileUrl && (moved.get(it.fileUrl) ?? it.fileUrl) })) })));
+          }
+        } catch {
+          setError(paid ? "Ціну змінено, а файли не вдалося захистити автоматично. Завантажте їх ще раз." : "Ціну змінено, а файли не вдалося відкрити автоматично. Завантажте їх ще раз.");
+        } finally {
+          setMovingFile(false);
+        }
+      })();
+    }, 900); // wait until the price is typed
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [price, mainFileUrl, modules, mainFileUploading, movingFile, itemUploading, type, authorId]);
+  const sweepMovedFiles = (current: string | null) => {
+    if (!authorId) return;
+    staleMainFiles.current.forEach((u) => { if (u !== current) void deleteStoredImage(authorId, u).catch(() => undefined); });
+    staleMainFiles.current = new Set();
+  };
+
+  const handleMainFileUpload = async (file: File, name = "main"): Promise<boolean> => {
     if (!authorId) {
       setError("Не вдалося визначити автора — увійдіть ще раз.");
+      return false;
+    }
+    if (type === "meditation" && file.type && !file.type.startsWith("audio/")) {
+      setError("Це не аудіофайл. Завантажте запис у форматі MP3 або WAV.");
       return false;
     }
     if (type === "meditation" && file.size > MEDITATION_MAX_AUDIO_BYTES) {
@@ -503,8 +594,9 @@ export default function AuthorCourseEditor({
     try {
       // A paid guide/meditation keeps its file in the private bucket (only buyers get a link); a free one stays public.
       const paid = type !== "program" && (Number(price) || 0) > 0;
-      const url = paid ? await uploadPaidFile(authorId, draftId, file, "main") : await uploadContentFile(authorId, file, `${draftId}/main`);
+      const url = paid ? await uploadPaidFile(authorId, draftId, file, name) : await uploadContentFile(authorId, file, `${draftId}/${name}`);
       setMainFileUrl(url);
+      if (/\/studio-\d+\.mp3$/.test(url)) studioFiles.current.add(url);
       if (type === "guide") {
         // the number of pages is read from the PDF itself (if it can't be read, the author types it)
         const n = await pdfPageCount(file);
@@ -516,7 +608,7 @@ export default function AuthorCourseEditor({
         if (minutes) {
           if (minutes > MEDITATION_MAX_MINUTES) { setError(`Запис довший за ${MEDITATION_MAX_MINUTES} хвилин. Скоротіть його або розділіть на кілька медитацій.`); setMainFileUrl(""); return false; }
           setDurationMinutes(String(Math.max(1, Math.round(minutes)))); setDurationAuto(true);
-        }
+        } else setDurationAuto(false); // the length of this file can't be read: the author types it
       }
       return true;
     } catch (e) {
@@ -610,7 +702,7 @@ export default function AuthorCourseEditor({
     setItemUploading(key);
     setItemErrors((p) => { const n = { ...p }; delete n[key]; return n; });
     try {
-      const url = await uploadContentFile(authorId, file, `${draftId}/module-${mi}-item-${ii}-audio`);
+      const url = await uploadLessonFile(file, `module-${mi}-item-${ii}-audio`);
       const minutes = await audioMinutes(file);
       updateItem(mi, ii, minutes ? { audioUrl: url, durationMinutes: minutes } : { audioUrl: url });
     } catch (e) {
@@ -629,7 +721,7 @@ export default function AuthorCourseEditor({
     setItemUploading(key);
     setItemErrors((p) => { const n = { ...p }; delete n[key]; return n; });
     try {
-      const url = await uploadContentFile(authorId, file, `${draftId}/module-${mi}-item-${ii}-image`);
+      const url = await uploadLessonFile(file, `module-${mi}-item-${ii}-image`);
       updateItem(mi, ii, { imageUrl: url });
     } catch (e) {
       setItemErrors((p) => ({ ...p, [key]: e instanceof Error ? e.message : "Не вдалося завантажити зображення." }));
@@ -647,7 +739,7 @@ export default function AuthorCourseEditor({
     setItemUploading(key);
     setItemErrors((p) => { const n = { ...p }; delete n[key]; return n; });
     try {
-      const url = await uploadContentFile(authorId, file, `${draftId}/module-${mi}-item-${ii}-file`);
+      const url = await uploadLessonFile(file, `module-${mi}-item-${ii}-file`);
       updateItem(mi, ii, { fileUrl: url, fileName: file.name, fileSizeLabel: fileSizeLabel(file.size) });
     } catch (e) {
       setItemErrors((p) => ({ ...p, [key]: e instanceof Error ? e.message : "Не вдалося завантажити файл." }));
@@ -801,6 +893,8 @@ export default function AuthorCourseEditor({
       await onSave(item, opts?.stay ? { stay: true } : undefined);
       sweepStaleCovers(coverUrl, coverFocus);
       if (type === "guide") sweepGuideImages(guideBlocksRef.current);
+      if (type === "meditation") sweepStudioFiles(mainFileUrl);
+      sweepMovedFiles(mainFileUrl);
       if (opts?.stay) {
         initialSnapshot.current = snapshot;
         if (guideBlocksRef.current !== guideBlocks) resnap.current = true; // blocks were trimmed just before saving: re-baseline once the screen has them
@@ -1215,6 +1309,7 @@ export default function AuthorCourseEditor({
         {isGuide && structuredGuide && <p className="mt-3 text-[14px] font-medium text-[#2f7a4d]">✓ Гайд зібрано в конструкторі: блоків {guideBlocks.length}. Читач проходить його на сайті, а PDF-версію Sensoria створює сама, окремий PDF не потрібен.</p>}
         {isGuide && structuredGuide && mainFileUrl && <p role="note" className="mt-2 text-[14px] leading-snug text-amber-900">Завантажений PDF читачам не показується: гайд інтерактивний. Щоб показувати PDF як є, приберіть усі блоки в конструкторі.</p>}
         {mainFileUploading && <p role="status" className="mt-3 text-[14px] text-[#4b4a66]">Завантажуємо файл…</p>}
+        {movingFile && <p role="status" className="mt-3 text-[14px] text-[#4b4a66]">{(Number(price) || 0) > 0 ? "Ціну змінено: захищаємо файл, щоб його бачили лише ті, хто купив…" : "Ціну змінено: відкриваємо файл для всіх…"}</p>}
         {error && !mainFileUploading && <p role="alert" className="mt-3 text-[14px] text-rose-700">{error}</p>}
         {mainFileUrl && isPaidFileRef(mainFileUrl) && <p className="mt-3 text-[14px] font-medium text-[#2f7a4d]">✓ Файл завантажено. Він захищений: його бачать лише ті, хто купив.</p>}
         {mainFileUrl && !isPaidFileRef(mainFileUrl) && (
@@ -1259,9 +1354,10 @@ export default function AuthorCourseEditor({
             store={studioStore}
             onTranscriptChange={setTranscriptText}
             onDone={async (file, info) => {
-              if (!(await handleMainFileUpload(file))) return "Не вдалося зберегти запис. Перевірте з'єднання й спробуйте ще раз.";
-              // music is mixed into the recording: participants are then not offered a second music on top
-              if (info.hasMusic) setHasEmbeddedMusic(true);
+              // a studio recording is stored as studio-<time>.mp3: that is how the editor knows where the audio came from
+              if (!(await handleMainFileUpload(file, `studio-${Date.now()}`))) return "Не вдалося зберегти запис. Перевірте з'єднання й спробуйте ще раз.";
+              // the music choice was made in the studio: with music inside, participants are not offered a second one on top
+              setHasEmbeddedMusic(info.hasMusic);
               return null;
             }}
             onClose={() => setStudioOpen(false)}
@@ -2856,13 +2952,14 @@ export default function AuthorCourseEditor({
                 aria-describedby={stepErrors.length > 0 ? "step-5-errors" : undefined}
                 value={durationMinutes}
                 placeholder="Наприклад, 10"
-                onChange={(e) => { setDurationAuto(false); setDurationMinutes(e.target.value.replace(/[^\d]/g, "").replace(/^0+/, "").slice(0, 3)); }}
+                readOnly={durationAuto}
+                onChange={(e) => { setDurationMinutes(e.target.value.replace(/[^\d]/g, "").replace(/^0+/, "").slice(0, 3)); }}
                 onBlur={() => { const n = Number(durationMinutes); if (n > MEDITATION_MAX_MINUTES) setDurationMinutes(String(MEDITATION_MAX_MINUTES)); }}
-                className="w-full rounded-xl border border-[#d9d4f5] bg-[#faf9ff] py-2.5 pl-4 pr-12 text-[15px] focus:border-[#5b3df5] focus:bg-white focus:outline-none"
+                className={`w-full rounded-xl border py-2.5 pl-4 pr-12 text-[15px] focus:outline-none ${durationAuto ? "cursor-default border-[#e3def9] bg-[#f3efff] font-semibold text-[#4a2fd0]" : "border-[#d9d4f5] bg-[#faf9ff] focus:border-[#5b3df5] focus:bg-white"}`}
               />
               <span aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[14px] font-medium text-black/60">хв</span>
             </div>
-            <p className="mt-2 text-[13px] text-black/60">{durationAuto ? "Визначено за записом, за потреби виправте." : `Від 1 до ${MEDITATION_MAX_MINUTES} хвилин.`}</p>
+            <p className="mt-2 text-[13px] text-black/60">{durationAuto ? "Визначено автоматично за записом." : mainFileUrl ? `Не вдалося прочитати довжину запису: вкажіть від 1 до ${MEDITATION_MAX_MINUTES} хвилин.` : "Визначиться автоматично, щойно ви додасте запис."}</p>
           </div>
           <div className="flex flex-col rounded-2xl border border-[#e3def9] bg-white p-4">
             <div id="med-offline-label" className="flex items-center gap-2 text-[14px] font-semibold text-[#1d1a3b]">
@@ -2882,12 +2979,13 @@ export default function AuthorCourseEditor({
                 <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${offlineDownload ? "left-[22px]" : "left-0.5"}`} />
               </span>
             </button>
-            <p className="mt-2 text-[13px] text-black/60">Учасник зможе завантажити практику й слухати без з'єднання.</p>
+            <p className="mt-2 text-[13px] leading-snug text-black/60">{offlineDownload ? "Учасник отримає повний доступ до файлу: зможе завантажити практику на свій пристрій і слухати без з'єднання." : "Учасник слухає практику лише на сайті, файл не завантажується."}</p>
           </div>
         </div>
 
         <div>
           <div id="med-music-label" className="mb-2 text-[14px] font-semibold text-[#1d1a3b]">Фонова музика</div>
+          {fromStudio && <p className="mb-2 text-[13px] text-black/60">Запис зроблено в студії: музику ви вже обрали під час запису ({hasEmbeddedMusic ? "музика є в записі" : "у записі лише голос"}).</p>}
           <div role="radiogroup" aria-labelledby="med-music-label" className="grid gap-3 sm:grid-cols-2">
             {([
               [false, "headphones", "Додати музику Sensoria", "У записі лише голос. Слухач зможе увімкнути нашу музику та звуки природи."],
@@ -2900,8 +2998,9 @@ export default function AuthorCourseEditor({
                   type="button"
                   role="radio"
                   aria-checked={on}
+                  disabled={fromStudio}
                   onClick={() => setHasEmbeddedMusic(val)}
-                  className={`relative flex min-h-[120px] flex-col items-start gap-3 rounded-2xl border-2 p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 ${on ? "border-[#5b3df5] bg-[#f3efff] shadow-[0_10px_24px_-16px_rgba(91,61,245,0.8)]" : "border-[#e3def9] bg-white hover:bg-[#faf9ff]"}`}
+                  className={`relative flex min-h-[120px] flex-col items-start gap-3 rounded-2xl border-2 p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 disabled:cursor-not-allowed disabled:border-[#e5e3ee] disabled:bg-[#f4f3f8] disabled:opacity-60 disabled:shadow-none disabled:grayscale ${on ? "border-[#5b3df5] bg-[#f3efff] shadow-[0_10px_24px_-16px_rgba(91,61,245,0.8)]" : "border-[#e3def9] bg-white hover:bg-[#faf9ff]"}`}
                 >
                   <span className="flex w-full items-center justify-between">
                     <span aria-hidden="true" className={`grid h-11 w-11 place-items-center rounded-xl ${on ? "bg-[#5b3df5] text-white" : "bg-[#ece9fe] text-[#4a2fd0]"}`}><Icon name={icon} size={22} /></span>
@@ -3405,6 +3504,20 @@ function VideoHowArt({ kind, className }: { kind: "upload" | "visibility" | "lin
       )}
     </svg>
   );
+}
+
+// The same for a recording that is already stored (a link).
+function audioMinutesFromUrl(src: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    const a = new Audio();
+    let settled = false;
+    const done = (v: number | null) => { if (!settled) { settled = true; resolve(v); } };
+    a.preload = "metadata";
+    a.onloadedmetadata = () => done(Number.isFinite(a.duration) && a.duration > 0 ? Math.max(1, Math.ceil(a.duration / 60)) : null);
+    a.onerror = () => done(null);
+    setTimeout(() => done(null), 8000);
+    a.src = src;
+  });
 }
 
 // Reads an audio file's length in the browser (rounded up to whole minutes); null if it cannot be read.

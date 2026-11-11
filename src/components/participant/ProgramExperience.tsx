@@ -112,6 +112,18 @@ import { recommendGuideAfterProgram } from "../../utils/behaviorRecommendations"
 import type { Guide } from "../../data/guides";
 import { errorMessage } from "../../lib/errorMessage";
 import { logContentAccess } from "../../lib/accessLog";
+import { isPaidFileRef, signPaidFileRefs } from "../../lib/storage";
+
+// Lesson files of a paid program are private: they are opened through short-lived signed links, which storage
+// hands out only to the author and to buyers. Without access a file is simply left out of the lesson.
+async function signLessonFiles(mods: ContentModule[] | null): Promise<ContentModule[] | null> {
+  if (!mods) return mods;
+  const refs = mods.flatMap((m) => m.items.flatMap((it) => [it.audioUrl, it.imageUrl, it.fileUrl].filter(isPaidFileRef)));
+  if (refs.length === 0) return mods;
+  const signed = await signPaidFileRefs(refs).catch(() => new Map<string, string>());
+  const fix = (u: string | undefined) => (u && isPaidFileRef(u) ? signed.get(u) : u);
+  return mods.map((m) => ({ ...m, items: m.items.map((it) => ({ ...it, audioUrl: fix(it.audioUrl), imageUrl: fix(it.imageUrl), fileUrl: fix(it.fileUrl) })) }));
+}
 
 type Props = {
   programId: string;
@@ -232,7 +244,7 @@ export default function ProgramExperience({
     }
     let cancelled = false;
     setLoadingReal(true);
-    Promise.all([fetchProgramById(programId), fetchProgramItems(programId)])
+    Promise.all([fetchProgramById(programId), fetchProgramItems(programId).then(signLessonFiles)])
       .then(([programRow, items]) => {
         if (cancelled) return;
         setRealProgram(programRow);

@@ -1152,6 +1152,16 @@ Deno.serve(async (req) => {
             if ((count ?? 0) > 0) {
               return json({ error: "У матеріалу є покупці — видалити його не можна. Зніміть його з продажу або обмежте доступ." }, 400);
             }
+            // free materials have no purchases: people who added it to their cabinet or started it keep it too
+            const { data: slugRow } = await admin.from("content").select("slug").eq("id", contentId).maybeSingle();
+            const keys = [contentId, slugRow?.slug].filter(Boolean) as string[];
+            const [{ count: added }, { count: started }] = await Promise.all([
+              admin.from("acquired_content").select("user_id", { count: "exact", head: true }).in("content_id", keys),
+              admin.from("content_progress").select("user_id", { count: "exact", head: true }).eq("content_id", contentId),
+            ]);
+            if ((added ?? 0) > 0 || (started ?? 0) > 0) {
+              return json({ error: "Матеріал уже є в кабінетах учасників — видалити його не можна. Зніміть його з продажу або обмежте доступ." }, 400);
+            }
             await logAction("delete_material", contentId, { title: item.title });
             await event("deleted");
             const { error } = await admin.from("content").delete().eq("id", contentId);

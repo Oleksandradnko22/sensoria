@@ -10,7 +10,7 @@ import {
 import CatalogSort from "../catalog/CatalogSort";
 import { filterContent, sortContent, toggleArchive, type SortKey } from "../../utils/authorContentList";
 import { canDeleteDraft, ARCHIVE_COOLDOWN_DAYS, archiveBlockedLabel, archiveBlockedUntil, formatDayMonth } from "../../utils/archiveRules";
-import { fetchLastPurchaseDates } from "../../lib/content";
+import { fetchArchiveBlockers, type ArchiveBlockers } from "../../lib/content";
 
 type Props = {
   content: AuthoredContent[];
@@ -115,17 +115,17 @@ function Thumb({ item, className }: { item: AuthoredContent; className: string }
   );
 }
 
-// "—" for anything the data does not support, so an unpublished item never shows invented numbers
+// Real numbers whatever the status: people keep access to an archived or taken-down material, so its participants,
+// income and rating still count. "—" only where there is nothing yet.
 function metrics(item: AuthoredContent) {
-  const live = item.status === "published";
   return {
-    participants: live ? item.participants.toLocaleString("uk-UA") : "—",
-    revenue: live && item.revenue > 0 ? `${item.revenue.toLocaleString("uk-UA")} ₴` : "—",
-    rating: live && item.rating ? `${item.rating} ★` : "—",
+    participants: item.participants > 0 ? item.participants.toLocaleString("uk-UA") : "—",
+    revenue: item.revenue > 0 ? `${item.revenue.toLocaleString("uk-UA")} ₴` : "—",
+    rating: item.rating ? `${item.rating} ★` : "—",
   };
 }
 
-type Confirm = { kind: "archive" | "restore" | "delete"; item: AuthoredContent } | { kind: "blocked"; item: AuthoredContent; until: Date } | null;
+type Confirm = { kind: "archive" | "restore" | "delete"; item: AuthoredContent } | { kind: "blocked"; item: AuthoredContent; until: Date | null; openRefunds: number } | null;
 
 export default function AuthorContentList({ content, onCreate, onEdit, onChangeStatus, onDeleteDraft, loading = false, loadFailed = false, onRetry }: Props) {
   const [typeFilter, setTypeFilter] = useState<"all" | ContentType>("all");
@@ -151,12 +151,12 @@ export default function AuthorContentList({ content, onCreate, onEdit, onChangeS
 
   // Date of the last completed purchase of each material (one query for the list). If it cannot be read, nothing is
   // blocked here: the database applies the same 14-day rule and its refusal is shown in the dialog.
-  const [lastPurchases, setLastPurchases] = useState<Map<string, string>>(new Map());
+  const [blockers, setBlockers] = useState<ArchiveBlockers>(new Map());
   const idsKey = content.map((c) => c.id).sort().join(",");
   useEffect(() => {
     let off = false;
-    fetchLastPurchaseDates(idsKey ? idsKey.split(",") : [])
-      .then((m) => !off && setLastPurchases(m))
+    fetchArchiveBlockers(idsKey ? idsKey.split(",") : [])
+      .then((m) => !off && setBlockers(m))
       .catch(() => {});
     return () => {
       off = true;
@@ -296,7 +296,10 @@ export default function AuthorContentList({ content, onCreate, onEdit, onChangeS
             {filtered.slice(0, shown).map((item) => {
               const m = metrics(item);
               const archived = item.status === "archived";
-              const until = archived ? null : archiveBlockedUntil(lastPurchases.get(item.id));
+              const b = blockers.get(item.id);
+              const until = archived ? null : archiveBlockedUntil(b?.lastPurchase);
+              const openRefunds = archived ? 0 : b?.openRefunds ?? 0;
+              const blocked = !!until || openRefunds > 0;
               const actions = (
                 <div className="flex items-center justify-end gap-0.5">
                   {!archived && <ActionButton label="Редагувати" onClick={() => onEdit(item.id)}><PencilIcon /></ActionButton>}
@@ -307,9 +310,9 @@ export default function AuthorContentList({ content, onCreate, onEdit, onChangeS
                     <ActionButton label="Відновити (знято з публікації)" onClick={() => setConfirm({ kind: "restore", item })}><RestoreIcon /></ActionButton>
                   ) : (
                     <ActionButton
-                      label={until ? archiveBlockedLabel(until) : "Архівувати"}
-                      unavailable={!!until}
-                      onClick={() => setConfirm(until ? { kind: "blocked", item, until } : { kind: "archive", item })}
+                      label={openRefunds > 0 ? "Є відкритий запит на повернення коштів" : until ? archiveBlockedLabel(until) : "Архівувати"}
+                      unavailable={blocked}
+                      onClick={() => setConfirm(blocked ? { kind: "blocked", item, until, openRefunds } : { kind: "archive", item })}
                     >
                       <ArchiveIcon />
                     </ActionButton>
@@ -381,7 +384,11 @@ export default function AuthorContentList({ content, onCreate, onEdit, onChangeS
       {confirm && confirm.kind === "blocked" && (
         <ConfirmDialog
           title="Поки що не можна архівувати"
-          text={`«${confirm.item.title}» нещодавно купили. Архівувати його можна не раніше ніж через ${ARCHIVE_COOLDOWN_DAYS} днів після останньої покупки: стільки діє право покупця на повернення коштів. Архівувати можна з ${formatDayMonth(confirm.until)}.`}
+          text={
+            confirm.openRefunds > 0
+              ? `Покупець «${confirm.item.title}» подав запит на повернення коштів, і команда Sensoria його ще розглядає. Архівувати матеріал можна, коли запит буде розглянуто${confirm.until ? ` і мине ${ARCHIVE_COOLDOWN_DAYS} днів після останньої покупки (з ${formatDayMonth(confirm.until)})` : ""}.`
+              : `«${confirm.item.title}» нещодавно купили. Архівувати його можна не раніше ніж через ${ARCHIVE_COOLDOWN_DAYS} днів після останньої покупки: стільки діє право покупця на повернення коштів. Архівувати можна з ${confirm.until ? formatDayMonth(confirm.until) : "—"}.`
+          }
           points={["Матеріал лишається в каталозі й доступним для покупців.", "Редагувати його можна в будь-який час.", "Видалити матеріал не можна."]}
           confirmLabel="Зрозуміло"
           hideCancel

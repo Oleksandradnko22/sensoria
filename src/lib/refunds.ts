@@ -18,6 +18,8 @@ function requireSupabase() {
 
 export async function submitRefundRequest(params: {
   participantId: string;
+  // the purchase this request is about: an open request keeps the material on sale (supabase/archive-refund-guard.sql)
+  purchaseId?: string;
   contentTitle: string;
   contentKind: ContentKind;
   amount: number;
@@ -30,6 +32,7 @@ export async function submitRefundRequest(params: {
   const client = requireSupabase();
   const { error } = await client.from("refund_requests").insert({
     participant_id: params.participantId,
+    ...(params.purchaseId && /^[0-9a-f-]{36}$/i.test(params.purchaseId) ? { purchase_id: params.purchaseId } : {}),
     content_title: params.contentTitle,
     content_kind: params.contentKind,
     amount: params.amount,

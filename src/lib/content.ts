@@ -564,6 +564,60 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // The latest completed purchase of each material, in ONE query for the whole list (the author may read the
 // purchases of their own materials). Ids that are not uuids (the demo showcase) are skipped.
+// Real numbers for the author's own list (the content rows themselves carry none):
+//  participants = distinct people who bought it or started it, revenue = sum of completed purchases (before
+//  Sensoria's commission; the author's share is on the «Фінанси» tab), rating = average of its reviews.
+export type ContentMetrics = Map<string, { participants: number; revenue: number; rating: number | null; reviewsCount: number }>;
+export async function fetchContentMetrics(contentIds: string[]): Promise<ContentMetrics> {
+  const client = requireSupabase();
+  const ids = contentIds.filter((id) => UUID.test(id));
+  const out: ContentMetrics = new Map();
+  if (ids.length === 0) return out;
+  const [buys, starts, reviews] = await Promise.all([
+    client.from("purchases").select("content_id, participant_id, amount").in("content_id", ids).eq("status", "completed"),
+    client.from("content_progress").select("content_id, user_id").in("content_id", ids),
+    client.from("reviews").select("content_id, rating").in("content_id", ids),
+  ]);
+  const people = new Map<string, Set<string>>();
+  const money = new Map<string, number>();
+  const add = (id: string, user: string) => { const s = people.get(id) ?? new Set<string>(); s.add(user); people.set(id, s); };
+  for (const r of buys.data ?? []) { add(r.content_id as string, r.participant_id as string); money.set(r.content_id as string, (money.get(r.content_id as string) ?? 0) + Number(r.amount || 0)); }
+  for (const r of starts.data ?? []) add(r.content_id as string, r.user_id as string);
+  const stars = new Map<string, number[]>();
+  for (const r of reviews.data ?? []) { const l = stars.get(r.content_id as string) ?? []; l.push(Number(r.rating)); stars.set(r.content_id as string, l); }
+  for (const id of ids) {
+    const s = stars.get(id) ?? [];
+    out.set(id, {
+      participants: people.get(id)?.size ?? 0,
+      revenue: Math.round(money.get(id) ?? 0),
+      rating: s.length ? Math.round((s.reduce((a, b) => a + b, 0) / s.length) * 10) / 10 : null,
+      reviewsCount: s.length,
+    });
+  }
+  return out;
+}
+
+// Why a material can't leave sale yet: the last completed purchase (14-day refund window) and refund requests that are
+// still open. Read through my_archive_blockers (supabase/archive-refund-guard.sql) — one row per material, no buyer
+// data; before that file is applied, falls back to reading the purchase dates directly.
+export type ArchiveBlockers = Map<string, { lastPurchase?: string; openRefunds: number }>;
+export async function fetchArchiveBlockers(contentIds: string[]): Promise<ArchiveBlockers> {
+  const client = requireSupabase();
+  const ids = contentIds.filter((id) => UUID.test(id));
+  const out: ArchiveBlockers = new Map();
+  if (ids.length === 0) return out;
+  const { data, error } = await client.rpc("my_archive_blockers", { p_ids: ids });
+  if (!error && Array.isArray(data)) {
+    for (const r of data as { content_id: string; last_purchase: string | null; open_refunds: number }[]) {
+      out.set(r.content_id, { lastPurchase: r.last_purchase ?? undefined, openRefunds: Number(r.open_refunds) || 0 });
+    }
+    return out;
+  }
+  const dates = await fetchLastPurchaseDates(ids);
+  dates.forEach((d, id) => out.set(id, { lastPurchase: d, openRefunds: 0 }));
+  return out;
+}
+
 export async function fetchLastPurchaseDates(contentIds: string[]): Promise<Map<string, string>> {
   const client = requireSupabase();
   const ids = contentIds.filter((id) => UUID.test(id));

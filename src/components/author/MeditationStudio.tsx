@@ -424,6 +424,10 @@ export default function MeditationStudio({ title, transcript, maxChars, maxMinut
               <span className="rounded-full bg-white px-3 py-1.5 ring-1 ring-[#e4def9]">≈ {formatClock(total)}</span>
             </div>
           )}
+          <a href="https://youtu.be/-sF3fac4iY8" target="_blank" rel="noopener noreferrer" aria-label="Відеоінструкція: як записати медитацію в студії (відкриється в новій вкладці)" className="inline-flex min-h-[40px] items-center gap-2 rounded-xl border border-[#d9d4f5] bg-[#f3efff] px-3 text-[14px] font-semibold text-[#4a2fd0] transition hover:bg-[#ece9fe] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 sm:px-4">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M10.5 9.3v5.4l4.5-2.7-4.5-2.7Z" /></svg>
+            <span className="hidden sm:inline">Відеоінструкція</span>
+          </a>
         </div>
       </header>
 

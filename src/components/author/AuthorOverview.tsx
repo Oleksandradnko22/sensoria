@@ -13,8 +13,8 @@ import {
 import { useSession } from "../../context/SessionContext";
 import { fetchRecentActivity, type ActivityEvent } from "../../lib/activity";
 import { fetchMyReportCount } from "../../lib/reports";
-import { fetchRealParticipants } from "../../lib/authorParticipants";
 import { formatRelativeTime } from "../../utils/relativeTime";
+import { SHOW_AUTHOR_DEMO } from "../../utils/demoMode";
 
 // Ukrainian plural forms for "скарга" — 1 скаргу, 2–4 скарги, 5+ (and
 // 11–14) скарг. Same mod10/mod100 idiom used for "модуль" in
@@ -141,30 +141,10 @@ export default function AuthorOverview({
     fetchMyReportCount().then(setReportCount);
   }, [session?.profile.id]);
 
-  // Real distinct participants across the author's real content — every
-  // demo item already carries its own showcase `participants` number
-  // (used below), but real content's is always 0 (no purchases wired
-  // yet — see lib/content.ts's fromRow), so this is added on top rather
-  // than replacing it. Distinct by person, not by (content, person) row
-  // — someone in two of the author's programs still counts once here,
-  // same as "how many people" reads naturally.
-  const [realParticipantCount, setRealParticipantCount] = useState(0);
-  const [participantsLoaded, setParticipantsLoaded] = useState(false);
-  useEffect(() => {
-    if (!session) return;
-    const realContentIds = content.filter((c) => !DEMO_IDS.has(c.id)).map((c) => c.id);
-    fetchRealParticipants(realContentIds)
-      .then((rows) => {
-        setRealParticipantCount(new Set(rows.map((r) => r.userId)).size);
-      })
-      .catch(() => setRealParticipantCount(0))
-      .finally(() => setParticipantsLoaded(true));
-  }, [session?.profile.id, content]);
-
   // Real events first (someone actually did something), demo showcase
   // events after — same mix-in convention used everywhere else.
   // newest first, whatever the source
-  const activity = [...realActivity, ...mockActivity]
+  const activity = [...realActivity, ...(SHOW_AUTHOR_DEMO ? mockActivity : [])]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const [activityShown, setActivityShown] = useState(PAGE);
   const [contentShown, setContentShown] = useState(PAGE);
@@ -175,9 +155,9 @@ export default function AuthorOverview({
   // rendered below is clamped through this first.
   const safe = (n: number) => (Number.isFinite(n) ? n : 0);
 
-  const totalParticipants = safe(
-    allContent.reduce((sum, c) => sum + c.participants, 0) + realParticipantCount
-  );
+  // per-material counts come with the content list (lib/content.ts fetchContentMetrics); a person in two
+  // materials is counted in each, the same way the «Контент» tab shows it
+  const totalParticipants = safe(allContent.reduce((sum, c) => sum + c.participants, 0));
   const totalRevenue = safe(allContent.reduce((sum, c) => sum + c.revenue, 0));
   const ratedItems = published.filter((c) => c.rating !== null);
   const avgRating =
@@ -189,7 +169,7 @@ export default function AuthorOverview({
       : null;
 
   const stats = [
-    { label: "Учасники", value: totalParticipants.toLocaleString("uk-UA"), pending: !participantsLoaded, icon: "graduation" as IconName },
+    { label: "Учасники", value: totalParticipants.toLocaleString("uk-UA"), pending: false, icon: "graduation" as IconName },
     { label: "Дохід", value: `${totalRevenue.toLocaleString("uk-UA")} ₴`, pending: false, icon: "card" as IconName },
     { label: "Опубліковано", value: String(published.length), pending: false, icon: "library" as IconName },
     { label: "Середній рейтинг", value: avgRating ? `${avgRating.toFixed(1)} ★` : "—", pending: false, icon: "star" as IconName },
@@ -228,7 +208,7 @@ export default function AuthorOverview({
   const recentContent = sortedContent.slice(0, contentShown);
   const card = "rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff]";
   const secondaryBtn =
-    "inline-flex min-h-[52px] w-full items-center justify-center gap-2.5 rounded-2xl bg-white px-6 sm:w-auto text-[15px] font-semibold text-[#1d2240] shadow-[0_8px_22px_-12px_rgba(60,60,140,0.35)] ring-1 ring-[#ebe8ff] transition hover:bg-[#faf9ff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0]";
+    "inline-flex min-h-[52px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-white px-4 text-[15px] xl:text-[14px] min-[1500px]:text-[15px] font-semibold text-[#1d2240] shadow-[0_8px_22px_-12px_rgba(60,60,140,0.35)] ring-1 ring-[#ebe8ff] transition hover:bg-[#faf9ff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0]";
   const hello = greetingName(session?.profile.name);
 
   return (
@@ -237,7 +217,7 @@ export default function AuthorOverview({
       <header className="min-w-0">
         <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-black/50">Огляд</div>
         <h1 className="mt-1 text-[32px] font-bold leading-tight text-[#12172b]">
-          Привіт{hello ? `, ${hello}` : ""} <span aria-hidden="true">👋</span>
+          Привіт{hello ? `, ${hello}` : ""}
         </h1>
         <p className="mt-1.5 text-[15px] text-black/55">Тут усе найважливіше про ваш контент, аудиторію та результати.</p>
       </header>
@@ -276,15 +256,16 @@ export default function AuthorOverview({
       {/* QUICK ACTIONS */}
       <section aria-labelledby="ov-actions">
         <h2 id="ov-actions" className="text-[17px] font-bold text-[#12172b]">Швидкі дії</h2>
-        <div className="mt-3 flex flex-wrap gap-3">
-          <div className="relative w-full sm:w-auto" ref={createRef}>
+        {/* four equal actions across the row on a wide screen, two by two on a tablet, one column on a phone */}
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="relative w-full" ref={createRef}>
             <button
               ref={createBtnRef}
               type="button"
               onClick={() => setCreateOpen((o) => !o)}
               aria-haspopup="menu"
               aria-expanded={createOpen}
-              className="flex min-h-[52px] w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r sm:inline-flex sm:w-auto from-[#3b6df0] to-[#7c5cf0] px-6 text-[15px] font-semibold text-white shadow-[0_10px_24px_-10px_rgba(91,92,240,0.75)] transition hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] focus-visible:ring-offset-2"
+              className="flex min-h-[52px] w-full items-center justify-center gap-2.5 whitespace-nowrap rounded-2xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[15px] xl:text-[14px] min-[1500px]:text-[15px] font-semibold text-white shadow-[0_10px_24px_-10px_rgba(91,92,240,0.75)] transition hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] focus-visible:ring-offset-2"
             >
               <span aria-hidden="true" className="text-[22px] leading-none">+</span> Створити контент
               <span aria-hidden="true" className={`transition-transform ${createOpen ? "rotate-180" : ""}`}><Icon name="chevron" size={16} /></span>
@@ -319,6 +300,10 @@ export default function AuthorOverview({
           <button type="button" onClick={() => onNavigate("finance")} className={secondaryBtn}>
             <span className="text-[#6d5bd0]"><Icon name="card" size={19} /></span>
             Переглянути виплати
+          </button>
+          <button type="button" onClick={() => onNavigate("reviews")} className={secondaryBtn}>
+            <span className="text-[#6d5bd0]"><Icon name="star" size={19} /></span>
+            Відгуки учасників
           </button>
         </div>
       </section>

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { touchFinanceActivity } from "../lib/finance";
 import { Icon, type IconName } from "../components/ui/Icon";
+import { SHOW_AUTHOR_DEMO } from "../utils/demoMode";
 import { authoredContent, messages, type AuthoredContent, type ContentStatus, type ContentType } from "../data/authorDashboard";
 import { SessionProvider } from "../context/SessionContext";
 import { getInitials, type Profile } from "../lib/auth";
-import { fetchMyContent, saveContent, setContentStatus, deleteDraft } from "../lib/content";
+import { fetchMyContent, fetchContentMetrics, saveContent, setContentStatus, deleteDraft } from "../lib/content";
 import { fetchConversations } from "../lib/messages";
 import { loadDemoReadIds, saveDemoReadIds } from "../utils/demoReadStore";
 import Avatar from "../components/ui/Avatar";
@@ -110,7 +111,7 @@ export default function AuthorDashboardPage({
   // then on this one array is the single source of truth for the rest
   // of the session, demo and real items alike.
   const [contentList, setContentList] = useState<AuthoredContent[]>(
-    authoredContent
+    SHOW_AUTHOR_DEMO ? authoredContent : []
   );
 
   const [contentLoading, setContentLoading] = useState(true);
@@ -122,10 +123,12 @@ export default function AuthorDashboardPage({
     setContentLoadFailed(false);
     (async () => {
       try {
-        const real = await fetchMyContent(profile.id, { strict: true });
-        if (!cancelled && real.length > 0) {
-          setContentList((prev) => [...real, ...prev.filter((c) => DEMO_IDS.has(c.id))]);
-        }
+        const fetched = await fetchMyContent(profile.id, { strict: true });
+        // participants, income and rating come from purchases, progress and reviews (best effort: zeros if unreadable)
+        const metrics = await fetchContentMetrics(fetched.map((c) => c.id)).catch(() => null);
+        const real = metrics ? fetched.map((c) => ({ ...c, ...(metrics.get(c.id) ?? {}) })) : fetched;
+        // the real list replaces what was there (also when it is empty), demo items stay only in demo mode
+        if (!cancelled) setContentList((prev) => [...real, ...prev.filter((c) => DEMO_IDS.has(c.id))]);
       } catch {
         if (!cancelled) setContentLoadFailed(true);
       } finally {

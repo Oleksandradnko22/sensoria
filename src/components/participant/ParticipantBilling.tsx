@@ -268,6 +268,7 @@ function PurchaseDialog({ p, isDemo, canOpen, onOpenMaterial, onClose }: { p: Pu
         participantId: session.profile.id,
         contentTitle: p.title,
         contentKind: p.kind,
+        purchaseId: p.id,
         amount: p.amount,
         purchasedAt: p.date,
         fullName: name,

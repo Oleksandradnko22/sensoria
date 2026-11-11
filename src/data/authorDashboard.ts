@@ -227,6 +227,37 @@ export const authoredContent: AuthoredContent[] = [
       { title: "Відновлення ресурсу", lessons: 4, duration: "45 хв" },
     ],
   },
+  // two more showcase items, so a demo participant can go through several kinds of material at once
+  {
+    id: "demo-sleep-program",
+    type: "program",
+    title: "Спокійний сон за 21 день",
+    status: "published",
+    price: "1200",
+    participants: 186,
+    revenue: 223_200,
+    rating: 4.7,
+    reviewsCount: 41,
+    createdAt: "2025-02-11",
+    updatedAt: "2026-07-01",
+    modules: [
+      { title: "Як влаштований сон", lessons: 3, duration: "30 хв" },
+      { title: "Вечірній ритуал", lessons: 4, duration: "40 хв" },
+    ],
+  },
+  {
+    id: "demo-evening-meditation",
+    type: "meditation",
+    title: "Вечірнє заспокоєння",
+    status: "published",
+    price: "0",
+    participants: 920,
+    revenue: 0,
+    rating: 4.9,
+    reviewsCount: 77,
+    createdAt: "2025-09-03",
+    updatedAt: "2026-06-12",
+  },
   {
     id: "night-anxiety-guide",
     type: "guide",
@@ -310,12 +341,26 @@ export const participants: ParticipantProgress[] = [
     id: "s6",
     name: "Софія Литвиненко",
     email: "sofia.l@example.com",
-    contentId: "grounding-5min",
+    contentId: "demo-evening-meditation",
     progressPercent: 100,
     lastActive: "2026-08-01",
     enrolledAt: "2026-07-20",
     segment: "active",
   },
+];
+
+// Олена goes through four materials at once (two programs, a guide, a meditation): how a busy participant looks
+participants.push(
+  { id: "s1b", name: "Олена Гуменюк", email: "", contentId: "demo-sleep-program", progressPercent: 35, lastActive: "2026-08-08", enrolledAt: "2026-07-25", segment: "active" },
+  { id: "s1c", name: "Олена Гуменюк", email: "", contentId: "panic-sos", progressPercent: 100, lastActive: "2026-07-29", enrolledAt: "2026-07-28", segment: "active" },
+  { id: "s1d", name: "Олена Гуменюк", email: "", contentId: "demo-evening-meditation", progressPercent: 100, lastActive: "2026-08-10", enrolledAt: "2026-07-21", segment: "active" },
+);
+
+// Demo of «Як матеріали допомагають»: three different pictures (clear help, gentle help, too few marks yet).
+export const demoMoodByContent: { contentId: string; before: number; after: number; people: number }[] = [
+  { contentId: "stress-course", before: 3.8, after: 6.6, people: 214 },
+  { contentId: "demo-sleep-program", before: 4.7, after: 5.6, people: 38 },
+  { contentId: "demo-evening-meditation", before: 5.1, after: 7.4, people: 412 },
 ];
 
 export type Transaction = {

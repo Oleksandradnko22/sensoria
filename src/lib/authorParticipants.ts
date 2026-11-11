@@ -130,15 +130,8 @@ export async function fetchParticipantEngagement(
   const itemIds = modules ? modules.flatMap((m) => m.items.map((it) => it.id)) : [];
 
   // a person's practice answers and reflections are their private journal: the author only gets how many there are
-  const [countsResult, moodResult, feedbackResult] = await Promise.all([
+  const [countsResult, feedbackResult] = await Promise.all([
     client.rpc("author_engagement_counts", { p_program: programId, p_user: userId }),
-    client
-      .from("content_item_mood_checkins")
-      .select("before_value, after_value")
-      .eq("program_id", programId)
-      .eq("user_id", userId)
-      .not("before_value", "is", null)
-      .not("after_value", "is", null),
     itemIds.length > 0
       ? client
           .from("content_item_feedback")
@@ -148,15 +141,8 @@ export async function fetchParticipantEngagement(
       : Promise.resolve({ data: [] as { is_helpful: boolean }[], error: null }),
   ]);
 
-  const moodRows = (moodResult.data ?? []) as { before_value: number; after_value: number }[];
-  const moodAverage =
-    moodRows.length > 0
-      ? {
-          before: moodRows.reduce((sum, r) => sum + r.before_value, 0) / moodRows.length,
-          after: moodRows.reduce((sum, r) => sum + r.after_value, 0) / moodRows.length,
-          count: moodRows.length,
-        }
-      : null;
+  // individual state marks are not readable by the author any more: only averages (author_mood_by_content)
+  const moodAverage = null;
 
   const countsRow = Array.isArray(countsResult.data) ? countsResult.data[0] : countsResult.data;
   const counts = (countsResult.error ? null : countsRow) as { practice_count?: number; reflection_count?: number } | null;
@@ -169,4 +155,50 @@ export async function fetchParticipantEngagement(
     feedbackHelpfulCount: feedbackRows.filter((r) => r.is_helpful).length,
     feedbackNotHelpfulCount: feedbackRows.filter((r) => !r.is_helpful).length,
   };
+}
+
+// ── database-side functions (supabase/author-participants-functions.sql) ───────────────────────────────────────
+
+export type ParticipantSegmentKey = "new" | "active" | "inactive";
+export type PageItem = { contentId: string; percent: number; lastActive: string; segment: ParticipantSegmentKey };
+export type PagePerson = { userId: string; name: string; lastActive: string; segment: ParticipantSegmentKey; items: PageItem[] };
+export type ParticipantsPage = { total: number; active7: number; finished: number; matching: number; people: PagePerson[] };
+export type ParticipantsQuery = { search?: string; contentId?: string | null; segment?: ParticipantSegmentKey | null; sort?: "recent" | "name" | "new" | "inactive"; limit: number; offset: number };
+
+// One page of the author's participants (unique people, every kind of material), with the overall counts.
+export async function fetchParticipantsPage(q: ParticipantsQuery): Promise<ParticipantsPage> {
+  const client = requireSupabase();
+  const { data, error } = await client.rpc("author_participants", {
+    p_search: q.search?.trim() || null,
+    p_content: q.contentId && /^[0-9a-f-]{36}$/i.test(q.contentId) ? q.contentId : null,
+    p_segment: q.segment ?? null,
+    p_sort: q.sort ?? "recent",
+    p_limit: q.limit,
+    p_offset: q.offset,
+  });
+  if (error) throw error;
+  const d = (data ?? {}) as { total?: number; active7?: number; finished?: number; matching?: number; people?: { user_id: string; name: string; last_active: string; segment: ParticipantSegmentKey; items: { content_id: string; percent: number; last_active: string; segment: ParticipantSegmentKey }[] }[] };
+  return {
+    total: d.total ?? 0,
+    active7: d.active7 ?? 0,
+    finished: d.finished ?? 0,
+    matching: d.matching ?? 0,
+    people: (d.people ?? []).map((p) => ({
+      userId: p.user_id,
+      name: p.name,
+      lastActive: p.last_active,
+      segment: p.segment,
+      items: (p.items ?? []).map((i) => ({ contentId: i.content_id, percent: i.percent, lastActive: i.last_active, segment: i.segment })),
+    })),
+  };
+}
+
+// Average state before → after per material, only where at least 3 people marked it (0–10, higher = calmer).
+export async function fetchMoodByContent(contentIds: string[]): Promise<{ contentId: string; before: number; after: number; people: number }[]> {
+  const ids = contentIds.filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (ids.length === 0) return [];
+  const client = requireSupabase();
+  const { data, error } = await client.rpc("author_mood_by_content", { p_ids: ids });
+  if (error || !Array.isArray(data)) return [];
+  return (data as { content_id: string; avg_before: number; avg_after: number; people: number }[]).map((r) => ({ contentId: r.content_id, before: Number(r.avg_before), after: Number(r.avg_after), people: r.people }));
 }

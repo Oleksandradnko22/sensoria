@@ -80,12 +80,16 @@ type Props = {
   // to local state if not provided.
   readIds?: Record<string, boolean>;
   onMarkRead?: (id: string) => void;
+  // «Написати» from «Учасники»: open the conversation with this person (a new, empty one if none exists yet).
+  // `key` changes on every click, so the same person can be opened again.
+  openWith?: { otherId: string; name: string; contentId: string | null; contentTitle: string | null; key: number } | null;
 };
 
 export default function AuthorMessages({
   onUnreadCountChange,
   readIds: readIdsProp,
   onMarkRead,
+  openWith,
 }: Props) {
   const session = useSession();
   const myId = session?.profile.id;
@@ -114,7 +118,10 @@ export default function AuthorMessages({
   // convention already used for the content list.
   // demo conversations are a local showcase: «deleting» one just hides it
   const [hiddenDemo, setHiddenDemo] = useState<Record<string, boolean>>({});
-  const conversations = [...realConversations, ...demoConversations.filter((c) => !hiddenDemo[c.id])];
+  // a conversation opened from «Учасники» that has no messages yet
+  const [draftConversation, setDraftConversation] = useState<ConversationItem | null>(null);
+  const realWithDraft = draftConversation && !realConversations.some((c) => c.id === draftConversation.id) ? [draftConversation, ...realConversations] : realConversations;
+  const conversations = [...realWithDraft, ...demoConversations.filter((c) => !hiddenDemo[c.id])];
 
   const [localReadIds, setLocalReadIds] = useState<Record<string, boolean>>({});
   const readIds = readIdsProp ?? localReadIds;
@@ -144,6 +151,14 @@ export default function AuthorMessages({
   const [broadcastText, setBroadcastText] = useState("");
   const [broadcastSent, setBroadcastSent] = useState(false);
   const [broadcastNotice, setBroadcastNotice] = useState<Notice | null>(null);
+
+  useEffect(() => {
+    if (!openWith) return;
+    const id = `real:${openWith.otherId}:${openWith.contentId ?? "general"}`;
+    setDraftConversation({ id, from: openWith.name, contentTitle: openWith.contentTitle, preview: "Нова розмова", date: new Date().toISOString(), unread: false, real: { otherId: openWith.otherId, contentId: openWith.contentId } });
+    setSelectedId(id);
+    setThreadOpen(true);
+  }, [openWith]);
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
 

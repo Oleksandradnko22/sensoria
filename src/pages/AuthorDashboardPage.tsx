@@ -88,6 +88,8 @@ export default function AuthorDashboardPage({
   onOpenAdmin,
 }: Props) {
   const [section, setSection] = useState<SectionKey>("overview");
+  // «Написати» in «Учасники» → this person's conversation in «Повідомлення»
+  const [openChat, setOpenChat] = useState<{ otherId: string; name: string; contentId: string | null; contentTitle: string | null; key: number } | null>(null);
   // Opening the cabinet counts as the author being present (finance: inactivity rule).
   useEffect(() => {
     touchFinanceActivity("login");
@@ -398,7 +400,15 @@ export default function AuthorDashboardPage({
               )}
               {visitedSections.has("participants") && (
                 <div className={section === "participants" ? "" : "hidden"}>
-                  <AuthorParticipants content={contentList} />
+                  <AuthorParticipants
+                    content={contentList}
+                    onWrite={(t) => {
+                      // a demo participant has nobody real behind it: just open «Повідомлення»
+                      if (t.otherId) setOpenChat({ ...t, otherId: t.otherId, key: Date.now() });
+                      setVisitedSections((prev) => new Set(prev).add("messages"));
+                      openSection("messages");
+                    }}
+                  />
                 </div>
               )}
               {visitedSections.has("finance") && (
@@ -422,6 +432,7 @@ export default function AuthorDashboardPage({
                     onUnreadCountChange={setUnreadMessages}
                     readIds={messageReadIds}
                     onMarkRead={markMessageRead}
+                    openWith={openChat}
                   />
                 </div>
               )}

@@ -125,7 +125,7 @@ export default function AdminVerification({
                   <button
                     onClick={() => onDecide(r, true)}
                     disabled={busyId === r.id}
-                    className="min-h-[44px] px-5 rounded-lg bg-black text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-50"
+                    className="min-h-[44px] px-5 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-50"
                   >
                     {r.kind === "education" ? "Документи переглянуто — надати «Фахівець»" : "Верифікувати"}
                   </button>

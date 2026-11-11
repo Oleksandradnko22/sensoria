@@ -133,7 +133,7 @@ export default function AskAuthorBox({
         <button
           onClick={handleSend}
           disabled={sending || !messageText.trim()}
-          className="mt-2.5 px-5 py-2.5 rounded-xl bg-black text-white text-[13px] font-medium hover:opacity-90 transition disabled:opacity-50"
+          className="mt-2.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition disabled:opacity-50"
         >
           {sending ? "Надсилаємо…" : "Написати автору →"}
         </button>

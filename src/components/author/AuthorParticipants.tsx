@@ -431,7 +431,7 @@ export default function AuthorParticipants({ content, onWrite }: Props) {
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <button type="button" onClick={onClick} aria-pressed={active} className={`inline-flex min-h-[44px] items-center rounded-2xl px-4 text-[14px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${active ? "bg-[#12172b] text-white" : "bg-white text-[#1d2240] shadow-[0_6px_18px_-12px_rgba(60,60,140,0.35)] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}>
+    <button type="button" onClick={onClick} aria-pressed={active} className={`inline-flex min-h-[44px] items-center rounded-2xl px-4 text-[14px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${active ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35" : "bg-white text-[#1d2240] shadow-[0_6px_18px_-12px_rgba(60,60,140,0.35)] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}>
       {children}
     </button>
   );

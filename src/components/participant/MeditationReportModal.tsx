@@ -59,7 +59,7 @@ export default function MeditationReportModal({
                 <div className="flex justify-end mt-5">
                   <button
                     onClick={() => onClose()}
-                    className="px-4 py-2 rounded-lg bg-black text-white text-[13px] font-medium hover:opacity-90 transition"
+                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition"
                   >
                     Закрити
                   </button>
@@ -106,7 +106,7 @@ export default function MeditationReportModal({
                   <button
                     onClick={submitReport}
                     disabled={!reportReason || reportSubmitting}
-                    className="px-4 py-2 rounded-lg bg-black text-white text-[13px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Надіслати скаргу
                   </button>

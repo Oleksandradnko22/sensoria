@@ -59,7 +59,7 @@ export default function ReportDialog({
               <button
                 data-autofocus
                 onClick={onClose}
-                className="min-h-[44px] px-5 rounded-lg bg-black text-white text-[14px] font-medium hover:opacity-90 transition"
+                className="min-h-[44px] px-5 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition"
               >
                 Закрити
               </button>
@@ -109,7 +109,7 @@ export default function ReportDialog({
               <button
                 onClick={send}
                 disabled={!reason || busy}
-                className="min-h-[44px] px-4 rounded-lg bg-black text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="min-h-[44px] px-4 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {busy ? "Надсилаємо…" : "Надіслати скаргу"}
               </button>

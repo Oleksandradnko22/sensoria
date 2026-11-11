@@ -199,7 +199,7 @@ export default function GuideExperience({
           <div className="text-[16px] font-semibold mb-2">Гайд не знайдено</div>
           <button
             onClick={onClose}
-            className="px-5 py-2.5 rounded-xl bg-black text-white text-[13px] font-medium hover:opacity-90 transition"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition"
           >
             Закрити
           </button>

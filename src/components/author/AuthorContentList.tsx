@@ -442,10 +442,10 @@ function Chip({ active, onClick, icon, children }: { active: boolean; onClick: (
       onClick={onClick}
       aria-pressed={active}
       className={`inline-flex min-h-[40px] items-center gap-2 rounded-2xl px-3.5 text-[13px] font-semibold transition focus:outline-none sm:min-h-[44px] sm:px-4 sm:text-[14px] focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${
-        active ? "bg-[#12172b] text-white" : "bg-white text-[#1d2240] shadow-[0_6px_18px_-12px_rgba(60,60,140,0.35)] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"
+        active ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35" : "bg-white text-[#1d2240] shadow-[0_6px_18px_-12px_rgba(60,60,140,0.35)] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"
       }`}
     >
-      {icon && <span className={active ? "text-white" : "text-[#6d5bd0]"}><Icon name={icon} size={16} /></span>}
+      {icon && <span className={active ? "text-[#4338ca]" : "text-[#6d5bd0]"}><Icon name={icon} size={16} /></span>}
       {children}
     </button>
   );

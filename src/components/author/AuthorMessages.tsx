@@ -513,7 +513,7 @@ export default function AuthorMessages({
                 <button
                   onClick={sendReply}
                   disabled={chatBanActive || !canSend(replyDrafts[selected.id] ?? "", sending)}
-                  className="h-11 px-4 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                  className="h-11 px-4 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                 >
                   {sending ? "Надсилаємо…" : "Надіслати"}
                 </button>
@@ -575,7 +575,7 @@ export default function AuthorMessages({
               onClick={sendBroadcast}
               disabled
               title="Розсилка ще в розробці"
-              className="px-5 min-h-[44px] rounded-xl bg-black text-white text-[14px] font-medium w-fit disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-5 min-h-[44px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium w-fit disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Надіслати розсилку
             </button>

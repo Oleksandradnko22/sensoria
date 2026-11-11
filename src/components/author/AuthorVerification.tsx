@@ -207,7 +207,7 @@ export default function AuthorVerification({ kind = "identity" }: { kind?: Verif
             type="button"
             onClick={send}
             disabled={busy || missing.length > 0 || files.length === 0}
-            className="min-h-[44px] px-5 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className="min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {busy ? "Надсилаємо…" : "Надіслати на розгляд"}
           </button>

@@ -213,7 +213,7 @@ export default function AdminFinance() {
                     title: "Підтвердити рахунок?", confirmLabel: "Підтвердити", danger: false,
                     text: "Вкажіть, що саме ви звірили (документ, збіг ПІБ і РНОКПП). Попередній підтверджений рахунок буде замінено.",
                     run: async (reason) => { await callFinance({ action: "verifyBankAccount", accountId: b.id, approve: true, reason }); setInfo("Рахунок підтверджено."); await load(); },
-                  })} className="px-3 py-2 rounded-lg bg-black text-white">Підтвердити</button>
+                  })} className="px-3 py-2 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white">Підтвердити</button>
                   <button onClick={() => ask({
                     title: "Відхилити рахунок?", confirmLabel: "Відхилити", danger: true, text: "Причину побачить автор.",
                     run: async (reason) => { await callFinance({ action: "verifyBankAccount", accountId: b.id, approve: false, reason }); await load(); },
@@ -269,7 +269,7 @@ export default function AdminFinance() {
                   onClick={async () => {
                     try { await callFinance({ action: "payoutConfirm", payoutId: p.id, reference: refs[p.id], reason: "Виплату виконано" }); setInfo("Виплату підтверджено."); await refreshAll(authorId); } catch (e) { setError(e instanceof Error ? e.message : "Помилка."); }
                   }}
-                  className="px-3 py-2 rounded-lg bg-black text-white disabled:opacity-30"
+                  className="px-3 py-2 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white disabled:opacity-30"
                 >
                   Підтвердити виконання
                 </button>
@@ -352,7 +352,7 @@ export default function AdminFinance() {
                       setRepay({ amount: "", source: "cash" }); setInfo("Погашення зафіксовано."); await refreshAll(authorId);
                     },
                   })}
-                  className="px-3 py-2 rounded-lg bg-black text-white disabled:opacity-30"
+                  className="px-3 py-2 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white disabled:opacity-30"
                 >
                   Зафіксувати
                 </button>
@@ -438,7 +438,7 @@ export default function AdminFinance() {
               onClick={async () => {
                 try { await callFinance({ action: "confirmPayment", purchaseId: confirmForm.purchaseId.trim(), reference: confirmForm.reference || "TEST" }); setInfo("Оплату підтверджено, нарахування створено."); setConfirmForm({ purchaseId: "", reference: "" }); await refreshAll(authorId); } catch (e) { setError(e instanceof Error ? e.message : "Помилка."); }
               }}
-              className="px-4 py-2 rounded-lg bg-black text-white disabled:opacity-30"
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white disabled:opacity-30"
             >
               Підтвердити
             </button>
@@ -462,7 +462,7 @@ export default function AdminFinance() {
                 title: "Зафіксувати комісію банку?", confirmLabel: "Зафіксувати", danger: false, text: "Вкажіть період виписки.",
                 run: async (reason) => { await callFinance({ action: "bankFeeSettle", paidKop: Math.round(Number(feePaid.amount.replace(",", ".")) * 100), moveSurplus: feePaid.surplus, reason, requestKey: key() }); setFeePaid({ amount: "", surplus: false }); setInfo("Зафіксовано."); await load(); },
               })}
-              className="px-3 py-2 rounded-lg bg-black text-white disabled:opacity-30"
+              className="px-3 py-2 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white disabled:opacity-30"
             >
               Зафіксувати
             </button>
@@ -512,7 +512,7 @@ export default function AdminFinance() {
                 setInfo("Параметри збережено."); await load();
               },
             })}
-            className="mt-3 px-4 py-2 rounded-lg bg-black text-white text-[13px] disabled:opacity-30"
+            className="mt-3 px-4 py-2 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] disabled:opacity-30"
           >
             Зберегти параметри
           </button>

@@ -210,7 +210,7 @@ export default function AuthorFinance() {
           <h2 id="fin-sales" className="text-[20px] font-bold text-[#12172b]">Продажі</h2>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Які продажі показати">
             {([["all", "Усі"], ["catalog", "Через Sensoria"], ["referral", "За посиланням"], ["refunds", "Повернення"]] as [SaleFilter, string][]).map(([k, l]) => (
-              <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)} className={`min-h-[40px] rounded-2xl px-3.5 text-[13px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${filter === k ? "bg-[#12172b] text-white" : "bg-white text-[#1d2240] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}>
+              <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)} className={`min-h-[40px] rounded-2xl px-3.5 text-[13px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${filter === k ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35" : "bg-white text-[#1d2240] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}>
                 {l}
               </button>
             ))}

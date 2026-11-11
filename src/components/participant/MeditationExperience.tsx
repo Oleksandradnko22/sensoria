@@ -493,7 +493,7 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
           <div className="text-[16px] font-semibold mb-2">Медитацію не знайдено</div>
           <button
             onClick={onClose}
-            className="px-5 py-2.5 rounded-xl bg-black text-white text-[13px] font-medium hover:opacity-90 transition"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition"
           >
             Закрити
           </button>
@@ -1876,7 +1876,7 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
                       <button
                         onClick={savePracticeFeedbackReason}
                         disabled={!practiceFeedbackReason.trim() || practiceFeedbackReasonSaving}
-                        className="px-4 py-1.5 rounded-lg bg-black text-white text-[12px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[12px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         {practiceFeedbackReasonSaving ? "…" : "Надіслати"}
                       </button>

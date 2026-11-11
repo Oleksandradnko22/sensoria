@@ -186,48 +186,41 @@ export default function AuthorReviews({ content }: Props) {
         </div>
       )}
 
-      {/* SUMMARY */}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className={`${card} flex items-center gap-4 p-5`}>
-          <div className="text-[44px] font-bold leading-none text-[#12172b]">{ratedAll.length ? avg(ratedAll).toFixed(1) : "—"}</div>
-          <div>
-            <div className="flex gap-0.5 text-amber-500" aria-hidden="true">{[1, 2, 3, 4, 5].map((s) => <Icon key={s} name="star" size={16} filled={s <= Math.round(avg(ratedAll))} />)}</div>
-            <div className="mt-1 text-[13px] text-black/55">{ratedAll.length} {pluralUk(ratedAll.length, "відгук", "відгуки", "відгуків")} {tab === "author" ? "про вас" : "про матеріали"}</div>
+      {/* SUMMARY: one wide rating card (score + distribution, like a store page) and two stat cards in the same style
+          as «Огляд», «Учасники» and «Фінанси» (icon on the left, label, number, a short line) */}
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <section className={`${card} flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:gap-8 sm:p-6 lg:col-span-2 xl:col-span-1`} aria-label="Рейтинг">
+          <div className="flex shrink-0 flex-col items-center justify-center sm:w-[150px]">
+            <div className="whitespace-nowrap text-[48px] font-bold leading-none text-[#12172b]">{ratedAll.length ? avg(ratedAll).toFixed(1) : "—"}</div>
+            <div className="mt-2 flex gap-0.5 text-amber-500" aria-hidden="true">{[1, 2, 3, 4, 5].map((s) => <Icon key={s} name="star" size={16} filled={s <= Math.round(avg(ratedAll))} />)}</div>
+            <div className="mt-1.5 whitespace-nowrap text-[13px] text-black/55">{ratedAll.length} {pluralUk(ratedAll.length, "відгук", "відгуки", "відгуків")} {tab === "author" ? "про вас" : "про матеріали"}</div>
           </div>
-        </div>
-        <div className={`${card} p-5`}>
-          <div className="flex flex-col gap-1.5" aria-label="Розподіл оцінок">
+          <div className="flex flex-1 flex-col gap-2" aria-label="Розподіл оцінок">
             {dist.map((d) => (
-              <div key={d.s} className="flex items-center gap-2 text-[12px]">
-                <span className="w-3 font-semibold text-[#2d2a5c]">{d.s}</span>
-                <Icon name="star" size={11} filled />
-                <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#ece9fe]"><div className="h-full rounded-full bg-amber-400 transition-[width] duration-500" style={{ width: `${ratedAll.length ? (100 * d.n) / ratedAll.length : 0}%` }} /></div>
-                <span className="w-5 text-right text-black/50">{d.n}</span>
+              <div key={d.s} className="flex items-center gap-3 text-[13px]">
+                <span className="flex w-9 shrink-0 items-center gap-1 font-semibold text-[#2d2a5c]">{d.s}<span className="text-amber-500"><Icon name="star" size={12} filled /></span></span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#f1eefc]"><div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-amber-500 transition-[width] duration-500" style={{ width: `${ratedAll.length ? (100 * d.n) / ratedAll.length : 0}%` }} /></div>
+                <span className="w-6 shrink-0 text-right text-black/50">{d.n}</span>
               </div>
             ))}
           </div>
-        </div>
-        <button type="button" onClick={() => { setNoReply(true); setTab(contentItems.some((i) => !i.reply) ? "content" : "author"); }} className={`${card} flex items-center gap-4 p-5 text-left transition hover:ring-[#d9d0fb] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0]`}>
-          <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${waiting ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"}`}><Icon name={waiting ? "comment" : "check"} size={22} /></span>
-          <span>
-            <span className="block text-[26px] font-bold leading-none text-[#12172b]">{waiting}</span>
-            <span className="mt-1 block text-[13px] text-black/55">{waiting ? "чекають на вашу відповідь" : "на всі відгуки є відповідь"}</span>
-          </span>
-        </button>
-        <div className={`${card} flex items-center gap-4 p-5`}>
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#7a68e0]"><Icon name="heart" size={22} /></span>
-          <div>
-            <div className="text-[26px] font-bold leading-none text-[#12172b]">{helpfulShare != null ? `${helpfulShare}%` : "—"}</div>
-            <div className="mt-1 text-[13px] text-black/55">медитації були корисними</div>
-          </div>
-        </div>
+        </section>
+        <StatCard
+          icon={waiting ? "comment" : "check"}
+          tone={waiting ? "amber" : "green"}
+          label="Чекають на відповідь"
+          value={String(waiting)}
+          hint={waiting ? "Показати й відповісти →" : "На всі відгуки є відповідь"}
+          onClick={waiting ? () => { setNoReply(true); setTab(contentItems.some((i) => !i.reply) ? "content" : "author"); } : undefined}
+        />
+        <StatCard icon="heart" tone="violet" label="Корисність практик" value={helpfulShare != null ? `${helpfulShare}%` : "—"} hint={feedbackAll.length ? `«так» у ${feedbackAll.length} ${pluralUk(feedbackAll.length, "відповіді", "відповідях", "відповідях")}` : "Поки немає відповідей"} />
       </div>
 
       {/* TABS */}
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Тип відгуків">
         {([["content", "Про матеріали", contentItems.length], ["author", "Про вас", aboutYou.length], ["helpful", "Чи була корисною", feedbackAll.length]] as [Tab, string, number][]).map(([k, l, n]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`inline-flex min-h-[44px] items-center gap-2 rounded-2xl px-4 text-[14px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${tab === k ? "bg-[#12172b] text-white" : "bg-white text-[#1d2240] shadow-[0_6px_18px_-12px_rgba(60,60,140,0.35)] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}>
-            {l}<span className={`rounded-full px-2 py-0.5 text-[12px] ${tab === k ? "bg-white/20" : "bg-[#f1eeff] text-[#5b4bd0]"}`}>{n}</span>
+          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`inline-flex min-h-[44px] items-center gap-2 rounded-2xl px-4 text-[14px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${tab === k ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35" : "bg-white text-[#1d2240] shadow-[0_6px_18px_-12px_rgba(60,60,140,0.35)] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}>
+            {l}<span className={`rounded-full px-2 py-0.5 text-[12px] ${tab === k ? "bg-white text-[#4338ca]" : "bg-[#f1eeff] text-[#5b4bd0]"}`}>{n}</span>
           </button>
         ))}
       </div>
@@ -265,6 +258,26 @@ export default function AuthorReviews({ content }: Props) {
   );
 }
 
+function StatCard({ icon, tone, label, value, hint, onClick }: { icon: IconName; tone: "amber" | "green" | "violet"; label: string; value: string; hint: string; onClick?: () => void }) {
+  const toneCls = { amber: "bg-amber-50 text-amber-500", green: "bg-emerald-50 text-emerald-600", violet: "bg-[#f1eeff] text-[#7a68e0]" }[tone];
+  const body = (
+    <>
+      <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${toneCls}`}><Icon name={icon} size={24} /></span>
+      <span className="min-w-0">
+        <span className="block text-[14px] font-medium text-black/60">{label}</span>
+        <span className="mt-1 block whitespace-nowrap text-[30px] font-bold leading-none text-[#12172b]">{value}</span>
+        <span className={`mt-1.5 block text-[12px] leading-snug ${onClick ? "font-semibold text-[#5b4bd0]" : "text-black/50"}`}>{hint}</span>
+      </span>
+    </>
+  );
+  const cls = `${card} flex items-center gap-4 p-5 text-left`;
+  return onClick ? (
+    <button type="button" onClick={onClick} className={`${cls} transition hover:ring-[#d9d0fb] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0]`}>{body}</button>
+  ) : (
+    <div className={cls}>{body}</div>
+  );
+}
+
 function ReviewCard({ item, viewerId, onSave }: { item: Item; viewerId: string | null; onSave: (i: Item, text: string) => Promise<void> }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(item.reply ?? "");
@@ -284,12 +297,12 @@ function ReviewCard({ item, viewerId, onSave }: { item: Item; viewerId: string |
     }
   };
   return (
-    <article className={`${card} p-5 sm:p-6`}>
+    <article className={`${card} min-w-0 overflow-hidden p-5 sm:p-6`}>
       <div className="flex items-start gap-4">
         <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#e2dbff] to-[#cfc3ff] text-[14px] font-bold text-[#4a2fd0]">{initials(item.name)}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="text-[16px] font-semibold text-[#12172b]">{item.name}</span>
+            <span className="min-w-0 text-[16px] font-semibold text-[#12172b] [overflow-wrap:anywhere]">{item.name}</span>
             <span className="flex gap-0.5 text-amber-500" aria-label={`Оцінка ${item.rating} з 5`}>{[1, 2, 3, 4, 5].map((s) => <Icon key={s} name="star" size={14} filled={s <= item.rating} />)}</span>
             <span className="text-[12px] text-black/50">{formatRelativeTime(item.date)}</span>
             {!item.real && <span className="rounded-full bg-[#f6f4ff] px-2 py-0.5 text-[11px] font-semibold text-[#6d5bd0]">демо</span>}
@@ -301,7 +314,7 @@ function ReviewCard({ item, viewerId, onSave }: { item: Item; viewerId: string |
           ) : item.kind === "author" ? (
             <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[12px] font-medium text-emerald-700"><Icon name="heart" size={12} /> Відгук про вас</span>
           ) : null}
-          <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-[#2d2a5c]">{item.text}</p>
+          <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-[#2d2a5c] [overflow-wrap:anywhere]">{item.text}</p>
 
           {item.reply && !editing && (
             <div className="mt-4 rounded-2xl bg-[#faf9ff] p-4 ring-1 ring-[#efeafd]">
@@ -309,7 +322,7 @@ function ReviewCard({ item, viewerId, onSave }: { item: Item; viewerId: string |
                 Ваша відповідь
                 <button type="button" onClick={() => { setText(item.reply ?? ""); setEditing(true); }} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[#5b4bd0] hover:bg-[#f1eeff]"><Icon name="note" size={13} /> Змінити</button>
               </div>
-              <p className="mt-1 whitespace-pre-line text-[14px] leading-relaxed text-[#2d2a5c]">{item.reply}</p>
+              <p className="mt-1 whitespace-pre-line text-[14px] leading-relaxed text-[#2d2a5c] [overflow-wrap:anywhere]">{item.reply}</p>
             </div>
           )}
 
@@ -398,7 +411,7 @@ function FeedbackCard({ f, title }: { f: MeditationFeedbackEntry; title: string 
         </div>
         <span className={`shrink-0 rounded-full px-3 py-1 text-[12px] font-semibold ${helpful ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{helpful ? "Корисно" : "Не зовсім"}</span>
       </div>
-      {f.reason && <p className="mt-3 text-[14px] leading-relaxed text-[#2d2a5c]">«{f.reason}»</p>}
+      {f.reason && <p className="mt-3 text-[14px] leading-relaxed text-[#2d2a5c] [overflow-wrap:anywhere]">«{f.reason}»</p>}
       <div className="mt-3 flex items-center justify-between gap-3">
         <span className="text-[12px] text-black/50">{formatRelativeTime(f.updatedAt ?? f.createdAt)}</span>
         {sent ? (
@@ -423,7 +436,7 @@ function FeedbackCard({ f, title }: { f: MeditationFeedbackEntry; title: string 
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <button type="button" onClick={onClick} aria-pressed={active} className={`inline-flex min-h-[40px] items-center rounded-2xl px-3.5 text-[13px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${active ? "bg-[#12172b] text-white" : "bg-white text-[#1d2240] shadow-[0_6px_18px_-12px_rgba(60,60,140,0.35)] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}>
+    <button type="button" onClick={onClick} aria-pressed={active} className={`inline-flex min-h-[40px] items-center rounded-2xl px-3.5 text-[13px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${active ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35" : "bg-white text-[#1d2240] shadow-[0_6px_18px_-12px_rgba(60,60,140,0.35)] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}>
       {children}
     </button>
   );

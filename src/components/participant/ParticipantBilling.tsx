@@ -142,7 +142,7 @@ export default function ParticipantBilling({ onNavigate, onOpenProgram, onOpenGu
             Тут з’явиться історія ваших покупок на Sensoria — програм, гайдів та інших матеріалів.
           </p>
           {onNavigate && (
-            <button onClick={() => onNavigate("learning")} className="mt-4 min-h-[44px] px-5 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90">
+            <button onClick={() => onNavigate("learning")} className="mt-4 min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90">
               Перейти до навчання
             </button>
           )}
@@ -314,7 +314,7 @@ function PurchaseDialog({ p, isDemo, canOpen, onOpenMaterial, onClose }: { p: Pu
         </dl>
 
         {canOpen && (
-          <button onClick={onOpenMaterial} className="mt-5 w-full min-h-[44px] rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90">
+          <button onClick={onOpenMaterial} className="mt-5 w-full min-h-[44px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90">
             Перейти до матеріалу →
           </button>
         )}
@@ -341,7 +341,7 @@ function PurchaseDialog({ p, isDemo, canOpen, onOpenMaterial, onClose }: { p: Pu
                 <div className={`text-[12px] text-right ${words >= MIN_REFUND_REASON_WORDS ? "text-emerald-700" : "text-black/60"}`}>{words}/{MIN_REFUND_REASON_WORDS} слів</div>
                 {error && <div role="alert" className="text-[14px] text-rose-700">{error}</div>}
                 <div className="flex items-center gap-2">
-                  <button onClick={submit} disabled={!canSubmit || busy} className="min-h-[44px] px-5 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 disabled:opacity-40">
+                  <button onClick={submit} disabled={!canSubmit || busy} className="min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 disabled:opacity-40">
                     {busy ? "Надсилаємо…" : "Надіслати запит"}
                   </button>
                   <button onClick={() => setRefundMode(false)} className="min-h-[44px] px-4 rounded-xl text-[14px] text-black/70 hover:bg-black/5">Скасувати</button>

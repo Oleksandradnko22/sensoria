@@ -240,3 +240,10 @@ html {
   .hero-rise, .hero-sun, .hero-ridge-far, .hero-ridge-mid, .hero-shimmer { animation: none; }
   .hero-scene, .hero-scene * { transition: none !important; }
 }
+
+/* Long words without spaces (pasted links, test strings, e-mails) never spill out of their card, anywhere on the
+   platform. `anywhere` (not `break-word`) also lets cards, flex and grid items shrink around such a word, which is
+   exactly where text used to overflow. Words that fit are never broken; short labels marked whitespace-nowrap stay whole. */
+body {
+  overflow-wrap: anywhere;
+}

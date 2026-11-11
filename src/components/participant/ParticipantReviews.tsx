@@ -348,7 +348,7 @@ export default function ParticipantReviews({
               {onNavigate && (
                 <button
                   onClick={() => onNavigate("learning")}
-                  className="mt-4 min-h-[44px] px-5 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90"
+                  className="mt-4 min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90"
                 >
                   Перейти до навчання
                 </button>
@@ -428,7 +428,7 @@ export default function ParticipantReviews({
                             className="w-full px-4 py-3 rounded-xl border border-black/15 text-[16px] sm:text-[14px] focus:outline-none focus:border-black/40 resize-none"
                           />
                           <div className="flex items-center gap-2">
-                            <button onClick={saveEdit} disabled={saving || !draftText.trim()} className="min-h-[44px] px-5 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 disabled:opacity-40">
+                            <button onClick={saveEdit} disabled={saving || !draftText.trim()} className="min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 disabled:opacity-40">
                               {saving ? "Зберігаємо…" : "Зберегти"}
                             </button>
                             <button onClick={() => setEditingId(null)} disabled={saving} className="min-h-[44px] px-4 rounded-xl text-[14px] text-black/70 hover:bg-black/5">
@@ -577,7 +577,7 @@ function ReviewDialog({ review, onClose, onEdit }: { review: UnifiedReview; onCl
         )}
         <div className="mt-5 flex justify-end gap-2">
           {onEdit && (
-            <button onClick={onEdit} className="min-h-[44px] px-5 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90">
+            <button onClick={onEdit} className="min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90">
               Редагувати
             </button>
           )}

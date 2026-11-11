@@ -63,7 +63,7 @@ export default function ProtectedPdfActions({ title, url, contentId, variant, sh
         <button
           onClick={download}
           disabled={busy}
-          className="px-3.5 py-1.5 rounded-lg bg-black text-white text-[12px] font-medium hover:opacity-90 transition shrink-0 disabled:opacity-50"
+          className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[12px] font-medium hover:opacity-90 transition shrink-0 disabled:opacity-50"
         >
           {busy ? "Готуємо…" : "Завантажити"}
         </button>

@@ -341,7 +341,7 @@ export default function AuthorDashboardPage({
                       className={`
                         min-w-[20px] h-5 px-1 rounded-full text-[11px] font-semibold
                         flex items-center justify-center
-                        ${isActive ? "bg-black text-white" : "bg-blue-500 text-white"}
+                        ${isActive ? "bg-[#4338ca] text-white" : "bg-blue-500 text-white"}
                       `}
                     >
                       {unreadMessages}

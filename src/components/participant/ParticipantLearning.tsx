@@ -1239,7 +1239,7 @@ export default function ParticipantLearning({
                 onClick={() => setStatusFilter(s)}
                 className={`min-h-[44px] px-3.5 py-1.5 rounded-full text-[14px] font-medium transition ${
                   statusFilter === s
-                    ? "bg-black text-white"
+                    ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35"
                     : "text-black/60 hover:text-black/70 hover:bg-black/[0.04]"
                 }`}
               >
@@ -1786,7 +1786,7 @@ function ContentCard({
           </div>
           <button
             onClick={onOpen}
-            className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-black text-white text-[12px] font-medium hover:opacity-90 transition shrink-0"
+            className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[12px] font-medium hover:opacity-90 transition shrink-0"
           >
             {ctaLabel(item.kind, isSavedOnly ? undefined : item.enrollment?.status, percent)}
           </button>
@@ -2070,7 +2070,7 @@ function MeditationLearningCard({
 
         <button
           onClick={onOpen}
-          className="min-h-[44px] mt-2.5 self-start px-3.5 py-1.5 rounded-xl bg-black text-white text-[12px] font-medium hover:opacity-90 transition"
+          className="min-h-[44px] mt-2.5 self-start px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[12px] font-medium hover:opacity-90 transition"
         >
           {/* Real-state CTA (2026-09-23, per Sasha's explicit follow-up)
               — driven by isStoppedMeditation/isCompleted (the same real

@@ -58,7 +58,7 @@ export default function AdminReports({
             onClick={() => setGroup(g)}
             aria-pressed={group === g}
             className={`min-h-[44px] px-4 rounded-full text-[14px] font-medium border transition ${
-              group === g ? "bg-black text-white border-black" : "bg-white border-black/10 text-black/70 hover:bg-black/5"
+              group === g ? "bg-[#eef0fd] text-[#4338ca] border-[#4338ca]/35" : "bg-white border-black/10 text-black/70 hover:bg-black/5"
             }`}
           >
             {REPORT_GROUP_LABELS[g]} · {counts[g]}
@@ -170,7 +170,7 @@ export default function AdminReports({
                 <button
                   onClick={() => onReviewed(r)}
                   disabled={busyId === r.id}
-                  className="min-h-[44px] px-4 rounded-lg bg-black text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-50"
+                  className="min-h-[44px] px-4 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-50"
                 >
                   Розглянуто
                 </button>

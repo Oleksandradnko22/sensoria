@@ -112,7 +112,7 @@ function MfaSetupDialog({
           <button onClick={onCancel} disabled={busy} className="min-h-[44px] px-4 rounded-xl border border-black/[0.12] text-[14px] text-black/70 hover:bg-black/[0.04] disabled:opacity-50">
             Скасувати
           </button>
-          <button onClick={onConfirm} disabled={busy || code.length !== 6} className="min-h-[44px] px-5 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">
+          <button onClick={onConfirm} disabled={busy || code.length !== 6} className="min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">
             {busy ? "Перевіряємо…" : "Підтвердити"}
           </button>
         </div>
@@ -485,7 +485,7 @@ export default function ParticipantProfile() {
   const primaryBtn =
     "min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed";
   const darkBtn =
-    "min-h-[44px] px-5 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed";
+    "min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed";
 
   return (
     <div className={`flex flex-col gap-6 ${redirecting ? "page-fade-out" : ""}`}>

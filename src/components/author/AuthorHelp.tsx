@@ -232,7 +232,7 @@ export default function AuthorHelp() {
               Короткий гайд про структуру модулів, тривалість уроків і те, як формулювати
               результати програми, щоб учасники доходили до кінця.
             </p>
-            <button className="px-4 py-2.5 rounded-xl bg-black text-white text-[13px] font-medium hover:opacity-90 transition">
+            <button className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition">
               Відкрити гайд
             </button>
           </div>
@@ -298,7 +298,7 @@ export default function AuthorHelp() {
                   <button
                     onClick={submitProblemReport}
                     disabled={reportSubmitting || !reportDescription.trim()}
-                    className="w-full px-5 py-2.5 rounded-xl bg-black text-white text-[13px] font-medium hover:opacity-90 transition disabled:opacity-50"
+                    className="w-full px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition disabled:opacity-50"
                   >
                     {reportSubmitting ? "Надсилаємо…" : "Надіслати"}
                   </button>

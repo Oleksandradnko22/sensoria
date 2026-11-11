@@ -787,7 +787,7 @@ export default function ParticipantOverview({
               {onRetakeAssessment && (
                 <button
                   onClick={onRetakeAssessment}
-                  className="min-h-[44px] px-4 py-2.5 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 transition self-start"
+                  className="min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition self-start"
                 >
                   Пройти оцінку →
                 </button>
@@ -925,7 +925,7 @@ export default function ParticipantOverview({
             {onBackToSite && (
               <button
                 onClick={onBackToSite}
-                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 transition shrink-0"
+                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition shrink-0"
               >
                 Переглянути каталог →
               </button>
@@ -940,7 +940,7 @@ export default function ParticipantOverview({
             {onRetakeAssessment && (
               <button
                 onClick={onRetakeAssessment}
-                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 transition shrink-0"
+                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition shrink-0"
               >
                 Пройти оцінку →
               </button>

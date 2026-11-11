@@ -468,7 +468,7 @@ export function ReflectionField({
           type="button"
           onClick={save}
           disabled={!canSave || saving || !text.trim()}
-          className="px-6 py-2.5 rounded-full bg-black text-white text-[13.5px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-6 py-2.5 rounded-full bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13.5px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {saving ? "Зберігаємо…" : "Зберегти спостереження"}
         </button>

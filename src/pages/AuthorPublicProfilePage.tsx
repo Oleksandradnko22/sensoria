@@ -383,7 +383,7 @@ export default function AuthorPublicProfilePage({
               <button
                 tabIndex={stuck ? 0 : -1}
                 onClick={() => data && onMessageAuthor({ authorId, name: data.name, avatarUrl: data.avatarUrl })}
-                className="shrink-0 px-4 min-h-[44px] rounded-lg bg-black text-white text-[14px] font-medium"
+                className="shrink-0 px-4 min-h-[44px] rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium"
               >
                 Написати
               </button>
@@ -416,7 +416,7 @@ export default function AuthorPublicProfilePage({
         {state === "error" && (
           <div className={`${SURFACE} text-center py-12`} role="alert">
             <div className="text-[16px] font-medium">Не вдалося завантажити профіль</div>
-            <button onClick={() => load()} className="mt-4 px-4 py-2 rounded-xl bg-black text-white text-[14px] font-medium">
+            <button onClick={() => load()} className="mt-4 px-4 py-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium">
               Спробувати ще раз
             </button>
           </div>

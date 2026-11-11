@@ -368,7 +368,7 @@ export default function ParticipantEmotionalProfile({
           {onRetakeAssessment && (
             <button
               onClick={onRetakeAssessment}
-              className="px-4 py-2.5 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 transition"
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition"
             >
               Пройти оцінку →
             </button>

@@ -645,7 +645,7 @@ export default function ProgramExperience({
           </p>
           <button
             onClick={onClose}
-            className="px-5 py-2.5 rounded-xl bg-black text-white text-[13px] font-medium hover:opacity-90 transition"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition"
           >
             Закрити
           </button>
@@ -2791,7 +2791,7 @@ export default function ProgramExperience({
               </button>
               <button
                 onClick={onClose}
-                className="px-6 py-3 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 transition"
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition"
               >
                 Повернутися до мого навчання
               </button>

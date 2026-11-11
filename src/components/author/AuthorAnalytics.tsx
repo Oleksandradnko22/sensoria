@@ -77,7 +77,7 @@ export default function AuthorAnalytics({ content }: Props) {
         </div>
         <div className="flex rounded-2xl bg-white p-1 shadow-[0_6px_18px_-12px_rgba(60,60,140,0.35)] ring-1 ring-[#ebe8ff]" role="group" aria-label="Період">
           {PERIODS.map((p) => (
-            <button key={p} type="button" aria-pressed={days === p} onClick={() => pickPeriod(p)} className={`min-h-[40px] rounded-xl px-4 text-[14px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${days === p ? "bg-[#12172b] text-white" : "text-[#1d2240] hover:bg-[#faf9ff]"}`}>
+            <button key={p} type="button" aria-pressed={days === p} onClick={() => pickPeriod(p)} className={`min-h-[40px] rounded-xl px-4 text-[14px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${days === p ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35" : "text-[#1d2240] hover:bg-[#faf9ff]"}`}>
               {p} днів
             </button>
           ))}
@@ -149,7 +149,7 @@ export default function AuthorAnalytics({ content }: Props) {
           <p className="mt-1 text-[14px] text-black/55">Перегляди, продажі й дохід за обраний період; учасники, оцінки та збереження — за весь час.</p>
           <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Тип матеріалу">
             {([["all", "Усі"], ["program", "Програми"], ["meditation", "Медитації"], ["guide", "Гайди"]] as ["all" | ContentType, string][]).map(([k, l]) => (
-              <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={`inline-flex min-h-[40px] items-center gap-2 rounded-2xl px-3.5 text-[13px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${kind === k ? "bg-[#12172b] text-white" : "bg-white text-[#1d2240] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}>
+              <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={`inline-flex min-h-[40px] items-center gap-2 rounded-2xl px-3.5 text-[13px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${kind === k ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35" : "bg-white text-[#1d2240] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}>
                 {k !== "all" && <Icon name={TYPE_ICON[k]} size={15} />}{l}
               </button>
             ))}

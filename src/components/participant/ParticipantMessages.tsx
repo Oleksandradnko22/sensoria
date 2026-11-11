@@ -913,7 +913,7 @@ export default function ParticipantMessages({
                   <button
                     onClick={send}
                     disabled={chatBanActive || !canSend(draft, sending)}
-                    className="h-11 px-4 rounded-xl bg-black text-white text-[14px] font-medium transition hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                    className="h-11 px-4 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium transition hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                   >
                     {sending ? "Надсилаємо…" : "Надіслати"}
                   </button>

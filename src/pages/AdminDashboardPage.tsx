@@ -397,7 +397,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
                   aria-selected={tab === p.key}
                   onClick={() => setTab(p.key)}
                   className={`min-h-[44px] px-4 rounded-xl text-[14px] font-medium border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb] ${
-                    tab === p.key ? "bg-black text-white border-black" : "bg-white border-black/10 hover:border-black/20"
+                    tab === p.key ? "bg-[#eef0fd] text-[#4338ca] border-[#4338ca]/35" : "bg-white border-black/10 hover:border-black/20"
                   }`}
                 >
                   {p.label}
@@ -453,7 +453,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
                     onClick={() => setUserFilter(f.key)}
                     aria-pressed={userFilter === f.key}
                     className={`min-h-[44px] px-4 rounded-xl text-[14px] font-medium border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb] ${
-                      userFilter === f.key ? "bg-black text-white border-black" : "bg-white border-black/10 hover:border-black/20"
+                      userFilter === f.key ? "bg-[#eef0fd] text-[#4338ca] border-[#4338ca]/35" : "bg-white border-black/10 hover:border-black/20"
                     }`}
                   >
                     {f.label}

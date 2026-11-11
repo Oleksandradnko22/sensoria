@@ -306,7 +306,7 @@ export default function AuthorReviews({
                         <div className="mt-1 text-right text-[12px] text-black/55">{draft.trim().length} / {REVIEW_REPLY_MAX}</div>
                         {notice && <div role="alert" className="text-[14px] text-rose-600 mt-1">{notice}</div>}
                         <div className="mt-2 flex gap-2">
-                          <button onClick={() => save(r.id, draft)} disabled={busy || !draft.trim()} className="min-h-[44px] px-5 rounded-xl bg-black text-white text-[14px] font-medium disabled:opacity-40">
+                          <button onClick={() => save(r.id, draft)} disabled={busy || !draft.trim()} className="min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium disabled:opacity-40">
                             {busy ? "Зберігаємо…" : "Опублікувати"}
                           </button>
                           <button onClick={() => { setEditing(null); setNotice(null); }} className="min-h-[44px] px-4 rounded-xl border border-black/[0.12] text-[14px] text-black/70 hover:bg-black/[0.04]">

@@ -306,7 +306,7 @@ export default function AuthorSettings() {
                 <button
                   onClick={saveContact}
                   disabled={savingContact}
-                  className="px-5 py-2.5 rounded-xl bg-black text-white text-[13px] font-medium hover:opacity-90 transition w-fit disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition w-fit disabled:opacity-50"
                 >
                   {savingContact ? "Зберігаємо…" : "Зберегти"}
                 </button>
@@ -421,7 +421,7 @@ export default function AuthorSettings() {
                   <button
                     onClick={savePassword}
                     disabled={passwordSaving}
-                    className="px-5 py-2.5 rounded-xl bg-black text-white text-[13px] font-medium hover:opacity-90 transition w-fit disabled:opacity-50"
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition w-fit disabled:opacity-50"
                   >
                     {passwordSaving ? "Змінюємо…" : "Змінити пароль"}
                   </button>
@@ -455,7 +455,7 @@ export default function AuthorSettings() {
                   <button
                     onClick={saveInitialPassword}
                     disabled={passwordSaving || !isInitialPasswordValid}
-                    className="px-5 py-2.5 rounded-xl bg-black text-white text-[13px] font-medium hover:opacity-90 transition w-fit disabled:opacity-50"
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition w-fit disabled:opacity-50"
                   >
                     {passwordSaving ? "Зберігаємо…" : "Зберегти пароль"}
                   </button>
@@ -509,7 +509,7 @@ export default function AuthorSettings() {
                     <button
                       onClick={confirmMfaEnroll}
                       disabled={mfaBusy || mfaCode.length !== 6}
-                      className="px-4 py-2 rounded-xl bg-black text-white text-[13px] font-medium hover:opacity-90 transition disabled:opacity-50"
+                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition disabled:opacity-50"
                     >
                       {mfaBusy ? "Перевіряємо…" : "Підтвердити"}
                     </button>

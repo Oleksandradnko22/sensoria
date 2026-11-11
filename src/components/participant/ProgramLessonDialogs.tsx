@@ -66,7 +66,7 @@ export function NotHelpfulDialog({
         </button>
         <button
           onClick={onSubmit}
-          className="px-4 py-2 rounded-lg bg-black text-white text-[13px] font-medium hover:opacity-90 transition"
+          className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition"
         >
           Надіслати
         </button>
@@ -121,7 +121,7 @@ export function ReportCommentDialog({
           <div className="flex justify-end mt-5">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-lg bg-black text-white text-[13px] font-medium hover:opacity-90 transition"
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition"
             >
               Закрити
             </button>
@@ -159,7 +159,7 @@ export function ReportCommentDialog({
             <button
               onClick={onSubmit}
               disabled={!reason}
-              className="px-4 py-2 rounded-lg bg-black text-white text-[13px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Надіслати скаргу
             </button>

@@ -74,7 +74,7 @@ type Props = {
 
 const actionRow = "flex flex-wrap items-center justify-end gap-2 mt-4";
 const openBtn =
-  "min-h-[44px] px-4 py-2 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30";
+  "min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30";
 const deleteBtn =
   "min-h-[44px] px-4 py-2 rounded-xl border border-black/15 bg-white text-[14px] font-medium text-black/65 hover:border-red-300 hover:text-red-600 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30";
 
@@ -394,7 +394,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
           </p>
           <button
             onClick={() => setReloadKey((k) => k + 1)}
-            className="min-h-[44px] px-4 py-2.5 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 transition"
+            className="min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition"
           >
             Спробувати ще раз
           </button>
@@ -437,12 +437,12 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                   onClick={() => setTab(t.key)}
                   className={`min-h-[44px] px-3.5 py-1.5 rounded-full text-[14px] font-medium border transition ${
                     isActive
-                      ? "bg-black text-white border-black"
+                      ? "bg-[#eef0fd] text-[#4338ca] border-[#4338ca]/35"
                       : "bg-white text-black/60 border-black/10 hover:border-black/25"
                   }`}
                 >
                   {t.label}
-                  {!loading && <span className={isActive ? "text-white/60" : "text-black/60"}> · {t.count}</span>}
+                  {!loading && <span className={isActive ? "text-[#4338ca]/80" : "text-black/60"}> · {t.count}</span>}
                 </button>
               );
             })}
@@ -482,7 +482,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                       onClick={() => setSourceFilter(f)}
                       className={`min-h-[44px] px-3 py-2 rounded-xl text-[14px] font-medium border transition ${
                         sourceFilter === f
-                          ? "bg-black text-white border-black"
+                          ? "bg-[#eef0fd] text-[#4338ca] border-[#4338ca]/35"
                           : "bg-white text-black/60 border-black/10 hover:border-black/25"
                       }`}
                     >
@@ -544,7 +544,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                                     onClick={() => setChartSource(sr.source)}
                                     className={`min-h-[44px] px-3 py-1 rounded-full text-[12px] font-medium border transition ${
                                       sr.source === activeSeries.source
-                                        ? "bg-black text-white border-black"
+                                        ? "bg-[#eef0fd] text-[#4338ca] border-[#4338ca]/35"
                                         : "bg-white text-black/60 border-black/10 hover:border-black/25"
                                     }`}
                                   >

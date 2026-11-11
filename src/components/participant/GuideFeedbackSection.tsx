@@ -214,7 +214,7 @@ export default function GuideFeedbackSection({ guideId, guideTitle, userId }: Pr
               <button
                 onClick={saveFeedbackReason}
                 disabled={!feedbackReason.trim() || feedbackReasonSaving}
-                className="px-4 py-1.5 rounded-lg bg-black text-white text-[12px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[12px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {feedbackReasonSaving ? "…" : "Надіслати"}
               </button>
@@ -263,7 +263,7 @@ export default function GuideFeedbackSection({ guideId, guideTitle, userId }: Pr
           <button
             onClick={handleSaveReview}
             disabled={savingReview || !reviewText.trim()}
-            className="w-full mt-2 py-2.5 rounded-xl bg-black text-white text-[13px] font-medium hover:opacity-90 transition disabled:opacity-50"
+            className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition disabled:opacity-50"
           >
             {savingReview ? "Зберігаємо…" : "Зберегти відгук"}
           </button>
@@ -285,7 +285,7 @@ export default function GuideFeedbackSection({ guideId, guideTitle, userId }: Pr
                 <div className="flex justify-end mt-5">
                   <button
                     onClick={() => setShowReportModal(false)}
-                    className="px-4 py-2 rounded-lg bg-black text-white text-[13px] font-medium hover:opacity-90 transition"
+                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition"
                   >
                     Закрити
                   </button>
@@ -332,7 +332,7 @@ export default function GuideFeedbackSection({ guideId, guideTitle, userId }: Pr
                   <button
                     onClick={submitReport}
                     disabled={!reportReason || reportSubmitting}
-                    className="px-4 py-2 rounded-lg bg-black text-white text-[13px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Надіслати скаргу
                   </button>

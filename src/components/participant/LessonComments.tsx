@@ -274,7 +274,7 @@ export default function LessonComments({ itemId, session, notifyWriteFailed }: P
                         <div className="flex gap-2 mt-2">
                           <button
                             onClick={saveEditComment}
-                            className="px-4 py-1.5 rounded-lg bg-black text-white text-[12px] font-medium hover:opacity-90 transition"
+                            className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[12px] font-medium hover:opacity-90 transition"
                           >
                             Зберегти
                           </button>

@@ -1448,7 +1448,7 @@ export default function AuthorCourseEditor({
               disabled={!!editing}
               className={`min-h-[44px] px-4 py-2.5 rounded-xl text-[14px] font-medium transition ${
                 type === t
-                  ? "bg-black text-white"
+                  ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35"
                   : "bg-white border border-black/10 text-black/60 hover:bg-black/5"
               } ${editing ? "opacity-50 cursor-not-allowed" : ""}`}
             >

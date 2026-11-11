@@ -243,7 +243,7 @@ export default function PostComments({ postId, postAuthorId, viewer, onRequireLo
               />
               {editNotice && <div className="text-[12px] text-rose-600 mt-1.5">{editNotice}</div>}
               <div className="flex gap-2 mt-2">
-                <button onClick={saveEdit} className="px-4 py-1.5 rounded-lg bg-black text-white text-[12px] font-medium">
+                <button onClick={saveEdit} className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[12px] font-medium">
                   Зберегти
                 </button>
                 <button
@@ -296,7 +296,7 @@ export default function PostComments({ postId, postAuthorId, viewer, onRequireLo
                     setReplying(false);
                   }}
                   disabled={!replyDraft.trim() || replying}
-                  className="px-4 py-1.5 rounded-lg bg-black text-white text-[12px] font-medium disabled:opacity-30"
+                  className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[12px] font-medium disabled:opacity-30"
                 >
                   Відповісти
                 </button>

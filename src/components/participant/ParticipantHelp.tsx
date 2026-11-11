@@ -345,7 +345,7 @@ export default function ParticipantHelp() {
                   <button
                     type="submit"
                     disabled={reportSubmitting || !reportDescription.trim()}
-                    className="min-h-[44px] rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="min-h-[44px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {reportSubmitting ? "Надсилаємо…" : "Надіслати"}
                   </button>

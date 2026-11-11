@@ -509,7 +509,7 @@ export default function ParticipantSaved({
           </p>
           <button
             onClick={() => setReloadKey((k) => k + 1)}
-            className="min-h-[44px] px-4 py-2.5 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 transition"
+            className="min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition"
           >
             Спробувати ще раз
           </button>
@@ -527,7 +527,7 @@ export default function ParticipantSaved({
             {onBackToSite && (
               <button
                 onClick={onBackToSite}
-                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-black text-white text-[14px] font-medium hover:opacity-90 transition"
+                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition"
               >
                 Відкрити каталог
               </button>
@@ -604,12 +604,12 @@ export default function ParticipantSaved({
                   onClick={() => setFilter(f.key)}
                   className={`min-h-[44px] px-3.5 py-1.5 rounded-full text-[14px] font-medium border transition ${
                     active
-                      ? "bg-black text-white border-black"
+                      ? "bg-[#eef0fd] text-[#4338ca] border-[#4338ca]/35"
                       : "bg-white text-black/60 border-black/10 hover:border-black/25"
                   }`}
                 >
                   {f.label}
-                  <span className={active ? "text-white/60" : "text-black/60"}> · {searching ? countIn(f.key) : totalIn(f.key)}</span>
+                  <span className={active ? "text-[#4338ca]/80" : "text-black/60"}> · {searching ? countIn(f.key) : totalIn(f.key)}</span>
                 </button>
               );
             })}

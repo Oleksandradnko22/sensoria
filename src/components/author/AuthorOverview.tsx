@@ -169,14 +169,10 @@ export default function AuthorOverview({
   // materials is counted in each, the same way the «Контент» tab shows it
   const totalParticipants = safe(allContent.reduce((sum, c) => sum + c.participants, 0));
   const totalRevenue = safe(allContent.reduce((sum, c) => sum + c.revenue, 0));
-  const ratedItems = published.filter((c) => c.rating !== null);
-  const avgRating =
-    ratedItems.length > 0
-      ? safe(
-          ratedItems.reduce((sum, c) => sum + (c.rating ?? 0), 0) /
-            ratedItems.length
-        )
-      : null;
+  // weighted by the number of reviews: the same average «Відгуки» → «Про матеріали» shows
+  const ratedItems = allContent.filter((c) => c.rating !== null && c.reviewsCount > 0);
+  const reviewTotal = ratedItems.reduce((n, c) => n + c.reviewsCount, 0);
+  const avgRating = reviewTotal > 0 ? safe(ratedItems.reduce((sum, c) => sum + (c.rating ?? 0) * c.reviewsCount, 0) / reviewTotal) : null;
 
   const stats = [
     { label: "Учасники", value: totalParticipants.toLocaleString("uk-UA"), pending: false, icon: "graduation" as IconName },

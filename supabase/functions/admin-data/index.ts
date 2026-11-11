@@ -985,9 +985,18 @@ Deno.serve(async (req) => {
           if (act === "delete_post" && rep.target_type !== "post") return json({ error: "Некоректна дія." }, 400);
           if (act === "delete_review" && rep.target_type !== "review") return json({ error: "Некоректна дія." }, 400);
           if (!isUuid(rep.target_id)) return json({ error: "Некоректний об'єкт." }, 400);
-          const table = act === "delete_post" ? "author_posts" : "author_reviews";
-          const { error } = await admin.from(table).delete().eq("id", rep.target_id);
-          if (error) return json({ error: error.message }, 500);
+          if (act === "delete_post") {
+            const { error } = await admin.from("author_posts").delete().eq("id", rep.target_id);
+            if (error) return json({ error: error.message }, 500);
+          } else {
+            // a review about the author (author_reviews) or about a material (reviews): whichever holds this id
+            const a = await admin.from("author_reviews").delete().eq("id", rep.target_id).select("id");
+            if (a.error) return json({ error: a.error.message }, 500);
+            if (!a.data || a.data.length === 0) {
+              const b = await admin.from("reviews").delete().eq("id", rep.target_id).select("id");
+              if (b.error) return json({ error: b.error.message }, 500);
+            }
+          }
           targetKey = { table: "entity_reports", col: "target_id", val: rep.target_id };
           await logAction(act, rep.target_id, { source });
         } else if (source === "content" && act === "unpublish_content") {

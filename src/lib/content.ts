@@ -573,6 +573,15 @@ export async function fetchContentMetrics(contentIds: string[]): Promise<Content
   const ids = contentIds.filter((id) => UUID.test(id));
   const out: ContentMetrics = new Map();
   if (ids.length === 0) return out;
+  // one source of numbers for every tab (supabase/reviews-and-metrics.sql): the same people as «Учасники», the
+  // author's share after commission as in «Фінанси», reviews found by id or short name
+  const rpc = await client.rpc("author_content_metrics");
+  if (!rpc.error && Array.isArray(rpc.data)) {
+    for (const r of rpc.data as { content_id: string; participants: number; revenue: number; rating: number | null; reviews: number }[]) {
+      if (ids.includes(r.content_id)) out.set(r.content_id, { participants: Number(r.participants) || 0, revenue: Number(r.revenue) || 0, rating: r.rating == null ? null : Number(r.rating), reviewsCount: Number(r.reviews) || 0 });
+    }
+    return out;
+  }
   const [buys, starts, reviews] = await Promise.all([
     client.from("purchases").select("content_id, participant_id, amount").in("content_id", ids).eq("status", "completed"),
     client.from("content_progress").select("content_id, user_id").in("content_id", ids),
@@ -581,7 +590,7 @@ export async function fetchContentMetrics(contentIds: string[]): Promise<Content
   const people = new Map<string, Set<string>>();
   const money = new Map<string, number>();
   const add = (id: string, user: string) => { const s = people.get(id) ?? new Set<string>(); s.add(user); people.set(id, s); };
-  for (const r of buys.data ?? []) { add(r.content_id as string, r.participant_id as string); money.set(r.content_id as string, (money.get(r.content_id as string) ?? 0) + Number(r.amount || 0)); }
+  for (const r of buys.data ?? []) { add(r.content_id as string, r.participant_id as string); money.set(r.content_id as string, (money.get(r.content_id as string) ?? 0) + Number(r.amount || 0) * 0.7); } // the author's 70 % (fallback before author_content_metrics)
   for (const r of starts.data ?? []) add(r.content_id as string, r.user_id as string);
   const stars = new Map<string, number[]>();
   for (const r of reviews.data ?? []) { const l = stars.get(r.content_id as string) ?? []; l.push(Number(r.rating)); stars.set(r.content_id as string, l); }

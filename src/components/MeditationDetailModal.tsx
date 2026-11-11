@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { logContentView } from "../lib/contentViews";
 import { Icon } from "./ui/Icon";
 import HeroArt from "./programDetail/HeroArt";
 import { coverImageStyle, coverUrlForFrame } from "../utils/coverFocus";
@@ -56,6 +57,8 @@ function MetaIcon({ d }: { d: string }) {
 // Everything shown comes from the meditation's own data; nothing is invented.
 export default function MeditationDetailModal({ meditation, onClose, userId, isParticipant = false, onStart, authorId, authorName, demo = false }: Props) {
   const openAuthorProfile = useOpenAuthorProfile();
+  // «Аналітика» of the author: this meditation's card was opened
+  useEffect(() => logContentView(meditation.id), [meditation.id]);
   const author = authorName || meditation.author || "Sensoria";
   const price = meditation.price ?? "0";
   const free = isFreePrice(price);

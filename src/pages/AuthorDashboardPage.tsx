@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { touchFinanceActivity } from "../lib/finance";
 import { Icon, type IconName } from "../components/ui/Icon";
 import { SHOW_AUTHOR_DEMO } from "../utils/demoMode";
+import { demoAuthoredContent } from "../data/demoWorld";
 import { authoredContent, messages, type AuthoredContent, type ContentStatus, type ContentType } from "../data/authorDashboard";
 import { SessionProvider } from "../context/SessionContext";
 import { getInitials, type Profile } from "../lib/auth";
@@ -113,7 +114,7 @@ export default function AuthorDashboardPage({
   // then on this one array is the single source of truth for the rest
   // of the session, demo and real items alike.
   const [contentList, setContentList] = useState<AuthoredContent[]>(
-    SHOW_AUTHOR_DEMO ? authoredContent : []
+    SHOW_AUTHOR_DEMO ? demoAuthoredContent() : []
   );
 
   const [contentLoading, setContentLoading] = useState(true);

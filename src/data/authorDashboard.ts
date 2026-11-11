@@ -420,7 +420,7 @@ export const reviews: Review[] = [
   },
   {
     id: "r4",
-    contentId: "grounding-5min",
+    contentId: "demo-evening-meditation",
     participantName: "Софія Литвиненко",
     rating: 5,
     text: "Слухаю щоранку, дуже допомагає почати день спокійніше.",

@@ -14,12 +14,14 @@ type Props<K extends string> = {
   className?: string;
   // "glass" (default) sits on the blue gradient; "light" sits on the light workspace panels (author cabinet).
   variant?: "glass" | "light";
+  // icon before the label; the sort arrows by default (a filter passes its own)
+  icon?: React.ReactNode;
 };
 
 // Glass dropdown for the catalog sort (replaces the native <select>, whose open
 // list can't be styled). Listbox semantics: arrows move, Enter/Space picks,
 // Escape and outside click close.
-export default function CatalogSort<K extends string = SortKey>({ value, onChange, options, listClassName = "bg-[#2c43b5]/95", label = "Сортування", className = "ml-auto", variant = "glass" }: Props<K>) {
+export default function CatalogSort<K extends string = SortKey>({ value, onChange, options, listClassName = "bg-[#2c43b5]/95", label = "Сортування", className = "ml-auto", variant = "glass", icon }: Props<K>) {
   const light = variant === "light";
   const SORT_OPTIONS = (options ?? (DEFAULT_SORT_OPTIONS as unknown as { id: K; label: string }[]));
   const [open, setOpen] = useState(false);
@@ -79,9 +81,13 @@ export default function CatalogSort<K extends string = SortKey>({ value, onChang
         aria-label={`${label}: ${current.label}`}
         className={`inline-flex min-h-[40px] items-center gap-2 rounded-full pl-4 pr-3 text-[14px] transition focus:outline-none focus-visible:ring-2 ${light ? "bg-white text-[#12172b] shadow-[0_6px_18px_-12px_rgba(60,60,140,0.35)] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff] focus-visible:ring-[#7c5cf0]" : "border border-white/20 bg-white/10 backdrop-blur-xl hover:bg-white/15 focus-visible:ring-white/60"}`}
       >
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={light ? "text-[#6d5bd0]" : "text-white/70"}>
-          <path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3" />
-        </svg>
+        {icon ? (
+          <span aria-hidden="true" className={`flex ${light ? "text-[#6d5bd0]" : "text-white/70"}`}>{icon}</span>
+        ) : (
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={light ? "text-[#6d5bd0]" : "text-white/70"}>
+            <path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3" />
+          </svg>
+        )}
         <span className={`hidden sm:inline ${light ? "text-black/55" : "text-white/70"}`}>{label}:</span>
         <span className={`font-semibold ${light ? "text-[#12172b]" : "text-white"}`}>{current.label}</span>
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={`transition-transform ${light ? "text-[#6d5bd0]" : "text-white/70"} ${open ? "rotate-180" : ""}`}>

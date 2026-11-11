@@ -42,6 +42,9 @@ export type FinanceSale = {
   pendingKop: number;
   holdUntil: string;
   disputed: boolean;
+  // where the buyer came from: «catalog» = through Sensoria (30 %), «referral» = the author's own link (15 %)
+  source: "catalog" | "referral";
+  commissionBps: number;
 };
 export type FinanceTerms = {
   commissionBps: number;
@@ -98,7 +101,7 @@ export async function fetchMyFinance(): Promise<MyFinance | null> {
     supabase.from("refund_reserves").select("release_at").eq("status", "held").order("release_at", { ascending: true }).limit(1),
     supabase.rpc("finance_public_terms"),
     supabase.from("author_bank_accounts").select("id, iban, bank_name, holder_name, tax_id, status, reject_reason, created_at").order("created_at", { ascending: false }).limit(6),
-    supabase.from("finance_payments").select("id, confirmed_at, content_title, amount_kop, author_kop, refunded_kop, author_refunded_kop, pending_kop, hold_until, disputed").order("confirmed_at", { ascending: false }).limit(100),
+    supabase.from("finance_payments").select("id, confirmed_at, content_title, amount_kop, author_kop, refunded_kop, author_refunded_kop, pending_kop, hold_until, disputed, sale_source, commission_bps").order("confirmed_at", { ascending: false }).limit(100),
   ]);
 
   const a = acc.data;
@@ -124,6 +127,7 @@ export async function fetchMyFinance(): Promise<MyFinance | null> {
       id: p.id, confirmedAt: p.confirmed_at, title: p.content_title ?? "Матеріал", priceKop: Number(p.amount_kop), authorKop: Number(p.author_kop),
       refundedKop: Number(p.refunded_kop), authorRefundedKop: Number(p.author_refunded_kop), pendingKop: Number(p.pending_kop),
       holdUntil: p.hold_until, disputed: !!p.disputed,
+      source: p.sale_source === "referral" ? "referral" : "catalog", commissionBps: Number(p.commission_bps ?? (p.sale_source === "referral" ? 1500 : 3000)),
     })),
     nextReleaseAt: held.data?.[0]?.hold_until ?? null,
     nextReserveReleaseAt: reserves.data?.[0]?.release_at ?? null,

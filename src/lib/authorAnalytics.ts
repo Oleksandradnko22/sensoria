@@ -82,3 +82,36 @@ export async function fetchCompletionAnalytics(contentIds: string[]): Promise<Co
   }
   return results;
 }
+
+// ── «Аналітика»: everything counted in the database (supabase/author-analytics.sql) ─────────────────────────────
+
+export type AnalyticsMaterial = {
+  id: string; kind: "program" | "meditation" | "guide"; title: string;
+  views: number; sales: number; income: number; free_adds: number; participants: number;
+  completion: number | null; listens: number; listened_to_end: number | null; readers: number;
+  rating: number | null; reviews: number; helpful: number | null; saves: number; in_carts: number;
+};
+export type AnalyticsFunnel = { content_id: string; title: string; started: number; modules: { title: string; reached: number | null }[] };
+export type AuthorAnalytics = {
+  days: number;
+  views: number; views_prev: number; views_referral: number;
+  sales: number; sales_prev: number; sales_referral: number;
+  income: number; income_prev: number;
+  free_adds: number; new_people: number; active7: number; active30: number;
+  series: { day: string; views: number; sales: number }[];
+  materials: AnalyticsMaterial[];
+  funnels: AnalyticsFunnel[];
+};
+
+export async function fetchAuthorAnalytics(days: number): Promise<AuthorAnalytics> {
+  const client = requireSupabase();
+  const { data, error } = await client.rpc("author_analytics", { p_days: days });
+  if (error) throw error;
+  const d = data as AuthorAnalytics;
+  return {
+    ...d,
+    materials: (d.materials ?? []).map((m) => ({ ...m, views: Number(m.views) || 0, income: Number(m.income) || 0, rating: m.rating == null ? null : Number(m.rating) })),
+    series: d.series ?? [],
+    funnels: d.funnels ?? [],
+  };
+}

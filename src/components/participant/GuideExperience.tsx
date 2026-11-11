@@ -18,6 +18,7 @@
 // worked through. It cannot see inside an uploaded PDF.
 
 import { useEffect, useRef, useState } from "react";
+import { logContentView } from "../../lib/contentViews";
 import { createPortal } from "react-dom";
 import { getGuideSource, guides } from "../../data/guides";
 import { categoryLabels } from "../../data/categoryLabels";
@@ -96,6 +97,8 @@ export default function GuideExperience({
   onOpenAuthorProfile,
   initialTarget,
 }: Props) {
+  // «Аналітика» of the author: this guide was opened
+  useEffect(() => logContentView(guideId), [guideId]);
   const guide = guides.find((g) => g.id === guideId);
   const session = useSession();
   const userId = session?.profile.id;

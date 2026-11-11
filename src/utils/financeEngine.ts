@@ -14,7 +14,7 @@
 //
 // Rules this file enforces:
 //  * all money is an integer number of kopecks — no fractions anywhere;
-//  * the split (75/25) and every other percentage come from `Settings`, and a
+//  * the split (70/30 catalog, 85/15 author referral) and every other percentage come from `Settings`, and a
 //    payment FREEZES the shares it was made with: later settings changes never
 //    touch old orders;
 //  * the ledger is append-only: a mistake is fixed by a compensating line;
@@ -41,7 +41,7 @@ export type Settings = {
   minPayoutKop: number; // 500 UAH
   bankFeeBps: number; // bank's percentage of the amount the buyer pays (e.g. 150 = 1.5 %)
   bankFeeFixedKop: number; // bank's fixed part per payment (also covers the transfer to the author)
-  splitAtSource: number; // 1 = the acquirer/bank splits every payment at once: 25 % to Sensoria's FOP account, 75 % to the author's (no hold, no payouts)
+  splitAtSource: number; // 1 = the acquirer/bank splits every payment at once: the commission (30 % catalog / 15 % author referral) to Sensoria's FOP account, the rest to the author's (no hold, no payouts)
   autoPayout: number; // 1 = auto-distribution: released money is paid to the verified account automatically, no minimum, no manual requests
 };
 

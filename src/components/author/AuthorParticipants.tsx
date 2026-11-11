@@ -3,11 +3,12 @@
 // psychological platform: no email (contact goes through «Повідомлення»), a person's reflections and answers only as
 // counts, and the state before → after only as an average over everyone (lib/authorParticipants.ts).
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { participants as participantsData, demoMoodByContent, type AuthoredContent, type ContentType, type ParticipantSegment } from "../../data/authorDashboard";
+import { demoMoodByContent, type AuthoredContent, type ContentType, type ParticipantSegment } from "../../data/authorDashboard";
 import { fetchParticipantsPage, fetchParticipantEngagement, fetchMoodByContent, type ParticipantEngagementSummary } from "../../lib/authorParticipants";
 import { fetchProgramItems } from "../../lib/publicContent";
 import type { ContentModule } from "../../data/contentTypes";
 import { SHOW_AUTHOR_DEMO } from "../../utils/demoMode";
+import { demoWorld } from "../../data/demoWorld";
 import { pluralUk } from "../../utils/plural";
 import { formatRelativeTime } from "../../utils/relativeTime";
 import { Icon, type IconName } from "../ui/Icon";
@@ -53,19 +54,16 @@ const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2)
 const bestSegment = (list: ParticipantSegment[]): ParticipantSegment => (list.includes("active") ? "active" : list.includes("new") ? "new" : "inactive");
 const lastSeen = (iso: string) => `востаннє ${formatRelativeTime(iso)}`;
 
-// Demo people (a showcase of a full cabinet), grouped the same way the database groups real ones.
+// Demo people come from the shared demo world (data/demoWorld.ts): the same buyers as in «Фінанси».
 function demoPeople(): Person[] {
-  const map = new Map<string, Person>();
-  participantsData.forEach((d) => {
-    const key = `demo:${d.name}`;
-    const e: Entry = { contentId: d.contentId, progressPercent: d.progressPercent, lastActive: d.lastActive, segment: d.segment };
-    const p = map.get(key) ?? { key, userId: null, name: d.name, entries: [], lastActive: d.lastActive, segment: d.segment };
-    p.entries.push(e);
-    if (new Date(e.lastActive) > new Date(p.lastActive)) p.lastActive = e.lastActive;
-    p.segment = bestSegment(p.entries.map((x) => x.segment));
-    map.set(key, p);
-  });
-  return [...map.values()];
+  return demoWorld().people.map((d) => ({
+    key: `demo:${d.name}`,
+    userId: null,
+    name: d.name,
+    entries: d.entries,
+    lastActive: d.entries.reduce((m, e) => (new Date(e.lastActive) > new Date(m) ? e.lastActive : m), d.entries[0]?.lastActive ?? d.firstSeen),
+    segment: bestSegment(d.entries.map((e) => e.segment)),
+  }));
 }
 
 export default function AuthorParticipants({ content, onWrite }: Props) {
@@ -161,7 +159,11 @@ export default function AuthorParticipants({ content, onWrite }: Props) {
       off = true;
     };
   }, [liveKey]);
-  const moodRows = [...realMood, ...(SHOW_AUTHOR_DEMO ? demoMoodByContent : [])].filter((r) => byId.has(r.contentId)).slice(0, 6);
+  // demo marks: never more people than the material really has in the demo world, and only from 3 people
+  const demoMood = SHOW_AUTHOR_DEMO
+    ? demoMoodByContent.map((r) => ({ ...r, people: demoAll.filter((p) => p.entries.some((e) => e.contentId === r.contentId)).length })).filter((r) => r.people >= 3)
+    : [];
+  const moodRows = [...realMood, ...demoMood].filter((r) => byId.has(r.contentId)).slice(0, 6);
 
   const [demoNote, setDemoNote] = useState<string | null>(null);
   const write = (p: Person) => {
@@ -277,8 +279,11 @@ export default function AuthorParticipants({ content, onWrite }: Props) {
             <Chip key={s} active={segment === s} onClick={() => setSegment(s)}>{s === "all" ? "Усі" : SEGMENT_LABEL[s]}</Chip>
           ))}
         </div>
-        <CatalogSort<string> value={material} onChange={setMaterial} options={materialOptions} label="Матеріал" variant="light" className="" />
-        <CatalogSort<SortKey> value={sort} onChange={setSort} options={SORTS} label="Порядок" variant="light" />
+      </div>
+      {/* which material + in what order: one row, filter on the left, order on the right */}
+      <div className="-mt-2 flex flex-wrap items-center justify-between gap-3">
+        <CatalogSort<string> value={material} onChange={setMaterial} options={materialOptions} label="Матеріал" variant="light" className="" icon={<Icon name="library" size={16} />} />
+        <CatalogSort<SortKey> value={sort} onChange={setSort} options={SORTS} label="Порядок" variant="light" className="" />
       </div>
 
       {/* LIST */}

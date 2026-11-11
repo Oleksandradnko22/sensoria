@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { logContentView } from "../../lib/contentViews";
 import { useOpenAuthorProfile } from "../../context/AuthorProfileContext";
 import { categoryLabels } from "../../data/categoryLabels";
 import type { Program } from "../../data/programs";
@@ -91,6 +92,8 @@ export default function ProgramDetailPage(props: Props) {
 
 function Detail({ program: loadedProgram, session, onBackToCatalog, onRequireLogin, onStart, scrollToReviews, initialSection, onMessageAuthor }: Props & { program: Program }) {
   const openAuthorProfile = useOpenAuthorProfile();
+  // «Аналітика» of the author: this program's page was opened
+  useEffect(() => logContentView(loadedProgram.id), [loadedProgram.id]);
   // Dev-only sample state (`?demo=1`, see utils/devPreview.ts): sample benefits and 50% progress (the price stays the real one).
   const demo = isDevDemo();
   const program: Program = useMemo(

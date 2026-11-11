@@ -116,3 +116,61 @@ export function statusExplanation(status: string, debtKop: number): { tone: "inf
       return null;
   }
 }
+
+// ── «Фінанси» summaries (pure: tested in financeView.test.ts) ─────────────────────────────────────────────────
+
+export type SaleLike = { confirmedAt: string; title: string; priceKop: number; authorKop: number; refundedKop: number; authorRefundedKop: number; source: "catalog" | "referral" };
+
+// the author's money from a sale after refunds
+export const netAuthorKop = (s: SaleLike) => Math.max(0, s.authorKop - s.authorRefundedKop);
+export const isFullyRefunded = (s: SaleLike) => s.refundedKop >= s.priceKop && s.priceKop > 0;
+
+const MONTHS_SHORT = ["січ", "лют", "бер", "кві", "тра", "чер", "лип", "сер", "вер", "жов", "лис", "гру"];
+
+/** The last `count` months (oldest first), with the author's income split by where the buyer came from. */
+export function monthlyIncome(sales: SaleLike[], count: number, now: Date = new Date()): { key: string; label: string; catalogKop: number; referralKop: number; sales: number }[] {
+  const out: { key: string; label: string; catalogKop: number; referralKop: number; sales: number }[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    out.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: MONTHS_SHORT[d.getMonth()], catalogKop: 0, referralKop: 0, sales: 0 });
+  }
+  const byKey = new Map(out.map((m) => [m.key, m]));
+  for (const s of sales) {
+    const d = new Date(s.confirmedAt);
+    const m = byKey.get(`${d.getFullYear()}-${d.getMonth()}`);
+    if (!m) continue;
+    if (s.source === "referral") m.referralKop += netAuthorKop(s);
+    else m.catalogKop += netAuthorKop(s);
+    if (!isFullyRefunded(s)) m.sales += 1;
+  }
+  return out;
+}
+
+/** Per material: how many sales (not fully refunded) and how much the author earned; most earning first. */
+export function incomeByMaterial(sales: SaleLike[]): { title: string; sales: number; authorKop: number; referralShare: number }[] {
+  const map = new Map<string, { title: string; sales: number; authorKop: number; referral: number }>();
+  for (const s of sales) {
+    const m = map.get(s.title) ?? { title: s.title, sales: 0, authorKop: 0, referral: 0 };
+    if (!isFullyRefunded(s)) {
+      m.sales += 1;
+      if (s.source === "referral") m.referral += 1;
+    }
+    m.authorKop += netAuthorKop(s);
+    map.set(s.title, m);
+  }
+  return [...map.values()]
+    .map((m) => ({ title: m.title, sales: m.sales, authorKop: m.authorKop, referralShare: m.sales ? m.referral / m.sales : 0 }))
+    .sort((a, b) => b.authorKop - a.authorKop);
+}
+
+/** Totals for the top cards: all time, this month, sales count, refunds. */
+export function financeTotals(sales: SaleLike[], now: Date = new Date()) {
+  const thisMonth = sales.filter((s) => { const d = new Date(s.confirmedAt); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); });
+  return {
+    allTimeKop: sales.reduce((n, s) => n + netAuthorKop(s), 0),
+    monthKop: thisMonth.reduce((n, s) => n + netAuthorKop(s), 0),
+    salesCount: sales.filter((s) => !isFullyRefunded(s)).length,
+    referralCount: sales.filter((s) => !isFullyRefunded(s) && s.source === "referral").length,
+    refundsCount: sales.filter((s) => s.refundedKop > 0).length,
+  };
+}

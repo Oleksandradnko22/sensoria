@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "../ui/Icon";
 import { pluralUk } from "../../utils/plural";
 import {
-  recentActivity as mockActivity,
+
   authoredContent,
   type AuthoredContent,
   type ContentStatus,
@@ -15,6 +15,16 @@ import { fetchRecentActivity, type ActivityEvent } from "../../lib/activity";
 import { fetchMyReportCount } from "../../lib/reports";
 import { formatRelativeTime } from "../../utils/relativeTime";
 import { SHOW_AUTHOR_DEMO } from "../../utils/demoMode";
+import { demoWorld } from "../../data/demoWorld";
+import { reviews as demoReviews } from "../../data/authorDashboard";
+
+// «Останні події» of the demo author: the latest demo purchases and reviews (the same as in «Фінанси» and «Відгуки»)
+function demoEvents(): ActivityEvent[] {
+  const w = demoWorld();
+  const buys = w.sales.filter((s) => s.refundedKop < s.priceKop).slice(0, 6).map((s) => ({ id: `d-${s.id}`, type: "purchase", text: `${w.buyers[s.id] ?? "Учасник"} придбав(ла) «${s.title}»`, date: s.confirmedAt }) as unknown as ActivityEvent);
+  const revs = demoReviews.slice(0, 3).map((r, i) => ({ id: `d-r${i}`, type: "review", text: `Новий відгук на «${authoredContent.find((c) => c.id === r.contentId)?.title ?? "матеріал"}» — ${r.rating}★`, date: new Date(Date.now() - (9 + i * 11) * 86_400_000).toISOString() }) as unknown as ActivityEvent);
+  return [...buys, ...revs];
+}
 
 // Ukrainian plural forms for "скарга" — 1 скаргу, 2–4 скарги, 5+ (and
 // 11–14) скарг. Same mod10/mod100 idiom used for "модуль" in
@@ -144,7 +154,7 @@ export default function AuthorOverview({
   // Real events first (someone actually did something), demo showcase
   // events after — same mix-in convention used everywhere else.
   // newest first, whatever the source
-  const activity = [...realActivity, ...(SHOW_AUTHOR_DEMO ? mockActivity : [])]
+  const activity = [...realActivity, ...(SHOW_AUTHOR_DEMO ? demoEvents() : [])]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const [activityShown, setActivityShown] = useState(PAGE);
   const [contentShown, setContentShown] = useState(PAGE);
@@ -215,11 +225,10 @@ export default function AuthorOverview({
     <div className="flex flex-col gap-7">
       {/* HEADER */}
       <header className="min-w-0">
-        <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-black/50">Огляд</div>
-        <h1 className="mt-1 text-[32px] font-bold leading-tight text-[#12172b]">
+        <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">
           Привіт{hello ? `, ${hello}` : ""}
         </h1>
-        <p className="mt-1.5 text-[15px] text-black/55">Тут усе найважливіше про ваш контент, аудиторію та результати.</p>
+        <p className="mt-1 text-[15px] text-black/55">Тут усе найважливіше про ваш контент, аудиторію та результати.</p>
       </header>
 
       {reportCount > 0 && (

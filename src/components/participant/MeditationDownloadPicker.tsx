@@ -223,7 +223,7 @@ export default function MeditationDownloadPicker({ meditation, pc1, pc3, onConfi
                   step={0.01}
                   value={voiceVolume}
                   onChange={(e) => setVoiceVolume(Number(e.target.value))}
-                  className="flex-1 accent-emerald-500"
+                  className="flex-1"
                   aria-label="Гучність голосу у файлі"
                 />
               </div>
@@ -237,7 +237,7 @@ export default function MeditationDownloadPicker({ meditation, pc1, pc3, onConfi
                     step={0.01}
                     value={backgroundVolume}
                     onChange={(e) => setBackgroundVolume(Number(e.target.value))}
-                    className="flex-1 accent-cyan-500"
+                    className="flex-1"
                     aria-label="Гучність фонового звуку у файлі"
                   />
                 </div>

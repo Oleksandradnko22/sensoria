@@ -254,3 +254,40 @@ body {
 .sensoria-scroll::-webkit-scrollbar-track { background: transparent; }
 .sensoria-scroll::-webkit-scrollbar-thumb { background: #c9bff7; border-radius: 999px; }
 .sensoria-scroll::-webkit-scrollbar-thumb:hover { background: #a99af0; }
+
+/* Sliders in the Sensoria style everywhere: a soft lavender track filled with the brand gradient up to the value
+   (--range-pct, kept up to date by utils/rangeFill.ts) and a white thumb with an indigo ring. :where() keeps this
+   at zero specificity, so a slider with its own classes or inline background still looks the way it was designed. */
+:where(input[type="range"]) {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  cursor: pointer;
+  background: linear-gradient(to right, #3b6df0 0%, #7c5cf0 var(--range-pct, 0%), #e7e3fb var(--range-pct, 0%), #e7e3fb 100%);
+}
+:where(input[type="range"]):disabled { cursor: not-allowed; opacity: 0.5; }
+:where(input[type="range"]):focus { outline: none; }
+:where(input[type="range"])::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid #5b3df5;
+  box-shadow: 0 2px 8px rgba(91, 61, 245, 0.35);
+  transition: transform 0.15s ease;
+}
+:where(input[type="range"])::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid #5b3df5;
+  box-shadow: 0 2px 8px rgba(91, 61, 245, 0.35);
+}
+:where(input[type="range"])::-moz-range-track { background: transparent; }
+:where(input[type="range"]):hover::-webkit-slider-thumb { transform: scale(1.1); }
+:where(input[type="range"]):focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(91, 61, 245, 0.22); }
+:where(input[type="range"]):focus-visible::-moz-range-thumb { box-shadow: 0 0 0 5px rgba(91, 61, 245, 0.22); }

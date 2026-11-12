@@ -1453,7 +1453,7 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
                     step={0.5}
                     value={Math.min(player.currentTime, totalSeconds || 0)}
                     onChange={(e) => player.seekTo(Number(e.target.value))}
-                    className="w-full max-w-[360px] accent-emerald-500 mb-2"
+                    className="w-full max-w-[360px] mb-2"
                     aria-label="Перемотка"
                   />
 

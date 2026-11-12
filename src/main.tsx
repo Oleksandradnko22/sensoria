@@ -2,6 +2,9 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css' 
+import { startRangeFill } from './utils/rangeFill.ts'
+
+startRangeFill()
 
 // DEV only: ?devices=1 shows the site at phone / tablet / laptop sizes.
 // (import.meta.env.DEV is false in production builds, so this is dropped.)

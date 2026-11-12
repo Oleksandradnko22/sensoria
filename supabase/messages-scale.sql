@@ -34,11 +34,14 @@ as $$
       from mine
      order by other_id, coalesce(content_id, ''), created_at desc
   ),
+  unread_keys as (
+    select distinct other_id, coalesce(content_id, '') as ck from mine
+     where recipient_id = auth.uid() and not read and not is_deleted
+  ),
   conv as (
     select l.other_id, l.content_id, l.created_at as last_at, l.sender_id = auth.uid() as from_me,
            case when l.is_deleted then 'Повідомлення видалено' else left(l.body, 160) end as preview,
-           exists (select 1 from mine u where u.other_id = l.other_id and coalesce(u.content_id, '') = coalesce(l.content_id, '')
-                    and u.recipient_id = auth.uid() and not u.read and not u.is_deleted) as unread,
+           exists (select 1 from unread_keys k where k.other_id = l.other_id and k.ck = coalesce(l.content_id, '')) as unread,
            coalesce(p.name, 'Учасник Sensoria') as other_name, p.avatar_url as other_avatar,
            (select c.title from public.content c where c.id::text = l.content_id or c.slug = l.content_id limit 1) as content_title
       from last_msg l left join public.profiles p on p.id = l.other_id
@@ -46,10 +49,14 @@ as $$
   scoped as (
     select *, (last_at < now() - interval '180 days' and not unread) as archived from conv
   ),
+  term as (
+    -- the search text taken literally: % and _ typed by the author are not wildcards
+    select '%' || replace(replace(replace(coalesce(p_search, ''), '\', '\\'), '%', '\%'), '_', '\_') || '%' as pat
+  ),
   filtered as (
-    select * from scoped
+    select s.* from scoped s, term
      where (case p_filter when 'unread' then unread when 'archive' then archived when 'everything' then true else not archived end)
-       and (p_search is null or p_search = '' or other_name ilike '%' || p_search || '%' or coalesce(content_title, '') ilike '%' || p_search || '%' or preview ilike '%' || p_search || '%')
+       and (p_search is null or p_search = '' or other_name ilike term.pat or coalesce(content_title, '') ilike term.pat or preview ilike term.pat)
   )
   select jsonb_build_object(
     'total', (select count(*) from filtered),

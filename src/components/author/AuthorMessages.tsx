@@ -90,8 +90,10 @@ export default function AuthorMessages({ content = [], onUnreadCountChange, read
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [failed, setFailed] = useState(false);
+  const listRequest = useRef(0);
   const loadConversations = async (opts: { quiet?: boolean; append?: boolean } = {}) => {
     if (!myId) return;
+    const req = ++listRequest.current;
     if (!opts.quiet && !opts.append) setLoading(true);
     if (opts.append) setLoadingMore(true);
     try {
@@ -99,15 +101,18 @@ export default function AuthorMessages({ content = [], onUnreadCountChange, read
       const offset = opts.append ? realConversations.length : 0;
       const limit = opts.append ? LIST_PAGE : Math.min(50, Math.max(LIST_PAGE, realConversations.length));
       const page = await fetchConversationsPage(myId, { limit, offset, search, filter });
+      if (req !== listRequest.current) return; // a newer filter / search / refresh already answered
       const items = page.items.map(toConversationItem);
       setRealConversations((prev) => (opts.append ? [...prev, ...items.filter((i) => !prev.some((p) => p.id === i.id))] : items));
       setTotals({ total: page.total, unread: page.unread, archived: page.archived });
       setFailed(false);
     } catch {
-      if (!opts.quiet) setFailed(true);
+      if (!opts.quiet && req === listRequest.current) setFailed(true);
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
+      if (req === listRequest.current) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
   };
   useEffect(() => {
@@ -209,12 +214,17 @@ export default function AuthorMessages({ content = [], onUnreadCountChange, read
   const [hasOlder, setHasOlder] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const stickBottom = useRef(true);
+  const openIdRef = useRef<string | null>(null);
+  openIdRef.current = selected?.id ?? null;
   const loadThread = async (quiet = false) => {
     if (!selected?.real || !myId) { setRealThread([]); setHasOlder(false); return; }
     if (!quiet) setThreadLoading(true);
+    const forId = selected.id;
     try {
       const page = await fetchThreadPage(myId, selected.real.otherId, selected.real.contentId, null);
-      stickBottom.current = true;
+      if (forId !== openIdRef.current) return; // another conversation was opened meanwhile
+      const el = scrollerRef.current;
+      stickBottom.current = !quiet || !el || el.scrollHeight - el.scrollTop - el.clientHeight < 80;
       // keep the older pages already loaded, replace the newest part
       setRealThread((prev) => {
         if (!quiet || prev.length <= page.messages.length) return page.messages;
@@ -225,7 +235,7 @@ export default function AuthorMessages({ content = [], onUnreadCountChange, read
     } catch {
       /* the old messages stay on screen */
     } finally {
-      if (!quiet) setThreadLoading(false);
+      if (!quiet && forId === openIdRef.current) setThreadLoading(false);
     }
   };
   const loadOlder = async () => {
@@ -240,6 +250,8 @@ export default function AuthorMessages({ content = [], onUnreadCountChange, read
       setHasOlder(page.hasMore);
       // keep the reader where they were
       window.requestAnimationFrame(() => { if (el) el.scrollTop = el.scrollHeight - fromBottom; });
+    } catch {
+      /* the button stays, the reader can try again */
     } finally {
       setLoadingOlder(false);
     }
@@ -267,7 +279,7 @@ export default function AuthorMessages({ content = [], onUnreadCountChange, read
     setThreadOpen(true);
     markRead(item.id);
     setReplyNotice(null);
-    if (item.real && myId) void markThreadRead(myId, item.real.otherId, item.real.contentId).then(() => loadConversations({ quiet: true }));
+    if (item.real && myId) void markThreadRead(myId, item.real.otherId, item.real.contentId).catch(() => {}).then(() => loadConversations({ quiet: true }));
   };
 
   const runDelete = async () => {
@@ -287,6 +299,7 @@ export default function AuthorMessages({ content = [], onUnreadCountChange, read
         } else {
           await deleteConversation(selected.real.otherId, selected.real.contentId);
           setRealConversations((l) => l.filter((c) => c.id !== selected.id));
+          void loadConversations({ quiet: true });
           setSelectedId(null);
           setThreadOpen(false);
         }
@@ -381,8 +394,8 @@ export default function AuthorMessages({ content = [], onUnreadCountChange, read
           </div>
           <div className="sensoria-scroll flex min-h-0 flex-1 flex-col overflow-y-auto">
             {loading && conversations.length === 0 ? (
-              [0, 1, 2].map((k) => (
-                <div key={k} className="flex items-center gap-3 border-b border-[#f3f1fb] px-4 py-4">
+              [0, 1, 2, 3].map((k) => (
+                <div key={k} className="flex min-h-[104px] flex-1 items-center gap-3 border-b border-[#f3f1fb] px-4 py-3.5">
                   <span className="h-11 w-11 animate-pulse rounded-full bg-[#e7e3fb]" />
                   <span className="h-4 flex-1 animate-pulse rounded bg-black/5" />
                 </div>
@@ -441,7 +454,7 @@ export default function AuthorMessages({ content = [], onUnreadCountChange, read
                 <button type="button" onClick={() => setConfirm({ kind: "conversation" })} className="shrink-0 rounded-xl px-3 py-2 text-[13px] font-medium text-black/55 transition hover:bg-rose-50 hover:text-rose-700">Видалити переписку</button>
               </div>
 
-              <div ref={scrollerRef} className="sensoria-scroll flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto bg-[#fbfaff] px-4 py-5 sm:px-6" aria-live="polite">
+              <div ref={scrollerRef} className="sensoria-scroll flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto bg-[#fbfaff] px-4 py-5 sm:px-6" role="log" aria-label="Переписка">
                 {selected.real && hasOlder && (
                   <button type="button" onClick={() => void loadOlder()} disabled={loadingOlder} className="mx-auto mb-1 rounded-full bg-white px-4 py-1.5 text-[12px] font-semibold text-[#5b4bd0] ring-1 ring-[#ebe8ff] hover:bg-[#f6f4ff] disabled:opacity-60">
                     {loadingOlder ? "Завантаження…" : "Показати раніші повідомлення"}

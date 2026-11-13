@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { validatePublishable } from "./programPublish.ts";
 import type { AuthoredContent, AuthoredItem } from "../data/authorDashboard.ts";
 
-const item = (over: Partial<AuthoredItem> = {}): AuthoredItem => ({ title: "Урок", type: "text", isRequired: true, body: "Текст уроку", ...over });
+const item = (over: Partial<AuthoredItem> = {}): AuthoredItem => ({ title: "Урок", type: "text", isRequired: true, body: "Текст уроку", videoUrl: "https://youtu.be/abcdefghijk", ...over });
 const base = (over: Partial<AuthoredContent> = {}): AuthoredContent => ({
   id: "c1", type: "program", title: "Програма", description: "Опис програми, який достатньо розгорнутий для модерації та учасників.", status: "draft", price: "0",
   participants: 0, revenue: 0, rating: null, reviewsCount: 0, createdAt: "2026-10-06", updatedAt: "2026-10-06",
@@ -58,11 +58,14 @@ test("video and audio lessons no longer require a transcript", () => {
 
 test("each lesson type needs its own content", () => {
   const c = (it: AuthoredItem) => codes(base({ modules: [{ title: "М", lessons: 1, duration: "", items: [it] }] }));
-  assert.ok(c(item({ type: "video", transcript: "x".repeat(30) })).includes("lesson-video"));
+  assert.ok(c(item({ type: "video", videoUrl: undefined, transcript: "x".repeat(30) })).includes("lesson-video"));
+  assert.ok(c(item({ videoUrl: undefined })).includes("lesson-video"), "every lesson needs a video");
+  assert.ok(c(item({ videoUrl: "https://vimeo.com/1" })).includes("lesson-video"), "only YouTube");
+  assert.equal(c(item({ videoUrl: undefined, materialId: "m1" })).includes("lesson-video"), false, "a gift lesson has no video");
   assert.ok(c(item({ type: "audio", transcript: "x".repeat(30) })).includes("lesson-audio"));
   assert.ok(c(item({ type: "pdf", body: undefined })).includes("lesson-file"));
   assert.ok(c(item({ type: "image", body: undefined })).includes("lesson-image"));
-  assert.ok(c(item({ type: "text", body: " " })).includes("lesson-body"));
+  assert.equal(c(item({ type: "text", body: " " })).includes("lesson-body"), false, "the lesson text is optional");
   assert.ok(c(item({ type: "checklist", body: undefined, checklist: [" "] })).includes("lesson-checklist"));
   assert.ok(c(item({ title: " " })).includes("lesson-title"));
 });

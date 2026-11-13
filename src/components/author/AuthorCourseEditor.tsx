@@ -1,7 +1,7 @@
 import { guideTypeInfo, guideTypeOrder, type GuideType } from "../../data/guideTypes";
 import type { MeditationFormat } from "../../data/meditationFormats";
 import { CHECKLIST_ITEMS_MAX, CHECKLIST_ITEMS_MIN, CHECKLIST_ITEM_MAX, CHECKLIST_ITEM_MIN, CHECKLIST_TITLE_MAX, checklistItems, splitChecklist } from "../../utils/lessonChecklist";
-import { MAX_WARNING_CUSTOM_CHARS, WARNING_TOPICS, parseWarning, setCustomWarning, toggleWarningTopic } from "../../utils/contentWarning";
+import { MAX_WARNING_CUSTOM_CHARS, WARNING_TOPICS, isSpecialistWarningTopic, parseWarning, setCustomWarning, toggleWarningTopic, warningNeedsSpecialist } from "../../utils/contentWarning";
 import GuideBuilder from "./GuideBuilder";
 import type { GuideContent } from "../../data/guideContent";
 import { guideBlocksProblems, mediaUrls, sectionRanges, starterBlocks } from "../../utils/guideBuilder";
@@ -37,7 +37,7 @@ import { fetchAuthorDetails } from "../../lib/authorDetails";
 import { RISK_TOPICS, riskKeywordWords, unknownRiskTopics } from "../../utils/riskTopics";
 import { formatPrice } from "../../utils/price";
 import { DEFAULT_SETTINGS } from "../../utils/financeEngine";
-import { CONTENT_LIMITS, charCount, descriptionProblem, priceProblem, titleProblem } from "../../utils/contentLimits";
+import { CONTENT_LIMITS, charCount, descriptionProblem, lengthProblem, priceProblem, titleProblem } from "../../utils/contentLimits";
 import { COVER_MAX_STORED_BYTES, coverFileProblem, prepareCoverImage } from "../../utils/coverFile";
 import { DEFAULT_COVER_FOCUS, coverImageStyle, focusForNewCover, parseCoverFocus, type CoverFocus, type CoverFrameId } from "../../utils/coverFocus";
 import CoverFocusPicker, { CoverFramesPreview } from "./CoverFocusPicker";
@@ -851,7 +851,22 @@ export default function AuthorCourseEditor({
       }, isSpecialist === null ? undefined : { isSpecialist });
       if (problems.length > 0) {
         setPublishProblems(problems.map((p) => p.message));
-        setError("Перед тим як надіслати або опублікувати, виправте:");
+        // no list of problems: open the first step that needs attention, its fields are outlined in red
+        const firstStep = STEP_KEYS.findIndex((_, k) => stepProblems(k + 1).length > 0) + 1;
+        if (firstStep > 0) {
+          setStep(firstStep);
+          setStepErrors(stepProblems(firstStep));
+        } else if (type === "program") {
+          setStep(STEP_KEYS.indexOf("modules") + 1);
+          const mi = modules.findIndex((m) => !m.title.trim() || (m.items?.length ?? 0) === 0 || (m.items ?? []).some((x) => lessonChecks(x).length > 0 || (isSpecialist === false && warningNeedsSpecialist(x.contentWarning))));
+          if (mi >= 0) {
+            setModIdx(mi);
+            const li = (modules[mi].items ?? []).findIndex((x) => lessonChecks(x).length > 0 || (isSpecialist === false && warningNeedsSpecialist(x.contentWarning)));
+            if (li >= 0) setLessonIdx((prev) => ({ ...prev, [mi]: li }));
+          }
+        }
+        setError(INVALID_FIELDS_MESSAGE);
+        focusInvalid();
         return false;
       }
     }
@@ -1041,17 +1056,6 @@ export default function AuthorCourseEditor({
 
   // Risk topics are for verified specialists only; until that is known the block stays locked.
   const riskLocked = isSpecialist !== true;
-  // What is still missing for moderation, shown live next to the actions.
-  const missing = validatePublishable(
-    {
-      id: draftId, type, title, description, status: "draft", price, participants: 0, revenue: 0, rating: null, reviewsCount: 0,
-      createdAt: "", updatedAt: "", tags: allTags, riskTopics, introVideoUrl: introVideoUrl.trim() || undefined, mainFileUrl: mainFileUrl ?? undefined,
-      ...typeFields(),
-      ...(type === "program" ? { modules: modules.filter((m) => m.title.trim() || m.id || (m.items?.length ?? 0) > 0) } : {}),
-    },
-    isSpecialist === null ? undefined : { isSpecialist }
-  ).map((p) => p.message).concat(priceModeProblem(priceMode, price, W) ? [priceModeProblem(priceMode, price, W)!] : []);
-
   // High-risk topics block: the program wizard and guides / meditations show the same one (locked until the author is a «Фахівець»).
   const riskWords = riskKeywordWords(`${title} ${description}`);
   const renderRiskPanel = () => (
@@ -1093,7 +1097,7 @@ export default function AuthorCourseEditor({
                 <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#ece9fe] text-[#5b3df5]">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{RISK_TOPIC_ICONS[t.id] ?? <circle cx="12" cy="12" r="8" />}</svg>
                 </span>
-                <span className="min-w-0 flex-1">{t.label}</span>
+                <span className="min-w-0 flex-1 [overflow-wrap:normal]">{t.label}</span>
                 {riskLocked ? (
                   on ? <span className="shrink-0 rounded-full bg-[#ece9fe] px-2 py-0.5 text-[13px] font-semibold text-[#4a2fd0]">Позначено</span> : <span aria-hidden="true" className="shrink-0 text-[#9a93c9]"><Icon name="lock" size={16} /></span>
                 ) : on ? (
@@ -1724,7 +1728,7 @@ export default function AuthorCourseEditor({
 
       <Step n={3} current={step} errors={stepErrors} icon="library" title="Категорії" hint={`Оберіть до трьох категорій, які найкраще описують ${W.acc}. За ними ${W.pron} знаходять у каталозі.`}>
       <div className="flex flex-col gap-5">
-        <div role="group" aria-label={`Категорії ${W.gen}`} className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div role="group" aria-label={`Категорії ${W.gen}`} className={`${stepErrors.length > 0 && catCount === 0 ? "rounded-2xl ring-2 ring-rose-400 ring-offset-4" : ""} grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`}>
           {Object.entries(categoryLabels).map(([id, label]) => {
             const on = tags.includes(id);
             const full = !on && catCount >= MAX_CATEGORIES;
@@ -1745,7 +1749,7 @@ export default function AuthorCourseEditor({
                   <CategoryGlyph id={id} size={22} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[14px] font-semibold leading-tight text-[#1d1a3b]">{label}</span>
+                  <span className="block text-[14px] font-semibold leading-tight text-[#1d1a3b] [overflow-wrap:normal]">{label}</span>
                   {primary && <span className="mt-0.5 block text-[13px] font-semibold text-[#5b3df5]">Основна</span>}
                 </span>
                 <span aria-hidden="true" className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${on ? "border-[#5b3df5] bg-[#5b3df5] text-white" : "border-[#c9cde2] bg-white text-transparent"}`}>
@@ -2288,6 +2292,10 @@ export default function AuthorCourseEditor({
       {type === "program" && (
       <Step n={9} current={step} errors={stepErrors} icon="guide" title="Модулі та уроки" hint="Складіть програму з модулів. У кожному модулі — уроки.">
         <div>
+          <a href="https://youtu.be/9N-hBpSTeyU" target="_blank" rel="noopener noreferrer" aria-label="Відеоінструкція: як створити модулі та уроки (відкриється в новій вкладці)" className="mb-3 inline-flex min-h-[40px] items-center gap-2 rounded-xl border border-[#d9d4f5] bg-[#f3efff] px-4 text-[14px] font-semibold text-[#4a2fd0] transition hover:bg-[#ece9fe] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M10.5 9.3v5.4l4.5-2.7-4.5-2.7Z" /></svg>
+            Відеоінструкція
+          </a>
           <p className="mb-4 text-[14px] leading-relaxed text-[#4b4a66]">
             Модуль — це розділ програми. Відео (YouTube «Приховане»), аудіо,
             PDF і текст додаються в уроках усередині модуля. Кількість уроків рахується автоматично. Максимум: {MAX_MODULES} модулів, до {MAX_LESSONS_PER_MODULE} уроків у кожному.
@@ -2343,6 +2351,7 @@ export default function AuthorCourseEditor({
                         value={m.title}
                         maxLength={CONTENT_LIMITS.moduleTitle.max}
                         onChange={(e) => updateModule(i, { title: e.target.value })}
+                        aria-invalid={publishProblems.length > 0 && !m.title.trim() ? true : undefined}
                         placeholder={`Модуль ${i + 1}: назва`}
                         className="min-h-[44px] rounded-xl border border-[#d9d4f5] bg-white px-3 text-[14px] font-normal focus:border-[#5b3df5] focus:outline-none"
                       />
@@ -2516,6 +2525,7 @@ export default function AuthorCourseEditor({
                     if (hasText(it.body)) chips.push("Текст");
                     const fieldCls = "min-h-[44px] w-full rounded-xl border border-[#d9d4f5] bg-white px-3 text-[14px] text-black placeholder:text-black/55 focus:border-[#5b3df5] focus:outline-none";
                     const areaCls = "w-full resize-none rounded-xl border border-[#d9d4f5] bg-white px-3 py-2.5 text-[14px] text-black placeholder:text-black/55 focus:border-[#5b3df5] focus:outline-none";
+                    const bad = new Set(publishProblems.length > 0 ? lessonChecks(it).map((c) => c.code) : []);
                     const pillBtn = "inline-flex min-h-[44px] items-center justify-center rounded-full border border-[#d9d4f5] bg-white px-4 text-[13px] font-semibold text-[#4a2fd0] hover:bg-[#ece9fe]";
                     return (
                       <div key={ii} className={`${shown ? "" : "hidden"} rounded-2xl border border-[#d9d4f5] bg-white`}>
@@ -2529,6 +2539,7 @@ export default function AuthorCourseEditor({
                                   value={it.title}
                                   maxLength={CONTENT_LIMITS.lessonTitle.max}
                                   data-lesson-title={key}
+                                  aria-invalid={bad.has("lesson-title") || undefined}
                                   onChange={(e) => updateItem(i, ii, { title: e.target.value })}
                                   placeholder={`Наприклад: Урок ${ii + 1}. Вступ`}
                                   className={fieldCls}
@@ -2551,15 +2562,16 @@ export default function AuthorCourseEditor({
                             <section className="flex flex-col gap-3">
                               <div>
                                 <h4 className="text-[15px] font-semibold text-[#1d1a3b]">2. Матеріали</h4>
-                                <p className="text-[13px] text-black/60">Додайте те, що потрібно уроку. Усе необов'язково, але в уроці має бути хоча б щось одне.</p>
+                                <p className="text-[13px] text-black/60">Відео YouTube обов’язкове в кожному уроці. Аудіо, PDF і зображення — за потреби.</p>
                               </div>
                               <div className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2">
-                                <MaterialTile icon="video" title="Відео YouTube" state={hasText(it.videoUrl) ? "Посилання додано" : "Ще не додано"} done={hasText(it.videoUrl)}>
+                                <MaterialTile icon="video" title="Відео YouTube *" state={hasText(it.videoUrl) ? "Посилання додано" : "Ще не додано"} done={hasText(it.videoUrl)}>
                                   <input
                                     value={it.videoUrl ?? ""}
                                     onChange={(e) => updateItem(i, ii, { videoUrl: e.target.value })}
                                     placeholder="https://youtu.be/..."
                                     aria-label="Посилання на відео YouTube"
+                                    aria-invalid={bad.has("lesson-video") || undefined}
                                     className={fieldCls}
                                   />
                                 </MaterialTile>
@@ -2616,19 +2628,24 @@ export default function AuthorCourseEditor({
                                 </label>
                                 {cwOn && (
                                   <div className="mt-2 flex flex-col gap-3">
-                                    <p className="text-[13px] text-black/60">Оберіть одну тему зі списку або напишіть свій варіант.</p>
+                                    <p className="text-[13px] text-black/60">Оберіть одну тему зі списку або напишіть свій варіант.{isSpecialist !== true && " Теми із замком доступні лише авторам зі статусом «Фахівець»."}</p>
                                     <div role="group" aria-label="Теми попередження" className="flex flex-wrap gap-2">
                                       {WARNING_TOPICS.map((topic) => {
                                         const on = parseWarning(it.contentWarning).topics[0] === topic;
+                                        const locked = isSpecialist !== true && isSpecialistWarningTopic(topic) && !on;
                                         return (
                                           <button
                                             key={topic}
                                             type="button"
                                             aria-pressed={on}
-                                            onClick={() => { setExtra(cwKey, true); updateItem(i, ii, { contentWarning: toggleWarningTopic(it.contentWarning, topic) }); }}
-                                            className={`min-h-[44px] rounded-full border px-4 text-[14px] font-medium transition ${on ? "border-[#5b3df5] bg-[#5b3df5] text-white" : "border-[#d9d4f5] bg-white text-[#1d1a3b] hover:bg-[#ece9fe]"}`}
+                                            aria-disabled={locked || undefined}
+                                            title={locked ? "Доступно лише фахівцям" : undefined}
+                                            onClick={() => { if (locked) return; setExtra(cwKey, true); updateItem(i, ii, { contentWarning: toggleWarningTopic(it.contentWarning, topic) }); }}
+                                            className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-4 text-[14px] font-medium transition ${on ? "border-[#5b3df5] bg-[#5b3df5] text-white" : locked ? "cursor-not-allowed border-[#e5e3ee] bg-[#f4f3f8] text-black/40" : "border-[#d9d4f5] bg-white text-[#1d1a3b] hover:bg-[#ece9fe]"}`}
                                           >
                                             {on ? "✓ " : ""}{topic}
+                                            {locked && <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>}
+                                            {locked && <span className="sr-only"> (лише для фахівців)</span>}
                                           </button>
                                         );
                                       })}
@@ -2640,9 +2657,13 @@ export default function AuthorCourseEditor({
                                         maxLength={MAX_WARNING_CUSTOM_CHARS}
                                         onChange={(e) => { setExtra(cwKey, true); updateItem(i, ii, { contentWarning: setCustomWarning(e.target.value) }); }}
                                         placeholder="Напр.: розлучення"
+                                        aria-invalid={isSpecialist === false && warningNeedsSpecialist(it.contentWarning) ? true : undefined}
                                         className={fieldCls}
                                       />
                                     </label>
+                                    {isSpecialist === false && warningNeedsSpecialist(it.contentWarning) && (
+                                      <p role="alert" className="rounded-xl bg-amber-50 px-3 py-2 text-[13px] text-amber-900">Ця тема доступна лише авторам зі статусом «Фахівець»: урок з нею не опублікується. Оберіть іншу тему або надішліть документи про освіту в розділі «Модерація».</p>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -2684,6 +2705,7 @@ export default function AuthorCourseEditor({
                                                 }
                                               }}
                                               aria-label={`Пункт ${ri + 1}`}
+                                              aria-invalid={bad.has("lesson-checklist") && row.trim().length < 3 ? true : undefined}
                                               placeholder={`Пункт ${ri + 1}`}
                                               className={fieldCls}
                                             />
@@ -2770,6 +2792,7 @@ export default function AuthorCourseEditor({
                                             value={pr.prompt}
                                             maxLength={CONTENT_LIMITS.practicePrompt.max}
                                             onChange={(e) => setPr({ prompt: e.target.value })}
+                                            aria-invalid={bad.has("lesson-practice") && !!lengthProblem(pr.prompt, CONTENT_LIMITS.practicePrompt, "") ? true : undefined}
                                             placeholder="Напр.: Наскільки напружено ви почуваєтесь зараз?"
                                             className={fieldCls}
                                           />
@@ -2796,6 +2819,7 @@ export default function AuthorCourseEditor({
                                                       }
                                                     }}
                                                     aria-label={`Варіант ${oi + 1}`}
+                                                    aria-invalid={bad.has("lesson-practice") && !o.trim() ? true : undefined}
                                                     placeholder={`Варіант ${oi + 1}`}
                                                     className={fieldCls}
                                                   />
@@ -3200,24 +3224,7 @@ export default function AuthorCourseEditor({
       )}
       </>
 
-      {step === STEPS.length && missing.length > 0 && (
-        <div role={publishProblems.length > 0 ? "alert" : undefined} className={`rounded-xl border bg-white p-5 ${publishProblems.length > 0 ? "border-rose-300" : "border-black/10"}`}>
-          <div className={`text-[14px] font-semibold mb-2 ${publishProblems.length > 0 ? "text-rose-700" : "text-black/75"}`}>{publishProblems.length > 0 ? "Перед тим як надіслати або опублікувати, виправте:" : "Щоб надіслати на модерацію, лишилось:"}</div>
-          <ul className="text-[14px] text-black/70 list-disc pl-5 flex flex-col gap-1">
-            {missing.map((m) => <li key={m}>{m}</li>)}
-          </ul>
-          <p className="mt-2 text-[13px] text-black/60">Чернетку можна зберегти в будь-який момент і дописати пізніше.</p>
-        </div>
-      )}
-      {/* On the last program step the checklist card above already lists these, so they are not repeated. */}
-      {error && !(publishProblems.length > 0 && step === STEPS.length && missing.length > 0) && <div role="alert" className="text-[14px] font-medium text-rose-700">{error}</div>}
-      {publishProblems.length > 0 && !(step === STEPS.length && missing.length > 0) && (
-        <ul role="alert" className="flex list-disc flex-col gap-1 pl-5 text-[14px] font-medium text-rose-700">
-          {publishProblems.map((p) => (
-            <li key={p}>{p}</li>
-          ))}
-        </ul>
-      )}
+      {error && <div role="alert" className="text-[14px] font-medium text-rose-700">{error}</div>}
 
       {/* Saving the draft stays at the bottom; «Назад» / «Далі» are in the top-right corner. */}
       {step < STEPS.length && (
@@ -3327,10 +3334,10 @@ function AiArt({ className }: { className?: string }) {
 // One small line icon per high-risk topic (decorative: the topic name is always written next to it).
 const RISK_TOPIC_ICONS: Record<string, React.ReactNode> = {
   trauma: <><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 2.8A3 3 0 0 0 5 13a3 3 0 0 0 4 3.6V4z" /><path d="M15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 2.8 3 3 0 0 1-1 3.2 3 3 0 0 1-4 3.6V4z" /></>,
-  suicide: <><circle cx="12" cy="12" r="9" /><path d="M9 10h.01M15 10h.01M8.5 16c1-1.4 2.2-2 3.5-2s2.5.6 3.5 2" /></>,
+  suicide: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3.5" /><path d="M5.6 5.6l3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9" /></>,
   eating: <><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10" /><path d="M17 3c-2 1.5-2.5 4-2.5 7H17v11" /></>,
   addiction: <><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1" /></>,
-  clinical: <><rect x="4" y="7" width="16" height="13" rx="2.5" /><path d="M9 7V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v2M12 11v5M9.5 13.5h5" /></>,
+  clinical: <><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" /><path d="M7.5 12h2.5l1.5-2.5 2 4 1.5-1.5h1.5" /></>,
   children: <><circle cx="9" cy="8" r="3" /><path d="M3.5 19c.5-3 2.6-4.5 5.5-4.5s5 1.5 5.5 4.5" /><circle cx="17" cy="9.5" r="2.2" /><path d="M16 14.5c2.6-.1 4.2 1.2 4.7 3.5" /></>,
 };
 
@@ -3753,12 +3760,12 @@ function ListCard({ id, icon, title, hint, value, onChange, placeholder, example
   );
 }
 
+const INVALID_FIELDS_MESSAGE = "Заповніть поля, позначені червоним.";
+
 function Step({ n, current, errors, title, hint, children, icon, aside, tight, below }: { n: number; current: number; errors: string[]; title: string; hint: string; children: React.ReactNode; icon?: IconName; aside?: React.ReactNode; tight?: boolean; below?: React.ReactNode }) {
   if (n !== current) return null;
   const errorList = errors.length > 0 && (
-    <ul id={`step-${n}-errors`} role="alert" className="list-disc pl-5 text-[13px] text-rose-700 flex flex-col gap-1">
-      {errors.map((e) => <li key={e}>{e}</li>)}
-    </ul>
+    <p id={`step-${n}-errors`} role="alert" className="text-[13px] font-medium text-rose-700">{INVALID_FIELDS_MESSAGE}</p>
   );
   // Redesigned look (first step for now): a soft card with an icon tile, the form on the left, a quiet tip on the right.
   if (icon) {

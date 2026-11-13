@@ -17,6 +17,7 @@ import { guideBlocksProblems } from "./guideBuilder.ts";
 import { MAX_LESSONS_PER_MODULE, MAX_LESSONS_TOTAL, MAX_MODULES } from "./programModule.ts";
 import { checklistItems, checklistProblem } from "./lessonChecklist.ts";
 import { isHighRisk, RISK_MESSAGE } from "./riskTopics.ts";
+import { SPECIALIST_WARNING_MESSAGE, warningNeedsSpecialist } from "./contentWarning.ts";
 
 export const MIN_TRANSCRIPT_CHARS = 20;
 
@@ -44,11 +45,13 @@ export function lessonChecks(it: AuthoredItem): { code: string; text: string }[]
     const p = lengthProblem(it.body!, CONTENT_LIMITS.lessonBody, "текст уроку", true);
     if (p) out.push({ code: "lesson-body", text: p });
   }
-  if ((it.type === "video" || has(it.videoUrl)) && !has(it.videoUrl)) out.push({ code: "lesson-video", text: "додайте посилання на відео." });
+  // every lesson has a video (a gift lesson is the author's meditation or guide instead); audio, PDF, image are optional
+  if (!it.materialId && !has(it.videoUrl)) out.push({ code: "lesson-video", text: "додайте посилання на відео YouTube." });
+  else if (has(it.videoUrl) && !isYoutubeUrl(it.videoUrl!)) out.push({ code: "lesson-video", text: "посилання на відео має бути з YouTube (youtu.be/… або youtube.com/watch?v=…)." });
   if (it.type === "audio" && !has(it.audioUrl)) out.push({ code: "lesson-audio", text: "додайте аудіо." });
   if (it.type === "pdf" && !has(it.fileUrl)) out.push({ code: "lesson-file", text: "додайте файл." });
   if (it.type === "image" && !has(it.imageUrl)) out.push({ code: "lesson-image", text: "додайте зображення." });
-  if (it.type === "text" && !has(it.body)) out.push({ code: "lesson-body", text: "додайте текст." });
+  // the lesson text is optional: every lesson already has its video
   const cl = checklistItems(it.checklist).length > 0 || it.type === "checklist" ? checklistProblem(it.checklist) : null;
   if (cl) out.push({ code: "lesson-checklist", text: cl });
   if (it.practice) {
@@ -147,6 +150,7 @@ export function validatePublishable(content: AuthoredContent, opts?: { isSpecial
       if (it.isRequired) required += 1;
       const where = lessonLabel(m, mi, it, ii);
       for (const c of lessonChecks(it)) add(c.code, `${where}: ${c.text}`);
+      if (opts && !opts.isSpecialist && warningNeedsSpecialist(it.contentWarning)) add("lesson-warning", `${where}: ${SPECIALIST_WARNING_MESSAGE}`);
     });
   });
   if (lessons > 0 && required === 0) add("no-required", "Позначте хоча б один урок обов'язковим.");

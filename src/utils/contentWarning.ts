@@ -1,23 +1,48 @@
+import { riskKeywordHit } from "./riskTopics.ts";
+
 // Lesson content warning = one stored string. Chosen topics live in a leading sentence
 // ("Урок може торкатися тем: a, b."), anything the author types follows it.
 
 export const WARNING_TOPICS = [
   "втрата та горе",
-  "смерть і хвороба",
   "панічні атаки та тривога",
   "травматичний досвід",
   "дитячі травми",
   "насильство",
   "сексуальне насильство",
   "булінг і приниження",
-  "самоушкодження",
-  "суїцидальні думки",
   "розлади харчової поведінки",
-  "залежності",
   "війна та військові події",
   "сильні емоції та сльози",
   "гучні звуки",
 ] as const;
+
+// Topics that mean deep, clinical-level work: only an author with the «Фахівець» status (education documents
+// reviewed by Sensoria) may pick them. Self-harm, suicidal thoughts, addictions, death and illness are not offered at all.
+export const SPECIALIST_WARNING_TOPICS: readonly string[] = [
+  "втрата та горе",
+  "травматичний досвід",
+  "дитячі травми",
+  "насильство",
+  "сексуальне насильство",
+  "розлади харчової поведінки",
+  "війна та військові події",
+];
+
+// the same themes typed as own text
+const SPECIALIST_WORDS = /(горе|втрат|смерт|помер|насильств|згвалтув|травм|суїцид|самогуб|самоушкодж|залежн|наркот|алкогол|війн|військ|булімі|анорекс)/i;
+
+export const isSpecialistWarningTopic = (topic: string): boolean => SPECIALIST_WARNING_TOPICS.includes(topic);
+
+/** True when a lesson warning may be used only by a «Фахівець»: a specialist topic, a topic no longer offered
+ *  (old data: self-harm, suicidal thoughts, addictions, death and illness), or own text with obvious high-risk words. */
+export function warningNeedsSpecialist(text: string | undefined): boolean {
+  const { topics, custom } = parseWarning(text);
+  const open = new Set<string>(WARNING_TOPICS.filter((w) => !isSpecialistWarningTopic(w)));
+  return topics.some((t) => !open.has(t)) || riskKeywordHit(custom) || SPECIALIST_WORDS.test(custom);
+}
+
+export const SPECIALIST_WARNING_MESSAGE = "ця тема попередження доступна лише авторам зі статусом «Фахівець». Оберіть іншу тему або надішліть документи про освіту в розділі «Модерація».";
 
 // One warning per lesson: either one topic from the list or the author's own short text.
 export const MAX_WARNING_CUSTOM_CHARS = 30;

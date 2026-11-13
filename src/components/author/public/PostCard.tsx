@@ -47,7 +47,7 @@ export function usePostLike(
 ) {
   const [likeBusy, setLikeBusy] = useState(false);
   const [likeError, setLikeError] = useState(false);
-  const canLike = viewer?.role === "participant" || viewer?.id === post.authorId;
+  const canLike = !!viewer;
   const like = async () => {
     if (!viewer) return onRequireLogin();
     if (!canLike || likeBusy) return;
@@ -55,6 +55,7 @@ export function usePostLike(
     setLikeBusy(true);
     setLikeError(false);
     onChange({ ...post, stats: next }); // optimistic
+    if (post.id.startsWith("demo-")) { setLikeBusy(false); return; } // demo feed: nothing to save
     try {
       await setPostLiked(post.id, viewer.id, next.liked);
     } catch {
@@ -80,6 +81,11 @@ type Props = {
   onRequireLogin: () => void;
   onOpenContent: (kind: "program" | "guide" | "meditation", id: string) => void;
   onChange: (post: AuthorPost) => void;
+  // feeds: who wrote it (avatar + name, clickable to the author's page) and what sits on the right («Підписатися», own menu)
+  showAuthor?: boolean;
+  authorLabel?: string;
+  onOpenAuthor?: () => void;
+  headerAction?: React.ReactNode;
 };
 
 export default function PostCard({
@@ -93,6 +99,10 @@ export default function PostCard({
   onRequireLogin,
   onOpenContent,
   onChange,
+  showAuthor = false,
+  authorLabel,
+  onOpenAuthor,
+  headerAction,
 }: Props) {
   const [expanded, setExpanded] = useState(detail);
   const [commentsOpen, setCommentsOpen] = useState(detail);
@@ -108,8 +118,30 @@ export default function PostCard({
         pinned ? "bg-[#fafaff] border-[#4338ca]/20" : "bg-white border-black/[0.06]"
       }`}
     >
+      {showAuthor && (
+        <div className="flex items-center gap-3">
+          {onOpenAuthor ? (
+            <button type="button" onClick={onOpenAuthor} className="group flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={`Сторінка автора: ${authorName}`}>
+              <Avatar avatarUrl={authorAvatarUrl} initials={getInitials(authorName)} className="w-11 h-11 shrink-0 text-[14px] text-white" />
+              <span className="min-w-0">
+                <span className="block truncate text-[15px] font-semibold text-[#12172b] group-hover:underline underline-offset-4">{authorName}</span>
+                <span className={`${T.meta} block`}>{authorLabel ? `${authorLabel} · ` : ""}<time dateTime={post.createdAt} title={formatReviewDate(post.createdAt)}>{formatPostDate(post.createdAt)}</time>{post.updatedAt ? " · відредаговано" : ""}</span>
+              </span>
+            </button>
+          ) : (
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <Avatar avatarUrl={authorAvatarUrl} initials={getInitials(authorName)} className="w-11 h-11 shrink-0 text-[14px] text-white" />
+              <span className="min-w-0">
+                <span className="block truncate text-[15px] font-semibold text-[#12172b]">{authorName}</span>
+                <span className={`${T.meta} block`}>{authorLabel ? `${authorLabel} · ` : ""}<time dateTime={post.createdAt} title={formatReviewDate(post.createdAt)}>{formatPostDate(post.createdAt)}</time>{post.updatedAt ? " · відредаговано" : ""}</span>
+              </span>
+            </div>
+          )}
+          {headerAction}
+        </div>
+      )}
       {/* meta row: no repeated author name in the feed — it is the author's own page */}
-      <div className="flex items-center gap-2">
+      <div className={`flex items-center gap-2 ${showAuthor && !pinned ? "hidden" : ""}`}>
         {detail && (
           <>
             <Avatar avatarUrl={authorAvatarUrl} initials={getInitials(authorName)} className="w-8 h-8 text-[12px] text-white" />
@@ -229,7 +261,10 @@ export default function PostCard({
         {likeError && <span role="status" className="text-[14px] text-rose-600">Не вдалося зберегти</span>}
       </div>
 
-      {commentsOpen && (
+      {commentsOpen && post.id.startsWith("demo-") && (
+        <p className="mt-3 rounded-xl bg-[#f6f4ff] px-4 py-3 text-[13px] text-[#4a2fd0]">Демо: коментарі з’являться у справжніх публікаціях.</p>
+      )}
+      {commentsOpen && !post.id.startsWith("demo-") && (
         <div className="mt-3" id={`comments-${post.id}`}>
           <PostComments
             postId={post.id}

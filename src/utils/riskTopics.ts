@@ -5,10 +5,10 @@
 
 export const RISK_TOPICS: { id: string; label: string }[] = [
   { id: "trauma", label: "Травма, ПТСР" },
-  { id: "suicide", label: "Суїцидальні думки, самоушкодження" },
+  { id: "suicide", label: "Кризові стани" },
   { id: "eating", label: "Розлади харчової поведінки" },
   { id: "addiction", label: "Залежності" },
-  { id: "clinical", label: "Діагнози, ліки, лікування" },
+  { id: "clinical", label: "Психосоматика" },
   { id: "children", label: "Робота з дітьми" },
 ];
 

@@ -183,6 +183,7 @@ export async function fetchAuthorPosts(
       .from("author_posts")
       .select(cols)
       .eq("author_id", authorId)
+      .eq("audience", "all") // the public profile shows only «Для всіх» (supabase/feeds.sql)
       .eq("is_pinned", false)
       .order("created_at", { ascending: false })
       .limit(FEED_PAGE_SIZE + 1);
@@ -194,7 +195,7 @@ export async function fetchAuthorPosts(
     selectPosts(feedBuild),
     opts.before
       ? Promise.resolve({ data: [] as PostRow[], error: null })
-      : selectPosts((cols) => c.from("author_posts").select(cols).eq("author_id", authorId).eq("is_pinned", true).limit(1)),
+      : selectPosts((cols) => c.from("author_posts").select(cols).eq("author_id", authorId).eq("audience", "all").eq("is_pinned", true).limit(1)),
   ]);
   if (feedRes.error) fail(feedRes.error);
   if (pinnedRes.error) fail(pinnedRes.error);
@@ -224,6 +225,70 @@ export async function fetchMyPosts(authorId: string, limit = 50): Promise<Author
   return hydrate((data ?? []) as unknown as PostRow[], authorId);
 }
 
+// ── feeds («Для всіх» / «Для учасників» / «Для авторів» / «Мої») ─────────────────────────────────────────────
+export type FeedAudience = "all" | "participants" | "authors";
+export type FeedKind = FeedAudience | "mine";
+export const FEED_LABEL: Record<FeedKind, string> = { all: "Для всіх", participants: "Для учасників", authors: "Для авторів", mine: "Мої" };
+export type FeedPost = AuthorPost & { audience: FeedAudience; authorName: string; authorAvatarUrl: string | null; authorIsAuthor: boolean };
+export const FEED_PAGE = 15;
+
+type FeedRow = PostRow & { audience: FeedAudience; author_name: string; author_avatar: string | null; author_role: string | null; like_count: number; comment_count: number; liked: boolean };
+
+// One page of a feed, built in the database (feed_page): the posts, their authors, counters and «liked by me».
+// sort «new»: newest first, the next page after `before`; sort «top» («Рекомендовані»): ranked for this person (feed_top),
+// the next page by `offset`.
+export type FeedSort = "top" | "new";
+export async function fetchFeed(feed: FeedKind, before: string | null = null, sort: FeedSort = "new", offset = 0): Promise<{ posts: FeedPost[]; hasMore: boolean }> {
+  const { data, error } = sort === "top" && feed !== "mine"
+    ? await client().rpc("feed_top", { p_feed: feed, p_offset: offset, p_limit: FEED_PAGE })
+    : await client().rpc("feed_page", { p_feed: feed, p_before: before, p_limit: FEED_PAGE });
+  if (error) fail(error);
+  const page = (data ?? { items: [], has_more: false }) as { items: FeedRow[]; has_more: boolean };
+  const rows = page.items ?? [];
+  const attachments = await resolveAttachments(rows);
+  return {
+    hasMore: !!page.has_more,
+    posts: rows.map((r) => ({
+      id: r.id,
+      authorId: r.author_id,
+      body: r.body,
+      contentId: r.content_id,
+      contentKind: r.content_kind,
+      isPinned: r.is_pinned,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+      attachment: attachments.get(r.id) ?? null,
+      images: (r.images ?? []).filter(ownImage),
+      video: parseVideoUrl(r.video_url),
+      isShare: !!r.is_share,
+      imageAlt: r.image_alt ?? "",
+      stats: { likeCount: r.like_count ?? 0, commentCount: r.comment_count ?? 0, liked: !!r.liked },
+      audience: r.audience ?? "all",
+      authorName: r.author_name,
+      authorAvatarUrl: r.author_avatar,
+      authorIsAuthor: r.author_role === "author" || r.author_role === "admin",
+    })),
+  };
+}
+
+// Demo feeds: real authors of the platform (published profiles), so a demo post's author opens a real author page.
+let someAuthors: Promise<{ id: string; name: string; avatarUrl: string | null }[]> | null = null;
+export function fetchSomeAuthors(limit = 3): Promise<{ id: string; name: string; avatarUrl: string | null }[]> {
+  someAuthors ??= loadSomeAuthors(limit).catch(() => { someAuthors = null; return []; });
+  return someAuthors;
+}
+async function loadSomeAuthors(limit: number): Promise<{ id: string; name: string; avatarUrl: string | null }[]> {
+  const { data, error } = await client().from("profiles").select("id, name, avatar_url").eq("role", "author").limit(limit);
+  if (error) return [];
+  return (data ?? []).filter((r) => (r.name as string | null)?.trim()).map((r) => ({ id: r.id as string, name: r.name as string, avatarUrl: (r.avatar_url as string | null) ?? null }));
+}
+
+// A participant's post: text only, always into «Для учасників».
+export async function createParticipantPost(userId: string, body: string): Promise<void> {
+  const { error } = await client().from("author_posts").insert({ author_id: userId, body: body.trim(), audience: "participants" });
+  if (error) fail(error);
+}
+
 export type PostMediaInput = {
   images: string[];
   imageAlt?: string;
@@ -240,9 +305,11 @@ export async function createPost(
     body: string;
     contentId: string | null;
     contentKind: PostContentKind | null;
+    audience?: FeedAudience;
   } & PostMediaInput
 ): Promise<void> {
   const { error } = await client().from("author_posts").insert({
+    ...(input.audience && input.audience !== "all" ? { audience: input.audience } : {}),
     author_id: input.authorId,
     body: input.body.trim(),
     content_id: input.contentId,
@@ -255,6 +322,7 @@ export async function createPost(
   if (error && isMissingColumn(error)) {
     altMissing = true;
     const { error: e2 } = await client().from("author_posts").insert({
+      ...(input.audience && input.audience !== "all" ? { audience: input.audience } : {}),
       author_id: input.authorId,
       body: input.body.trim(),
       content_id: input.contentId,

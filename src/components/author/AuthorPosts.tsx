@@ -16,6 +16,8 @@ import {
   updatePost,
   uploadPostImages,
   type AuthorPost,
+  FEED_LABEL,
+  type FeedAudience,
 } from "../../lib/authorPosts";
 import { fetchAuthorContent } from "../../lib/authorPublic";
 import { guides } from "../../data/guides";
@@ -44,6 +46,7 @@ const parseKey = (k: string): Attach => {
 };
 
 export type ComposerResult = {
+  audience: FeedAudience;
   body: string;
   attach: Attach;
   newFiles: File[];
@@ -53,6 +56,8 @@ export type ComposerResult = {
 };
 
 function Composer({
+  hideAudience = false,
+  initialAudience = "all",
   initialBody,
   initialAttach,
   initialImages,
@@ -65,6 +70,8 @@ function Composer({
   onSubmit,
   onCancel,
 }: {
+  hideAudience?: boolean;
+  initialAudience?: FeedAudience;
   initialBody: string;
   initialAttach: Attach;
   initialImages: string[];
@@ -78,6 +85,7 @@ function Composer({
   onCancel?: () => void;
 }) {
   const [body, setBody] = useState(initialBody);
+  const [audience, setAudience] = useState<FeedAudience>(initialAudience);
   const [attach, setAttach] = useState<Attach>(initialAttach);
   const [kept, setKept] = useState<string[]>(initialImages);
   const [files, setFiles] = useState<File[]>([]);
@@ -114,7 +122,7 @@ function Composer({
   const submit = () => {
     if (video.trim() && !parseVideoUrl(video)) return setLocalError("Підтримуються лише посилання YouTube або Vimeo.");
     setLocalError(null);
-    onSubmit({ body, attach, newFiles: files, keptImages: kept, imageAlt: kept.length + files.length > 0 ? alt : "", videoUrl: video.trim() ? parseVideoUrl(video)!.url : null });
+    onSubmit({ audience, body, attach, newFiles: files, keptImages: kept, imageAlt: kept.length + files.length > 0 ? alt : "", videoUrl: video.trim() ? parseVideoUrl(video)!.url : null });
   };
   // An already-attached item that is no longer in the author's published
   // list must stay selectable, or editing would silently drop it.
@@ -126,6 +134,21 @@ function Composer({
 
   return (
     <div>
+      <div className={`mb-3 flex flex-wrap items-center gap-2 ${hideAudience ? "hidden" : ""}`} role="radiogroup" aria-label="Хто побачить публікацію">
+        <span className="text-[13px] font-medium text-black/55">Кому:</span>
+        {(["all", "authors"] as const).map((a) => (
+          <button
+            key={a}
+            type="button"
+            role="radio"
+            aria-checked={audience === a}
+            onClick={() => setAudience(a)}
+            className={`min-h-[36px] rounded-full px-3.5 text-[13px] font-semibold transition ${audience === a ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35" : "bg-[#f6f5fb] text-black/60 hover:bg-[#efedf9]"}`}
+          >
+            {FEED_LABEL[a]}
+          </button>
+        ))}
+      </div>
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
@@ -245,7 +268,7 @@ function Composer({
   );
 }
 
-export default function AuthorPosts() {
+export default function AuthorPosts({ embedded = false, initialAudience = "all" }: { embedded?: boolean; initialAudience?: FeedAudience } = {}) {
   const session = useSession();
   const authorId = session?.profile.id;
   const openProfile = useOpenAuthorProfile();
@@ -274,7 +297,7 @@ export default function AuthorPosts() {
   }, [authorId, limit]);
   useEffect(load, [load]);
 
-  const publish = async ({ body, attach, newFiles, keptImages, imageAlt, videoUrl }: ComposerResult) => {
+  const publish = async ({ audience, body, attach, newFiles, keptImages, imageAlt, videoUrl }: ComposerResult) => {
     if (!authorId) return;
     const check = checkPublicText(body, POST_MAX);
     if (!check.ok) return setNotice(check.message);
@@ -284,6 +307,7 @@ export default function AuthorPosts() {
     try {
       uploaded = newFiles.length ? await uploadPostImages(authorId, newFiles) : [];
       await createPost({
+        audience,
         authorId,
         body,
         contentId: attach?.id ?? null,
@@ -343,7 +367,7 @@ export default function AuthorPosts() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className={`flex items-start justify-between gap-4 flex-wrap ${embedded ? "hidden" : ""}`}>
         <div>
           <h1 className="text-3xl font-bold">Публікації</h1>
           <p className="text-black/50 mt-1 max-w-[560px]">
@@ -373,6 +397,7 @@ export default function AuthorPosts() {
             <div className="text-[15px] font-semibold mb-4">Нова публікація</div>
             <Composer
               key={composerKey}
+              initialAudience={initialAudience}
               initialBody=""
               initialAttach={null}
               initialImages={[]}
@@ -511,6 +536,76 @@ export default function AuthorPosts() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+
+// «Що нового?» in the feeds: the full composer (text, photos, video, material, audience) in a window — for a new post
+// or to edit one of the author's own posts.
+export function PostComposerModal({ post, audience, onClose, onSaved }: { post?: AuthorPost | null; audience: FeedAudience; onClose: () => void; onSaved: () => void }) {
+  const session = useSession();
+  const authorId = session?.profile.id;
+  const [content, setContent] = useState<AuthorContentItem[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (authorId) fetchAuthorContent(authorId).then(setContent).catch(() => setContent([]));
+  }, [authorId]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !busy) onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, onClose]);
+
+  const save = async ({ audience: aud, body, attach, newFiles, keptImages, imageAlt, videoUrl }: ComposerResult) => {
+    if (!authorId) return;
+    const check = checkPublicText(body, POST_MAX);
+    if (!check.ok) return setNotice(check.message);
+    setBusy(true);
+    setNotice(null);
+    let uploaded: string[] = [];
+    try {
+      uploaded = newFiles.length ? await uploadPostImages(authorId, newFiles) : [];
+      const media = { images: [...keptImages, ...uploaded], imageAlt, videoUrl, isShare: !!attach?.share };
+      if (post) await updatePost(post.id, { body, contentId: attach?.id ?? null, contentKind: attach?.kind ?? null, ...media });
+      else await createPost({ audience: aud, authorId, body, contentId: attach?.id ?? null, contentKind: attach?.kind ?? null, ...media });
+      onSaved();
+      onClose();
+    } catch (e) {
+      await discardUploadedImages(authorId, uploaded);
+      const m = (e as { message?: string } | null)?.message ?? "";
+      if (/^(Публікація|Забагато)/.test(m)) { setNotice(m); return; }
+      setNotice(post ? "Не вдалося зберегти зміни. Спробуйте ще раз." : "Не вдалося опублікувати. Ваш текст збережено в полі — спробуйте ще раз.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#12172b]/40 p-4 sm:p-8" role="dialog" aria-modal="true" aria-label={post ? "Редагувати публікацію" : "Нова публікація"} onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
+      <div className="w-full max-w-[760px] rounded-[28px] bg-white p-5 shadow-[0_30px_80px_-30px_rgba(40,30,120,0.55)] sm:p-7">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-[20px] font-bold text-[#12172b]">{post ? "Редагувати публікацію" : "Нова публікація"}</h2>
+          <button type="button" onClick={onClose} disabled={busy} aria-label="Закрити" className="flex h-10 w-10 items-center justify-center rounded-full text-black/50 hover:bg-black/5">✕</button>
+        </div>
+        <Composer
+          hideAudience={!!post}
+          initialAudience={audience}
+          initialBody={post?.body ?? ""}
+          initialAttach={post?.contentId && post.contentKind ? { kind: post.contentKind, id: post.contentId, share: post.isShare } : null}
+          initialImages={post?.images ?? []}
+          initialAlt={post?.imageAlt ?? ""}
+          initialVideo={post?.video?.url ?? ""}
+          content={content}
+          submitLabel={post ? "Зберегти" : "Опублікувати"}
+          busy={busy}
+          notice={notice}
+          onSubmit={save}
+          onCancel={onClose}
+        />
+        <p className="mt-4 text-[12px] text-black/40">Не діліться контактами чи посиланнями для спілкування або оплати поза Sensoria — такі тексти не публікуються.</p>
+      </div>
     </div>
   );
 }

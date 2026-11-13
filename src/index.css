@@ -291,3 +291,10 @@ body {
 :where(input[type="range"]):hover::-webkit-slider-thumb { transform: scale(1.1); }
 :where(input[type="range"]):focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(91, 61, 245, 0.22); }
 :where(input[type="range"]):focus-visible::-moz-range-thumb { box-shadow: 0 0 0 5px rgba(91, 61, 245, 0.22); }
+
+/* A required field left empty (or filled wrong) after «Далі» / «Опублікувати»: outlined in red, the way forms
+   usually show it, instead of a list of problems. Works for every field that sets aria-invalid. */
+[aria-invalid="true"] {
+  border-color: #f43f5e !important;
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.16) !important;
+}

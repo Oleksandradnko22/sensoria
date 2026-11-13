@@ -68,13 +68,13 @@ function Example({ children }: { children: React.ReactNode }) {
 
 // top-level (not nested) so inputs inside keep focus while typing
 function Section({
-  n, title, required, isOpen, onToggle, filled, hidden, onHiddenChange, status, children,
+  n, title, required, isOpen, onToggle, filled, invalid, hidden, onHiddenChange, status, children,
 }: {
-  n: number; title: string; required?: boolean; isOpen: boolean; onToggle: () => void; filled: boolean;
+  n: number; title: string; required?: boolean; isOpen: boolean; onToggle: () => void; filled: boolean; invalid?: boolean;
   hidden?: boolean; onHiddenChange?: (hidden: boolean) => void; status: string | null; children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-black/10 bg-white">
+    <div className={`rounded-2xl border bg-white ${invalid ? "border-rose-400 shadow-[0_0_0_3px_rgba(244,63,94,0.14)]" : "border-black/10"}`}>
       <button type="button" onClick={onToggle} aria-expanded={isOpen} className="w-full flex items-center gap-3 px-4 py-3.5 text-left min-h-[56px]">
         <span className="w-6 h-6 shrink-0 rounded-full bg-[#eef0fd] text-[#4338ca] text-[12px] font-semibold flex items-center justify-center">{filled ? "✓" : n}</span>
         <span className="flex-1 min-w-0">
@@ -101,13 +101,13 @@ function Section({
 }
 
 // a short list of lines (offers / not offers) with optional click-to-add examples
-function LineList({ items, onChange, max, placeholder, examples, min }: { items: string[]; onChange: (v: string[]) => void; max: number; placeholder: string; examples: string[]; min?: number }) {
+function LineList({ items, onChange, max, placeholder, examples, min, invalid, need = 0 }: { items: string[]; onChange: (v: string[]) => void; max: number; placeholder: string; examples: string[]; min?: number; invalid?: boolean; need?: number }) {
   const rows = [...items, ...Array.from({ length: Math.max(0, max - items.length) }, () => "")].slice(0, max);
   return (
     <div className="flex flex-col gap-2">
       {rows.map((t, i) => (
         <div key={i}>
-          <input value={t} maxLength={L.limit} onChange={(e) => onChange(rows.map((x, j) => (j === i ? e.target.value : x)))} className={input} placeholder={i === 0 ? placeholder : ""} aria-label={`${placeholder} ${i + 1}`} />
+          <input value={t} maxLength={L.limit} onChange={(e) => onChange(rows.map((x, j) => (j === i ? e.target.value : x)))} className={input} placeholder={i === 0 ? placeholder : ""} aria-label={`${placeholder} ${i + 1}`} aria-invalid={invalid && i < need && t.trim().length < (min ?? 1) ? true : undefined} />
           {t && <div className="text-right mt-0.5"><Counter n={t.length} max={L.limit} min={min} /></div>}
         </div>
       ))}
@@ -155,9 +155,9 @@ function IconPicker({ value, fallback, onChange, label: aria }: { value: string;
 
 // rows of «icon + text» (principles, expectations); text and icons are kept as aligned arrays
 function IconItems({
-  items, icons, onChange, max, textMax, fallback, placeholder, suggestions, addLabel, min,
+  items, icons, onChange, max, textMax, fallback, placeholder, suggestions, addLabel, min, invalid, need = 0,
 }: {
-  min?: number;
+  min?: number; invalid?: boolean; need?: number;
   items: string[]; icons: string[]; onChange: (items: string[], icons: string[]) => void; max: number; textMax: number;
   fallback: (i: number) => StoryIconId; placeholder: string; suggestions: string[]; addLabel: string;
 }) {
@@ -169,7 +169,7 @@ function IconItems({
         <div key={i} className="flex gap-2.5 items-start">
           <IconPicker value={ics[i]} fallback={fallback(i)} label={`${placeholder} ${i + 1}`} onChange={(id) => onChange(items, ics.map((x, j) => (j === i ? id : x)))} />
           <div className="flex-1 min-w-0">
-            <input value={t} maxLength={textMax} onChange={(e) => onChange(items.map((x, j) => (j === i ? e.target.value : x)), ics)} className={input} placeholder={placeholder} aria-label={`${placeholder} ${i + 1}`} />
+            <input value={t} maxLength={textMax} onChange={(e) => onChange(items.map((x, j) => (j === i ? e.target.value : x)), ics)} className={input} placeholder={placeholder} aria-label={`${placeholder} ${i + 1}`} aria-invalid={invalid && t.trim().length < (min ?? 1) ? true : undefined} />
             <div className="flex justify-between mt-1">
               <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i), ics.filter((_, j) => j !== i))} className="text-[12px] text-red-500 hover:underline">Видалити</button>
               <Counter n={t.length} max={textMax} min={min} />
@@ -178,7 +178,7 @@ function IconItems({
         </div>
       ))}
       <div className="flex flex-wrap gap-2 items-center">
-        <button type="button" disabled={full} onClick={() => onChange([...items, ""], [...ics, ""])} className={ghost}>{addLabel} ({items.length} з {max})</button>
+        <button type="button" disabled={full} aria-invalid={invalid && items.length < need ? true : undefined} onClick={() => onChange([...items, ""], [...ics, ""])} className={ghost}>{addLabel} ({items.length} з {max})</button>
         {suggestions.filter((e) => !items.includes(e)).map((e) => (
           <button key={e} type="button" disabled={full} onClick={() => onChange([...items.filter((x) => x.trim()), e], [...ics.filter((_, j) => items[j].trim()), ""])} className="px-3 py-1 rounded-full text-[12px] border border-black/10 text-black/55 hover:bg-black/5 text-left disabled:opacity-40">
             + {e}
@@ -197,6 +197,8 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  // after a save that did not pass: fields still missing are outlined in red
+  const [tried, setTried] = useState(false);
   const [restored, setRestored] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -250,6 +252,11 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
   };
   // three rows to start with; «Додати етап» adds more, up to the limit
   const stepRows = Math.min(L.steps, Math.max(3, s.steps.length, extraStepRows));
+  // a step row is outlined when it is half filled, or when there are too few full steps and it is among the first ones
+  const fullStep = (x: StoryStep) => x.title.trim().length >= M.stepTitle && x.text.trim().length >= M.stepText;
+  const stepBad = (i: number, x: StoryStep) => !fullStep(x) && (!!(x.title.trim() || x.text.trim()) || (s.steps.filter(fullStep).length < M.steps && i < M.steps));
+  const fullFaq = (x: { q: string; a: string }) => x.q.trim().length >= M.faqQ && x.a.trim().length >= M.faqA;
+  const faqBad = (i: number, x: { q: string; a: string }) => !fullFaq(x) && (!!(x.q.trim() || x.a.trim()) || (s.faq.filter(fullFaq).length < M.faq && i < M.faq));
   const steps: StoryStep[] = [...s.steps, ...Array.from({ length: Math.max(0, stepRows - s.steps.length) }, () => ({ title: "", text: "", icon: "" }))].slice(0, stepRows);
   const setStep = (i: number, patch: Partial<StoryStep>) => set("steps", steps.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const mediaOf = (kind: "video" | "audio") => (s.media?.kind === kind ? s.media : { kind, url: "", caption: s.media?.caption ?? "", duration: s.media?.duration ?? "" });
@@ -270,8 +277,21 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
 
   const save = async () => {
     const problems = [...validateStory(s, { hasProfilePhoto: !!avatarUrl }), ...Object.entries(missingParts(s, !!avatarUrl)).flatMap(([, v]) => v.map((x) => `Потрібно: ${x}.`))];
-    setErrors(problems);
-    if (problems.length) return;
+    if (problems.length) {
+      // no list of problems: open the first section that needs attention, its fields are outlined in red
+      setTried(true);
+      setErrors(["Заповніть поля, позначені червоним."]);
+      const missingNow = missingParts(s, !!avatarUrl);
+      const order: SectionId[] = ["intro", "media", "approach", "principles", "limits", "faq"];
+      const v = validateStory(s, { hasProfilePhoto: !!avatarUrl }).join(" ");
+      const first = order.find((id) => missingNow[id].length > 0)
+        ?? (/фото|знайомства/.test(v) ? "intro" : /Особисте|Відео/.test(v) ? "media" : /Підхід|погляд/.test(v) ? "approach" : "faq");
+      setOpen(first);
+      window.setTimeout(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(), 80);
+      return;
+    }
+    setErrors([]);
+    setTried(false);
     setSaving(true);
     try {
       await saveAuthorStory(authorId, s);
@@ -313,6 +333,7 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
     isOpen: open === id,
     onToggle: () => setOpen(open === id ? "" : id),
     filled: missing[id].length === 0,
+    invalid: tried && missing[id].length > 0,
     status: missing[id].length ? `Потрібно заповнити: ${missing[id].join("; ")}.` : null,
   });
 
@@ -338,13 +359,7 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
         </div>
       </div>
       {restored && dirty && <p className="text-[13px] text-black/55 bg-[#f4f5ff] rounded-xl px-4 py-2.5">Відновлено вашу незбережену чернетку. Натисніть «Зберегти», щоб опублікувати.</p>}
-      {errors.length > 0 && (
-        <ul role="alert" className="text-[13px] text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3 flex flex-col gap-1">
-          {errors.map((e) => (
-            <li key={e}>{e}</li>
-          ))}
-        </ul>
-      )}
+      {errors.length > 0 && <p role="alert" className="text-[13px] font-medium text-rose-700">{errors[0]}</p>}
 
       <div className="grid lg:grid-cols-[minmax(0,540px)_minmax(0,1fr)] gap-8 items-start">
         <div className="flex flex-col gap-3">
@@ -353,7 +368,7 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
               <div>
                 <div className={label}>Фото (обов’язково)</div>
                 <div className="flex items-center gap-3 flex-wrap">
-                  <label className={`${ghost} cursor-pointer`}>
+                  <label aria-invalid={tried && !s.portraitUrl && !avatarUrl ? true : undefined} className={`${ghost} cursor-pointer`}>
                     {uploading === "portrait" ? "Завантажуємо…" : s.portraitUrl ? "Замінити фото" : "Завантажити фото"}
                     <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void upload("portrait", f, async (file) => set("portraitUrl", await uploadStoryPortrait(authorId, file))); }} />
                   </label>
@@ -366,7 +381,7 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
               </div>
               <div>
                 <div className="flex justify-between"><div className={label}>Про вас (до двох абзаців, має вміститися біля фото)</div><Counter n={s.intro.length} max={L.intro} min={M.intro} /></div>
-                <textarea value={s.intro} maxLength={L.intro} rows={6} onChange={(e) => set("intro", e.target.value)} className={`${input} resize-none`} placeholder="Що привело вас у цю сферу, що для вас важливо, на що ви звертаєте увагу в людях." />
+                <textarea value={s.intro} maxLength={L.intro} rows={6} onChange={(e) => set("intro", e.target.value)} aria-invalid={tried && (s.intro.trim().length < M.intro || paragraphs(s.intro).length > L.introParagraphs || introLines(s.tagline, s.intro) > INTRO_MAX_LINES) ? true : undefined} className={`${input} resize-none`} placeholder="Що привело вас у цю сферу, що для вас важливо, на що ви звертаєте увагу в людях." />
                 <div className={`text-[12px] mt-1.5 ${paragraphs(s.intro).length > L.introParagraphs ? "text-red-500" : "text-black/45"}`}>
                   Абзаців: {paragraphs(s.intro).length} з {L.introParagraphs}. Новий абзац — після порожнього рядка.
                 </div>
@@ -393,7 +408,7 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
                 {(["video", "audio"] as const).map((k) => {
                   const on = s.media?.kind === k;
                   return (
-                    <button key={k} type="button" aria-pressed={on} onClick={() => set("media", on ? s.media : mediaOf(k))} className={`px-3.5 py-2 rounded-full text-[13px] border transition ${on ? "bg-[#eef2ff] border-[#4338ca]/30 text-[#4338ca]" : "border-black/10 text-black/60 hover:bg-black/5"}`}>
+                    <button key={k} type="button" aria-pressed={on} aria-invalid={tried && !s.media ? true : undefined} onClick={() => set("media", on ? s.media : mediaOf(k))} className={`px-3.5 py-2 rounded-full text-[13px] border transition ${on ? "bg-[#eef2ff] border-[#4338ca]/30 text-[#4338ca]" : "border-black/10 text-black/60 hover:bg-black/5"}`}>
                       {k === "video" ? "Відео" : "Лише аудіо"}
                     </button>
                   );
@@ -401,7 +416,7 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
               </div>
               {s.media?.kind === "video" && (
                 <div>
-                  <input value={s.media.url} onChange={(e) => set("media", { ...s.media!, url: e.target.value.trim() })} className={input} placeholder="Посилання YouTube або Vimeo" aria-label="Посилання на відео" />
+                  <input value={s.media.url} onChange={(e) => set("media", { ...s.media!, url: e.target.value.trim() })} className={input} placeholder="Посилання YouTube або Vimeo" aria-label="Посилання на відео" aria-invalid={tried && !parseVideoUrl(s.media.url.trim()) ? true : undefined} />
                   <div className={`text-[12px] mt-1.5 ${s.media.url && parseVideoUrl(s.media.url) ? "text-emerald-700" : "text-black/45"}`}>
                     {s.media.url && parseVideoUrl(s.media.url) ? "Відео додано: на сторінці з’явиться плеєр із кадром з вашого відео." : "Відео ще немає: без посилання цей блок не показується."}
                   </div>
@@ -410,7 +425,7 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
               )}
               {s.media?.kind === "audio" && (
                 <div className="flex flex-col gap-2">
-                  <label className={`${ghost} cursor-pointer self-start`}>
+                  <label aria-invalid={tried && !s.media.url ? true : undefined} className={`${ghost} cursor-pointer self-start`}>
                     {uploading === "audio" ? "Завантажуємо…" : s.media.url ? "Замінити запис" : "Завантажити аудіо"}
                     <input type="file" accept="audio/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void upload("audio", f, async (file) => set("media", { ...mediaOf("audio"), url: await uploadStoryAudio(authorId, file) })); }} />
                   </label>
@@ -452,13 +467,13 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
               <p className="text-[13px] text-black/55">Блок «Підхід і напрями» збирається з того, що ви заповните; порожнє не показується. Усе, включно з іконками, ви обираєте самі.</p>
               <div>
                 <div className="flex justify-between"><div className={label}>Заголовок</div><Counter n={s.viewpoint.length} max={L.viewpoint} min={M.viewpoint} /></div>
-                <textarea value={s.viewpoint} maxLength={L.viewpoint} rows={2} onChange={(e) => set("viewpoint", e.target.value)} className={`${input} resize-none`} placeholder="Ваша головна думка про роботу з емоціями." />
+                <textarea value={s.viewpoint} maxLength={L.viewpoint} rows={2} onChange={(e) => set("viewpoint", e.target.value)} aria-invalid={tried && s.viewpoint.trim().length < M.viewpoint ? true : undefined} className={`${input} resize-none`} placeholder="Ваша головна думка про роботу з емоціями." />
                 <div className={hint}>Показується найкрупніше, до {L.viewpoint} символів.</div>
                 <Example>«Не кожну емоцію треба виправляти.» Пишіть своє, а не готову цитату.</Example>
               </div>
               <div>
                 <div className="flex justify-between"><div className={label}>Підзаголовок</div><Counter n={s.viewpointNote.length} max={L.viewpointNote} min={M.viewpointNote} /></div>
-                <textarea value={s.viewpointNote} maxLength={L.viewpointNote} rows={3} onChange={(e) => set("viewpointNote", e.target.value)} className={`${input} resize-none`} placeholder="Пояснення під заголовком." />
+                <textarea value={s.viewpointNote} maxLength={L.viewpointNote} rows={3} onChange={(e) => set("viewpointNote", e.target.value)} aria-invalid={tried && s.viewpointNote.trim().length < M.viewpointNote ? true : undefined} className={`${input} resize-none`} placeholder="Пояснення під заголовком." />
                 <div className={hint}>Стоїть під заголовком, до {L.viewpointNote} символів. Без заголовка не показується.</div>
               </div>
               <div className="flex flex-col gap-3">
@@ -468,11 +483,11 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
                     <IconPicker value={x.icon ?? ""} fallback={DEFAULT_STEP_ICONS[i % DEFAULT_STEP_ICONS.length]} label={`Етап ${i + 1}`} onChange={(id) => setStep(i, { icon: id })} />
                     <div className="flex-1 min-w-0 flex flex-col gap-2">
                       <div>
-                        <input value={x.title} maxLength={L.stepTitle} onChange={(e) => setStep(i, { title: e.target.value })} className={input} placeholder={`Назва, напр.: ${(STEP_EXAMPLES[i] ?? { title: "Свій етап" }).title}`} aria-label={`Етап ${i + 1}: назва`} />
+                        <input value={x.title} maxLength={L.stepTitle} onChange={(e) => setStep(i, { title: e.target.value })} aria-invalid={tried && stepBad(i, x) && x.title.trim().length < M.stepTitle ? true : undefined} className={input} placeholder={`Назва, напр.: ${(STEP_EXAMPLES[i] ?? { title: "Свій етап" }).title}`} aria-label={`Етап ${i + 1}: назва`} />
                         <div className="text-right mt-0.5"><Counter n={x.title.length} max={L.stepTitle} min={M.stepTitle} /></div>
                       </div>
                       <div>
-                        <textarea value={x.text} maxLength={L.stepText} rows={2} onChange={(e) => setStep(i, { text: e.target.value })} className={`${input} resize-none`} placeholder={(STEP_EXAMPLES[i] ?? { text: "Коротко: що відбувається на цьому етапі." }).text} aria-label={`Етап ${i + 1}: пояснення`} />
+                        <textarea value={x.text} maxLength={L.stepText} rows={2} onChange={(e) => setStep(i, { text: e.target.value })} aria-invalid={tried && stepBad(i, x) && x.text.trim().length < M.stepText ? true : undefined} className={`${input} resize-none`} placeholder={(STEP_EXAMPLES[i] ?? { text: "Коротко: що відбувається на цьому етапі." }).text} aria-label={`Етап ${i + 1}: пояснення`} />
                         <div className="text-right mt-0.5"><Counter n={x.text.length} max={L.stepText} min={M.stepText} /></div>
                       </div>
                       {i >= 3 && !x.title && !x.text && (
@@ -505,6 +520,8 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
                 fallback={(i) => DEFAULT_PRINCIPLE_ICONS[i % DEFAULT_PRINCIPLE_ICONS.length]}
                 placeholder="Принцип"
                 min={M.principle}
+                invalid={tried && missing.principles.length > 0}
+                need={M.principles}
                 suggestions={PRINCIPLE_SUGGESTIONS}
                 addLabel="Додати принцип"
               />
@@ -525,13 +542,15 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
                   fallback={() => DEFAULT_OFFER_ICON}
                   placeholder="Наприклад: короткі практики"
                   min={M.offer}
+                  invalid={tried && s.offers.filter((x) => x.trim().length >= M.offer).length < M.offers}
+                  need={M.offers}
                   suggestions={OFFER_EXAMPLES}
                   addLabel="Додати пункт"
                 />
               </div>
               <div>
                 <div className={label}>Межі моєї роботи (від {M.notOffers} до {L.limits} пунктів, текст від {M.notOffer} до {L.limit} символів)</div>
-                <LineList items={s.notOffers} onChange={(v) => set("notOffers", v)} max={L.limits} placeholder="Наприклад: не замінюю лікування" examples={NOT_OFFER_EXAMPLES} min={M.notOffer} />
+                <LineList items={s.notOffers} onChange={(v) => set("notOffers", v)} max={L.limits} placeholder="Наприклад: не замінюю лікування" examples={NOT_OFFER_EXAMPLES} min={M.notOffer} invalid={tried && s.notOffers.filter((x) => x.trim().length >= M.notOffer).length < M.notOffers} need={M.notOffers} />
                 <div className={hint}>Не пишіть про діагнози чи лікування як про те, що ви надаєте.</div>
               </div>
             </div>
@@ -543,11 +562,11 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
               {s.faq.map((x, i) => (
                 <div key={i} className="rounded-xl border border-black/10 p-3 flex flex-col gap-2">
                   <div>
-                    <input value={x.q} maxLength={L.faqQ} onChange={(e) => set("faq", s.faq.map((y, j) => (j === i ? { ...y, q: e.target.value } : y)))} className={input} placeholder="Запитання" aria-label={`Запитання ${i + 1}`} />
+                    <input value={x.q} maxLength={L.faqQ} aria-invalid={tried && faqBad(i, x) && x.q.trim().length < M.faqQ ? true : undefined} onChange={(e) => set("faq", s.faq.map((y, j) => (j === i ? { ...y, q: e.target.value } : y)))} className={input} placeholder="Запитання" aria-label={`Запитання ${i + 1}`} />
                     <div className="text-right mt-0.5"><Counter n={x.q.length} max={L.faqQ} min={M.faqQ} /></div>
                   </div>
                   <div>
-                    <textarea value={x.a} maxLength={L.faqA} rows={3} onChange={(e) => set("faq", s.faq.map((y, j) => (j === i ? { ...y, a: e.target.value } : y)))} className={`${input} resize-none`} placeholder="Ваша відповідь" aria-label={`Відповідь ${i + 1}`} />
+                    <textarea value={x.a} maxLength={L.faqA} aria-invalid={tried && faqBad(i, x) && x.a.trim().length < M.faqA ? true : undefined} rows={3} onChange={(e) => set("faq", s.faq.map((y, j) => (j === i ? { ...y, a: e.target.value } : y)))} className={`${input} resize-none`} placeholder="Ваша відповідь" aria-label={`Відповідь ${i + 1}`} />
                     <div className="flex justify-between mt-0.5">
                       <button type="button" onClick={() => set("faq", s.faq.filter((_, j) => j !== i))} className="text-[12px] text-red-500 hover:underline">Видалити</button>
                       <Counter n={x.a.length} max={L.faqA} min={M.faqA} />
@@ -556,7 +575,7 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
                 </div>
               ))}
               {s.faq.length < L.faq && (
-                <button type="button" className={`${ghost} self-start`} onClick={() => set("faq", [...s.faq, { q: "", a: "" }])}>
+                <button type="button" aria-invalid={tried && s.faq.length < M.faq ? true : undefined} className={`${ghost} self-start`} onClick={() => set("faq", [...s.faq, { q: "", a: "" }])}>
                   Додати запитання ({s.faq.length} з {L.faq})
                 </button>
               )}

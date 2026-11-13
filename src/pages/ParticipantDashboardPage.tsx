@@ -23,6 +23,7 @@ import ProgramExperience from "../components/participant/ProgramExperience";
 import MeditationExperience from "../components/participant/MeditationExperience";
 import GuideExperience from "../components/participant/GuideExperience";
 import type { GuideBlockTarget } from "../data/guideContent";
+import FeedHub from "../components/feed/FeedHub";
 import MeditationMiniPlayer from "../components/participant/MeditationMiniPlayer";
 import { MeditationPlayerProvider, useMeditationPlayer } from "../context/MeditationPlayerContext";
 
@@ -33,6 +34,7 @@ type SectionKey =
   | "reflections"
   | "emotionalProfile"
   | "messages"
+  | "posts"
   | "reviews"
   | "reports"
   | "billing"
@@ -76,6 +78,7 @@ const NAV: { key: SectionKey; label: string; icon: IconName }[] = [
   { key: "saved", label: "Збережене", icon: "bookmark" },
   { key: "reflections", label: "Ваші спостереження", icon: "note" },
   { key: "messages", label: "Повідомлення", icon: "mail" },
+  { key: "posts", label: "Публікації", icon: "note" },
   { key: "reviews", label: "Мої відгуки", icon: "star" },
   { key: "reports", label: "Мої скарги", icon: "shield" },
   { key: "billing", label: "Оплати", icon: "card" },
@@ -473,6 +476,11 @@ function ParticipantDashboardPageInner({
                 onViewAllMeditations={onViewAllMeditations}
                 onViewAllGuides={onViewAllGuides}
               />
+            </div>
+          )}
+          {visitedSections.has("posts") && (
+            <div className={section === "posts" ? "" : "hidden"}>
+              <FeedHub role="participant" />
             </div>
           )}
           {visitedSections.has("messages") && (

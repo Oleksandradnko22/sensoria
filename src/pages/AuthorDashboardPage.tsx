@@ -31,7 +31,7 @@ import AuthorPromotion from "../components/author/AuthorPromotion";
 import AuthorModeration from "../components/author/AuthorModeration";
 import AuthorSettings from "../components/author/AuthorSettings";
 import AuthorHelp from "../components/author/AuthorHelp";
-import AuthorPosts from "../components/author/AuthorPosts";
+import FeedHub from "../components/feed/FeedHub";
 
 type SectionKey =
   | "overview"
@@ -440,7 +440,7 @@ export default function AuthorDashboardPage({
               )}
               {visitedSections.has("posts") && (
                 <div className={section === "posts" ? "" : "hidden"}>
-                  <AuthorPosts />
+                  <FeedHub role="author" />
                 </div>
               )}
               {visitedSections.has("promotion") && (

@@ -229,10 +229,10 @@ export async function fetchMyPosts(authorId: string, limit = 50): Promise<Author
 export type FeedAudience = "all" | "participants" | "authors";
 export type FeedKind = FeedAudience | "mine";
 export const FEED_LABEL: Record<FeedKind, string> = { all: "Для всіх", participants: "Для учасників", authors: "Для авторів", mine: "Мої" };
-export type FeedPost = AuthorPost & { audience: FeedAudience; authorName: string; authorAvatarUrl: string | null; authorIsAuthor: boolean };
+export type FeedPost = AuthorPost & { hiddenAt?: string | null; audience: FeedAudience; authorName: string; authorAvatarUrl: string | null; authorIsAuthor: boolean };
 export const FEED_PAGE = 15;
 
-type FeedRow = PostRow & { audience: FeedAudience; author_name: string; author_avatar: string | null; author_role: string | null; like_count: number; comment_count: number; liked: boolean };
+type FeedRow = PostRow & { hidden_at?: string | null; audience: FeedAudience; author_name: string; author_avatar: string | null; author_role: string | null; like_count: number; comment_count: number; liked: boolean };
 
 // One page of a feed, built in the database (feed_page): the posts, their authors, counters and «liked by me».
 // sort «new»: newest first, the next page after `before`; sort «top» («Рекомендовані»): ranked for this person (feed_top),
@@ -263,6 +263,7 @@ export async function fetchFeed(feed: FeedKind, before: string | null = null, so
       isShare: !!r.is_share,
       imageAlt: r.image_alt ?? "",
       stats: { likeCount: r.like_count ?? 0, commentCount: r.comment_count ?? 0, liked: !!r.liked },
+      hiddenAt: r.hidden_at ?? null,
       audience: r.audience ?? "all",
       authorName: r.author_name,
       authorAvatarUrl: r.author_avatar,
@@ -274,8 +275,8 @@ export async function fetchFeed(feed: FeedKind, before: string | null = null, so
 // Demo feeds: real authors of the platform (published profiles), so a demo post's author opens a real author page.
 let someAuthors: Promise<{ id: string; name: string; avatarUrl: string | null }[]> | null = null;
 export function fetchSomeAuthors(limit = 3): Promise<{ id: string; name: string; avatarUrl: string | null }[]> {
-  someAuthors ??= loadSomeAuthors(limit).catch(() => { someAuthors = null; return []; });
-  return someAuthors;
+  someAuthors ??= loadSomeAuthors(8).catch(() => { someAuthors = null; return []; });
+  return someAuthors.then((list) => list.slice(0, limit));
 }
 async function loadSomeAuthors(limit: number): Promise<{ id: string; name: string; avatarUrl: string | null }[]> {
   const { data, error } = await client().from("profiles").select("id, name, avatar_url").eq("role", "author").limit(limit);

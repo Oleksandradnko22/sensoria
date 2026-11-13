@@ -57,4 +57,9 @@ export async function submitEntityReport(params: {
   });
   // 23505 = already reported by this person — to them it is still "sent".
   if (error && (error as { code?: string }).code !== "23505") throw error;
+  // a reported post with photos gets a second, server-side photo check (check-post-images, once per post);
+  // it runs in the background and never blocks the report
+  if (params.targetType === "post") {
+    void supabase.functions.invoke("check-post-images", { body: { postId: params.targetId } }).catch(() => {});
+  }
 }

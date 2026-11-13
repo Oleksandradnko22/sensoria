@@ -5,9 +5,13 @@
 --   «Для учасників»  audience 'participants' participants write (authors only like and comment); every signed-in person reads
 --   «Для авторів»    audience 'authors'      authors write and read
 --
--- Participants write text only (no photos, video or attached material). Existing posts become «Для всіх».
+-- Participants write text, up to 4 photos (checked in the browser) and a video link; no attached material, no pinning.
+-- Existing posts become «Для всіх».
 
 alter table public.author_posts add column if not exists audience text not null default 'all';
+-- set when a post is hidden (3 reports or the server photo check), see below
+alter table public.author_posts add column if not exists hidden_at timestamptz;
+alter table public.author_posts add column if not exists hidden_reason text;
 alter table public.author_posts drop constraint if exists author_posts_audience_chk;
 alter table public.author_posts add constraint author_posts_audience_chk check (audience in ('all', 'participants', 'authors'));
 create index if not exists author_posts_feed_idx on public.author_posts (audience, created_at desc);
@@ -42,10 +46,10 @@ create policy "feed posts written by audience" on public.author_posts for insert
   and not exists (select 1 from public.profiles b where b.id = auth.uid() and coalesce((to_jsonb(b) ->> 'is_banned')::boolean, false))
   and (
     (public.feed_is_author(auth.uid()) and audience in ('all', 'authors'))
-    or (not public.feed_is_author(auth.uid()) and audience = 'participants' and coalesce(array_length(images, 1), 0) = 0 and video_url is null and content_id is null and not is_pinned)
+    or (not public.feed_is_author(auth.uid()) and audience = 'participants' and content_id is null and not is_pinned)
   )
 );
--- a participant cannot move a post into another feed or add media later
+-- a participant cannot move a post into another feed, attach a material or pin
 drop policy if exists "authors edit their own posts" on public.author_posts;
 create policy "authors edit their own posts" on public.author_posts for update
   using (auth.uid() = author_id)
@@ -53,7 +57,7 @@ create policy "authors edit their own posts" on public.author_posts for update
     auth.uid() = author_id
     and (
       (public.feed_is_author(auth.uid()) and audience in ('all', 'authors'))
-      or (not public.feed_is_author(auth.uid()) and audience = 'participants' and coalesce(array_length(images, 1), 0) = 0 and video_url is null and content_id is null and not is_pinned)
+      or (not public.feed_is_author(auth.uid()) and audience = 'participants' and content_id is null and not is_pinned)
     )
   );
 
@@ -78,6 +82,7 @@ as $$
               else p.audience = 'all'
             end)
        and (p_before is null or p.created_at < p_before)
+       and (p.hidden_at is null or p.author_id = v.id)
      order by p.created_at desc
      limit greatest(1, least(coalesce(p_limit, 15), 30)) + 1
   )
@@ -87,7 +92,7 @@ as $$
       select jsonb_agg(to_jsonb(x) order by x.created_at desc)
         from (
           select pg.id, pg.author_id, pg.body, pg.content_id, pg.content_kind, pg.is_pinned, pg.images, pg.video_url, pg.is_share,
-                 to_jsonb(pg) ->> 'image_alt' as image_alt, pg.audience, pg.created_at, pg.updated_at,
+                 to_jsonb(pg) ->> 'image_alt' as image_alt, pg.hidden_at, pg.audience, pg.created_at, pg.updated_at,
                  coalesce(pr.name, 'Учасник Sensoria') as author_name, pr.avatar_url as author_avatar, pr.role as author_role,
                  (select count(*) from public.author_post_likes l where l.post_id = pg.id)::int as like_count,
                  (select count(*) from public.author_post_comments c where c.post_id = pg.id)::int as comment_count,
@@ -122,6 +127,7 @@ as $$
      where v.id is not null
        and (p.author_id <> v.id or p.created_at > now() - interval '1 hour') -- my own: only just written, so I see it went out
        and p.created_at > now() - interval '21 days'
+       and p.hidden_at is null
        and (case p_feed when 'authors' then p.audience = 'authors' and v.is_author when 'participants' then p.audience = 'participants' else p.audience = 'all' end)
   ),
   eng as (
@@ -165,7 +171,7 @@ as $$
       select jsonb_agg(to_jsonb(x) order by x.rank_w desc)
         from (
           select pg.rank_w, ap.id, ap.author_id, ap.body, ap.content_id, ap.content_kind, ap.is_pinned, ap.images, ap.video_url, ap.is_share,
-                 to_jsonb(ap) ->> 'image_alt' as image_alt, ap.audience, ap.created_at, ap.updated_at,
+                 to_jsonb(ap) ->> 'image_alt' as image_alt, ap.hidden_at, ap.audience, ap.created_at, ap.updated_at,
                  coalesce(pr.name, 'Учасник Sensoria') as author_name, pr.avatar_url as author_avatar, pr.role as author_role,
                  (select count(*) from public.author_post_likes l where l.post_id = ap.id)::int as like_count,
                  (select count(*) from public.author_post_comments c where c.post_id = ap.id)::int as comment_count,
@@ -273,6 +279,49 @@ create trigger feed_comment_guard before insert or update of body on public.auth
 
 create index if not exists author_posts_author_day_idx on public.author_posts (author_id, created_at desc);
 create index if not exists author_post_comments_user_day_idx on public.author_post_comments (user_id, created_at desc);
+
+-- ── hidden posts: after 3 reports from different people, or when the server photo check (check-post-images,
+-- Sightengine) finds explicit / violent images. The author still sees their post; moderation can bring it back.
+create index if not exists author_posts_visible_idx on public.author_posts (audience, created_at desc) where hidden_at is null;
+
+drop policy if exists "feed posts readable by audience" on public.author_posts;
+create policy "feed posts readable by audience" on public.author_posts for select using (
+  auth.uid() is not null
+  and (hidden_at is null or author_id = auth.uid() or exists (select 1 from public.profiles a where a.id = auth.uid() and a.role = 'admin'))
+  and (audience in ('all', 'participants') or author_id = auth.uid() or public.feed_is_author(auth.uid()))
+);
+
+-- one server photo check per post (it costs money): the result is kept here
+create table if not exists public.post_image_checks (
+  post_id uuid primary key references public.author_posts (id) on delete cascade,
+  unsafe boolean not null,
+  images_checked int not null default 0, -- for the monthly cap in check-post-images
+  result jsonb,
+  checked_at timestamptz not null default now()
+);
+alter table public.post_image_checks add column if not exists images_checked int not null default 0;
+create index if not exists post_image_checks_month_idx on public.post_image_checks (checked_at);
+alter table public.post_image_checks enable row level security; -- only the server function and admins (service role)
+
+-- 3 reports from different people hide the post until moderation looks at it
+create or replace function public.feed_hide_on_reports()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.target_type = 'post' and (
+    select count(distinct r.reporter_id) from public.entity_reports r where r.target_type = 'post' and r.target_id = new.target_id
+  ) >= 3 then
+    update public.author_posts set hidden_at = coalesce(hidden_at, now()), hidden_reason = coalesce(hidden_reason, 'reports')
+     where id::text = new.target_id;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists feed_hide_on_reports on public.entity_reports;
+create trigger feed_hide_on_reports after insert on public.entity_reports for each row execute function public.feed_hide_on_reports();
 
 create index if not exists author_post_likes_post_idx on public.author_post_likes (post_id);
 

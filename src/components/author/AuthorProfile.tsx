@@ -1,4 +1,3 @@
-import { Icon } from "../ui/Icon";
 import { useEffect, useRef, useState } from "react";
 import type { AuthoredContent } from "../../data/authorDashboard";
 import { useSession } from "../../context/SessionContext";
@@ -25,8 +24,6 @@ export default function AuthorProfile({ content }: Props) {
   const [title, setTitle] = useState("");
   const [bio, setBio] = useState("");
   const [credentials, setCredentials] = useState("");
-  const [site, setSite] = useState("");
-  const [instagram, setInstagram] = useState("");
   const [verified, setVerified] = useState(false);
   const [positioning, setPositioning] = useState("");
   const [approach, setApproach] = useState("");
@@ -87,8 +84,6 @@ export default function AuthorProfile({ content }: Props) {
       setTitle(details.title);
       setBio(details.bio);
       setCredentials(details.credentials);
-      setSite(details.site);
-      setInstagram(details.instagram);
       setVerified(details.verified);
       setPositioning(details.positioning);
       setApproach(details.approach);
@@ -127,8 +122,9 @@ export default function AuthorProfile({ content }: Props) {
         title: title.trim(),
         bio: bio.trim(),
         credentials: credentials.trim(),
-        site: site.trim(),
-        instagram: instagram.trim(),
+        // no external sites / social accounts on Sensoria: they would lead people to buy outside the platform
+        site: "",
+        instagram: "",
         positioning: positioning.trim(),
         approach: approach.trim(),
         topics,
@@ -314,39 +310,6 @@ export default function AuthorProfile({ content }: Props) {
               </div>
             </div>
 
-            <div>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-
-                  <div className="text-[13px] font-medium text-black/50 mb-2">Сайт</div>
-                  <input
-                    value={site}
-                    onChange={(e) => setSite(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-black/10 text-[14px] focus:outline-none focus:border-black/30"
-                  />
-                </div>
-                <div>
-
-                  <div className="text-[13px] font-medium text-black/50 mb-2">
-                    Instagram
-                  </div>
-                  <input
-                    value={instagram}
-                    onChange={(e) => setInstagram(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-black/10 text-[14px] focus:outline-none focus:border-black/30"
-                  />
-                </div>
-              </div>
-              <div className="flex items-start gap-3 mt-3 px-4 py-3.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800">
-                <span className="text-amber-600 mt-0.5"><Icon name="warning" size={18} /></span>
-                <div className="text-[13px] leading-relaxed">
-                  <span className="font-semibold">Ці посилання — лише для довіри</span>
-                  , не для продажу в обхід платформи. Розміщення прямих посилань
-                  на оплату чи запис поза Sensoria порушує угоду з автором і
-                  може призвести до блокування акаунту.
-                </div>
-              </div>
-            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -417,12 +380,6 @@ export default function AuthorProfile({ content }: Props) {
               )}
             </div>
 
-            {(site || instagram) && (
-              <div className="flex flex-col gap-1.5 mt-6 pt-6 border-t border-black/5 text-[12px] text-black/45">
-                {site && <div className="truncate">{site}</div>}
-                {instagram && <div className="truncate">{instagram}</div>}
-              </div>
-            )}
           </div>
         </div>
       </div>

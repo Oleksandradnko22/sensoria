@@ -137,12 +137,9 @@ export default function AuthorAbout(p: Props) {
       )}
       </div>
 
-      {(p.since || p.site || p.instagram) && (
+      {p.since && (
         <div className="pt-2 text-[12px] text-black/55 flex flex-col gap-1">
           {p.since && <span>На Sensoria з {p.since}</span>}
-          {p.site && <span className="truncate">Сайт: {p.site}</span>}
-          {p.instagram && <span className="truncate">Instagram: {p.instagram}</span>}
-          {(p.site || p.instagram) && <span className="text-black/55">Лише для довіри. Спілкування й оплата відбуваються в Sensoria.</span>}
         </div>
       )}
     </div>

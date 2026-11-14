@@ -43,13 +43,14 @@ import AdminFinance from "../components/admin/AdminFinance";
 import AdminRestoreAccess from "../components/admin/AdminRestoreAccess";
 import { formatAbsoluteDate } from "../utils/relativeTime";
 
+import AdminAnnouncements from "../components/admin/AdminAnnouncements";
 type Props = {
   profile: Profile;
   onBackToSite: () => void;
   onLogout: () => void;
 };
 
-type Tab = "stats" | "moderation" | "users" | "materials" | "finance" | "refunds" | "tickets" | "contentReports" | "verification" | "actions";
+type Tab = "stats" | "moderation" | "users" | "materials" | "announcements" | "finance" | "refunds" | "tickets" | "contentReports" | "verification" | "actions";
 
 // Refunds, support tickets and content reports are one kind of work — an
 // inbox of open items — so they share a single "Черга" tab with sub-pills.
@@ -334,6 +335,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
               { key: "moderation", label: "Модерація" },
               { key: "users", label: "Користувачі" },
               { key: "materials", label: "Матеріали" },
+              { key: "announcements", label: "Оголошення" },
               { key: "finance", label: "Фінанси" },
               { key: "queue", label: "Черга" },
               { key: "actions", label: "Журнал дій" },
@@ -412,6 +414,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
           )}
 
           {tab === "actions" && <AdminActionsLog />}
+          {tab === "announcements" && <AdminAnnouncements />}
 
           {tab === "moderation" && (
             <AdminModeration

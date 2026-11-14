@@ -103,7 +103,7 @@ export async function fetchMyMaterials(): Promise<{ id: string; kind: PostConten
 
 // ── notifications ─────────────────────────────────────────────────────────────────────────────────────────────
 export type FeedNotification = {
-  kind: "comment" | "reply" | "reactions" | "mention" | "follow_post" | "feature";
+  kind: "comment" | "reply" | "reactions" | "mention" | "follow_post" | "feature" | "official";
   at: string;
   postId: string;
   text: string | null;
@@ -168,3 +168,26 @@ export { MENTION_RE } from "../utils/authorPosts";
 export const CRISIS_RE = /(суїцид|суицид|самогуб|покінчити з собою|покончить с собой|не хочу жити|не хочу жить|хочу померти|хочу умереть|вбити себе|убить себя|самоушкодж|самоповрежд|порізати себе|різати себе|резать себя)/i;
 
 export { LINK_RE } from "../utils/authorPosts";
+
+// ── «Оголошення Sensoria» ─────────────────────────────────────────────────────────────────────────────────────
+/** The pinned announcement(s) on top of «Для всіх». */
+export async function fetchAnnouncements(): Promise<FeedPost[]> {
+  const { data, error } = await client().rpc("feed_announcements");
+  if (error) return [];
+  return toFeedPosts((data ?? []) as FeedRow[]);
+}
+/** Admin panel: every announcement. */
+export async function fetchAdminAnnouncements(): Promise<FeedPost[]> {
+  const { data, error } = await client().rpc("admin_announcements");
+  if (error) throw error;
+  return toFeedPosts((data ?? []) as FeedRow[]);
+}
+export async function saveAnnouncement(input: { id?: string | null; body: string; images: string[]; videoUrl: string | null; pinned: boolean }): Promise<string> {
+  const { data, error } = await client().rpc("admin_save_announcement", { p_id: input.id ?? null, p_body: input.body, p_images: input.images, p_video: input.videoUrl, p_pinned: input.pinned });
+  if (error) throw error;
+  return data as string;
+}
+export async function deleteAnnouncement(id: string): Promise<void> {
+  const { error } = await client().rpc("admin_delete_announcement", { p_id: id });
+  if (error) throw error;
+}

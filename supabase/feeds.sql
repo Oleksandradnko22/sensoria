@@ -25,6 +25,9 @@ alter table public.author_posts add constraint author_posts_poll_chk check (
   poll is null or (jsonb_typeof(poll -> 'options') = 'array' and jsonb_array_length(poll -> 'options') between 2 and 4 and char_length(coalesce(poll ->> 'question', '')) <= 200)
 );
 grant update (poll, ama_until, sensitive_topic) on public.author_posts to authenticated;
+-- «Оголошення Sensoria»: official posts from the admin panel, in «Для всіх» for everyone; one can be pinned on top
+alter table public.author_posts add column if not exists official boolean not null default false;
+alter table public.author_posts add column if not exists official_pinned boolean not null default false;
 -- posts authors wrote into «Для учасників» before it became the participants' own space move to «Для всіх»
 -- (before the check below, which also applies to updated rows)
 update public.author_posts p set audience = 'all'
@@ -318,7 +321,10 @@ as $$
     'image_alt', to_jsonb(ap) ->> 'image_alt', 'hidden_at', ap.hidden_at, 'audience', ap.audience,
     'created_at', ap.created_at, 'updated_at', ap.updated_at,
     'poll', ap.poll, 'ama_until', ap.ama_until, 'sensitive_topic', ap.sensitive_topic,
-    'author_name', coalesce(pr.name, 'Учасник Sensoria'), 'author_avatar', pr.avatar_url, 'author_role', pr.role,
+    'author_name', case when ap.official then 'Команда Sensoria' else coalesce(pr.name, 'Учасник Sensoria') end,
+    'author_avatar', case when ap.official then null else pr.avatar_url end,
+    'author_role', case when ap.official then 'official' else pr.role end,
+    'official', ap.official, 'official_pinned', ap.official_pinned,
     'like_count', (select count(*) from public.author_post_likes l where l.post_id = ap.id),
     'reactions', (select coalesce(jsonb_object_agg(r.kind, r.n), '{}'::jsonb) from (select l.kind, count(*) as n from public.author_post_likes l where l.post_id = ap.id group by l.kind) r),
     'my_reaction', (select l.kind from public.author_post_likes l where l.post_id = ap.id and l.user_id = p_viewer),
@@ -403,7 +409,7 @@ as $$
        and (case p_feed when 'authors' then p.audience = 'authors' and v.is_author when 'participants' then p.audience = 'participants' and not public.feed_is_author(p.author_id) else p.audience = 'all' end)
   ),
   eng as (
-    select c.id, c.author_id, c.created_at,
+    select c.id, c.author_id, c.created_at, c.official,
            (select coalesce(sum(case l.kind when 'resonates' then 1.5 when 'thanks' then 1.5 else 1 end), 0) from public.author_post_likes l where l.post_id = c.id) as reacts,
            (select count(*) from public.author_post_comments m where m.post_id = c.id) as comments,
            (select count(*) from public.post_saves s where s.post_id = c.id) as saves,
@@ -423,6 +429,7 @@ as $$
   ),
   scored as (
     select e.id, e.author_id, e.created_at,
+           case when e.official then 3 else 1 end *
            (e.reacts + 3 * e.comments + 4 * e.saves + case when e.author_answers then 2 else 0 end
               + case when e.reacts + e.comments = 0 and e.created_at > now() - interval '24 hours' then 2 else 0 end + 1)
            / power(extract(epoch from now() - e.created_at) / 3600 + 2, 1.3)
@@ -488,6 +495,10 @@ as $$
     select 'feature', f.requested_at, f.post_id, f.author_id, null
       from public.post_features f join public.author_posts p on p.id = f.post_id, v
      where p.author_id = v.id and f.consented_at is null
+    union all
+    select 'official', p.created_at, p.id, null::uuid, left(p.body, 120)
+      from public.author_posts p, v
+     where p.official and p.hidden_at is null and p.author_id <> v.id and p.created_at > now() - interval '7 days'
   )
   select jsonb_build_object(
     'unread', (select count(*) from items, seen where items.happened_at > seen.t),
@@ -635,6 +646,12 @@ begin
   if public.feed_text_has_contacts(new.body) or public.feed_text_has_contacts(new.poll::text) then
     raise exception 'Публікація містить контакти, посилання або месенджери.' using errcode = 'check_violation';
   end if;
+  if coalesce(new.official, false) then
+    if not public.feed_is_admin(auth.uid()) then
+      raise exception 'Офіційні оголошення публікує лише адміністратор Sensoria.' using errcode = 'check_violation';
+    end if;
+    return new; -- the admin's announcements may link to Sensoria pages and have no daily limit
+  end if;
   if (coalesce(array_length(new.images, 1), 0) > 0)::int + (new.video_url is not null)::int + (new.content_id is not null)::int
      + (new.poll is not null)::int + (new.ama_until is not null)::int > 1 then
     raise exception 'Публікація: одне на допис — фото, відео, матеріал, опитування або «Питання до мене».' using errcode = 'check_violation';
@@ -663,7 +680,7 @@ begin
 end;
 $$;
 drop trigger if exists feed_post_guard on public.author_posts;
-create trigger feed_post_guard before insert or update of body, poll, sensitive_topic, images, video_url, content_id, ama_until on public.author_posts for each row execute function public.feed_post_guard();
+create trigger feed_post_guard before insert or update of body, poll, sensitive_topic, images, video_url, content_id, ama_until, official on public.author_posts for each row execute function public.feed_post_guard();
 
 create or replace function public.feed_comment_guard()
 returns trigger
@@ -814,5 +831,82 @@ as $$
 $$;
 revoke all on function public.feed_my_materials() from public, anon;
 grant execute on function public.feed_my_materials() to authenticated;
+
+notify pgrst, 'reload schema';
+
+-- ── «Оголошення Sensoria» (admin panel) ───────────────────────────────────────────────────────────────────────
+-- pinned announcement(s) on top of «Для всіх» for everyone signed in
+create or replace function public.feed_announcements()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(jsonb_agg(public.feed_item(p.id, auth.uid()) order by p.created_at desc), '[]'::jsonb)
+    from public.author_posts p
+   where auth.uid() is not null and p.official and p.official_pinned and p.hidden_at is null;
+$$;
+-- the admin's list of all announcements
+create or replace function public.admin_announcements()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case when public.feed_is_admin(auth.uid()) then
+    coalesce((select jsonb_agg(public.feed_item(p.id, auth.uid()) order by p.created_at desc) from public.author_posts p where p.official), '[]'::jsonb)
+  else '[]'::jsonb end;
+$$;
+-- create or edit an announcement (only the admin); pinning one unpins the others
+create or replace function public.admin_save_announcement(p_id uuid, p_body text, p_images text[], p_video text, p_pinned boolean)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  rid uuid := p_id;
+begin
+  if not public.feed_is_admin(auth.uid()) then raise exception 'Лише для адміністратора.'; end if;
+  -- like the rest of the admin panel: only with two-factor sign-in
+  if coalesce(auth.jwt() ->> 'aal', '') <> 'aal2' then raise exception 'Потрібна двофакторна автентифікація.'; end if;
+  if char_length(btrim(coalesce(p_body, ''))) not between 1 and 3000 then raise exception 'Текст: від 1 до 3000 символів.'; end if;
+  if p_pinned then update public.author_posts set official_pinned = false where official and official_pinned and id is distinct from p_id; end if;
+  if rid is null then
+    insert into public.author_posts (author_id, body, audience, official, official_pinned, images, video_url)
+    values (auth.uid(), btrim(p_body), 'all', true, coalesce(p_pinned, false), coalesce(p_images, '{}'), nullif(btrim(coalesce(p_video, '')), ''))
+    returning id into rid;
+  else
+    update public.author_posts
+       set body = btrim(p_body), images = coalesce(p_images, '{}'), video_url = nullif(btrim(coalesce(p_video, '')), ''),
+           official_pinned = coalesce(p_pinned, false), updated_at = now()
+     where id = rid and official;
+  end if;
+  return rid;
+end;
+$$;
+create or replace function public.admin_delete_announcement(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.feed_is_admin(auth.uid()) then raise exception 'Лише для адміністратора.'; end if;
+  -- like the rest of the admin panel: only with two-factor sign-in
+  if coalesce(auth.jwt() ->> 'aal', '') <> 'aal2' then raise exception 'Потрібна двофакторна автентифікація.'; end if;
+  delete from public.author_posts where id = p_id and official;
+end;
+$$;
+revoke all on function public.feed_announcements() from public, anon;
+revoke all on function public.admin_announcements() from public, anon;
+revoke all on function public.admin_save_announcement(uuid, text, text[], text, boolean) from public, anon;
+revoke all on function public.admin_delete_announcement(uuid) from public, anon;
+grant execute on function public.feed_announcements() to authenticated;
+grant execute on function public.admin_announcements() to authenticated;
+grant execute on function public.admin_save_announcement(uuid, text, text[], text, boolean) to authenticated;
+grant execute on function public.admin_delete_announcement(uuid) to authenticated;
 
 notify pgrst, 'reload schema';

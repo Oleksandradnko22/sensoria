@@ -240,6 +240,8 @@ export type FeedPost = AuthorPost & {
   poll?: FeedPoll | null; pollCounts?: number[] | null; myVote?: number | null;
   mentions?: { id: string; name: string }[]; amaUntil?: string | null; sensitiveTopic?: string | null;
   feature?: { requested: boolean; consented: boolean } | null;
+  // «Оголошення Sensoria» from the admin panel
+  official?: boolean; officialPinned?: boolean;
 };
 export const FEED_PAGE = 15;
 
@@ -250,6 +252,7 @@ type FeedRow = PostRow & {
   poll?: FeedPoll | null; poll_counts?: number[] | null; my_vote?: number | null;
   mentions?: { id: string; name: string }[]; ama_until?: string | null; sensitive_topic?: string | null;
   feature?: { requested: boolean; consented: boolean } | null;
+  official?: boolean; official_pinned?: boolean;
 };
 
 /** Rows from the feed functions (feed_item) → posts for the screen. */
@@ -285,6 +288,8 @@ export async function toFeedPosts(rows: FeedRow[]): Promise<FeedPost[]> {
     amaUntil: r.ama_until ?? null,
     sensitiveTopic: r.sensitive_topic ?? null,
     feature: r.feature ?? null,
+    official: !!r.official,
+    officialPinned: !!r.official_pinned,
   }));
 }
 export type { FeedRow };

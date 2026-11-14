@@ -16,7 +16,7 @@ import { deletePost, fetchFeed, fetchSomeAuthors, setPostPinned, type FeedAudien
 import { fetchIsFollowing, setFollowing } from "../../lib/authorFollows";
 import { fetchAuthorContent } from "../../lib/authorPublic";
 import { fetchAuthorDetails } from "../../lib/authorDetails";
-import { fetchFeedPost, fetchNotifications, fetchWeek, markNotificationsSeen, type FeedNotification } from "../../lib/feed";
+import { fetchAnnouncements, fetchFeedPost, fetchNotifications, fetchWeek, markNotificationsSeen, type FeedNotification } from "../../lib/feed";
 import { MENTION_RE } from "../../utils/authorPosts";
 import { formatPostDate } from "../../utils/authorProfileView";
 import { SHOW_AUTHOR_DEMO, SHOW_DEMO } from "../../utils/demoMode";
@@ -199,6 +199,13 @@ function Feed({ kind, sort, role, viewer, canWrite, onCompose, onGoWrite, compos
     return () => io.disconnect();
   }, [hasMore, loadMore]);
 
+  // «Оголошення Sensoria» pinned by the admin: on top of «Для всіх» for everyone
+  const [announcements, setAnnouncements] = useState<FeedPost[]>([]);
+  useEffect(() => {
+    if (kind !== "all") return;
+    fetchAnnouncements().then(setAnnouncements).catch(() => setAnnouncements([]));
+  }, [kind]);
+
   // an author may ask to show a participant's story about their own material on its page
   const [ownContent, setOwnContent] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -260,6 +267,9 @@ function Feed({ kind, sort, role, viewer, canWrite, onCompose, onGoWrite, compos
         {sortControl}
       </div>
 
+      {kind === "all" && sort !== "saved" && announcements.map((p) => (
+        <FeedCard key={`ann-${p.id}`} post={p} viewer={viewer} onOpenContent={() => {}} onChange={(next) => setAnnouncements((l) => l.map((x) => (x.id === next.id ? next : x)))} />
+      ))}
       {kind === "all" && sort === "top" && !demo && <WeekCard />}
 
       {demo && <p className="rounded-2xl bg-[#f6f4ff] px-4 py-2.5 text-[13px] text-[#4a2fd0]">Демо: так виглядатиме стрічка, коли з’являться публікації.</p>}
@@ -305,14 +315,14 @@ function Feed({ kind, sort, role, viewer, canWrite, onCompose, onGoWrite, compos
         </div>
       )}
 
-      {state === "ready" && !quiet && posts.map((p) => {
+      {state === "ready" && !quiet && posts.filter((p) => !(kind === "all" && sort !== "saved" && announcements.some((a) => a.id === p.id))).map((p) => {
         const mine = !!viewer && p.authorId === viewer.id;
-        const action = mine && !demo
+        const action = mine && !demo && !p.official
           ? <OwnMenu canPin={p.authorIsAuthor && p.audience === "all"} pinned={p.isPinned}
               onEdit={() => onCompose(p)}
               onPin={() => void run(() => setPostPinned(p.id, !p.isPinned), "Не вдалося змінити закріплення.")}
               onDelete={() => { if (window.confirm("Видалити публікацію? Її не можна буде повернути.")) void run(async () => { await deletePost(p.id); setPosts((l) => l.filter((x) => x.id !== p.id)); }, "Не вдалося видалити публікацію."); }} />
-          : p.authorIsAuthor && !mine
+          : p.authorIsAuthor && !mine && !p.official
             ? <FollowButton on={!!follows[p.authorId]} onClick={() => toggleFollow(p.authorId)} />
             : null;
         return (
@@ -388,6 +398,7 @@ const NOTE_TEXT: Record<FeedNotification["kind"], (n: FeedNotification) => strin
   mention: (n) => `${n.actorName ?? "Хтось"} згадав(-ла) вас`,
   follow_post: (n) => `Нова публікація: ${n.actorName ?? "автор"}`,
   feature: () => "Автор хоче показати ваш досвід на сторінці матеріалу",
+  official: () => "Нове оголошення від команди Sensoria",
 };
 
 function NotificationsBell() {

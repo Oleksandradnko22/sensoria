@@ -124,7 +124,12 @@ export default function FeedCard({
     } catch { setError("Не вдалося зберегти відповідь."); }
   };
 
-  const avatar = (
+  const avatar = post.official ? (
+    // «Команда Sensoria»: the logo in a gradient ring
+    <span className="block shrink-0 rounded-full bg-gradient-to-br from-[#3b6df0] to-[#7c5cf0] p-[2px]">
+      <img src="/apple-touch-icon.png" alt="" className="h-11 w-11 rounded-full bg-white object-cover ring-2 ring-white sm:h-12 sm:w-12" />
+    </span>
+  ) : (
     <span className={`block shrink-0 rounded-full ${post.authorIsAuthor ? "bg-gradient-to-br from-[#3b6df0] to-[#7c5cf0] p-[2px]" : "bg-[#ece8fb] p-[2px]"}`}>
       <Avatar avatarUrl={post.authorAvatarUrl} initials={getInitials(post.authorName)} className="h-11 w-11 text-[14px] text-white ring-2 ring-white sm:h-12 sm:w-12" />
     </span>
@@ -133,7 +138,7 @@ export default function FeedCard({
   const pollTotal = (post.pollCounts ?? []).reduce((a, b) => a + b, 0);
 
   return (
-    <article className="post-in rounded-[26px] bg-white px-4 py-5 shadow-[0_20px_50px_-40px_rgba(50,40,140,0.6)] ring-1 ring-[#ece8fb] transition hover:ring-[#e0daf8] sm:px-6 sm:py-6">
+    <article className={`post-in rounded-[26px] px-4 py-5 transition sm:px-6 sm:py-6 ${post.official ? "bg-gradient-to-b from-[#f3f0ff] via-white to-white shadow-[0_24px_60px_-40px_rgba(91,61,245,0.7)] ring-1 ring-[#cfc5fb]" : "bg-white shadow-[0_20px_50px_-40px_rgba(50,40,140,0.6)] ring-1 ring-[#ece8fb] hover:ring-[#e0daf8]"}`}>
       <div className="flex gap-3.5 sm:gap-4">
         {onOpenAuthor
           ? <button type="button" onClick={onOpenAuthor} aria-label={`Сторінка автора: ${post.authorName}`} className="self-start rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0]">{avatar}</button>
@@ -144,6 +149,8 @@ export default function FeedCard({
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 {onOpenAuthor ? <button type="button" onClick={onOpenAuthor} className="min-w-0 truncate text-left">{name}</button> : name}
+                {post.official && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-2.5 py-0.5 text-[11px] font-semibold text-white"><Icon name="check" size={11} /> Офіційно</span>}
+                {post.officialPinned && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#eef0fd] px-2 py-0.5 text-[11px] font-semibold text-[#4338ca]"><Icon name="bookmark" size={11} filled /> Закріплено</span>}
                 {post.authorIsAuthor && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#eef0fd] px-2 py-0.5 text-[11px] font-semibold text-[#4338ca]"><Icon name="check" size={11} /> Автор</span>}
                 {story && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800"><Icon name="leaf" size={11} /> Досвід учасника</span>}
                 {amaOpen && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#f5f0ff] px-2 py-0.5 text-[11px] font-semibold text-[#7c3aed]"><Icon name="comment" size={11} /> Питання до автора</span>}

@@ -7,7 +7,7 @@ import CartPage from "./components/cart/CartPage";
 import { OPEN_CART_EVENT, setCartOwner } from "./lib/cartStore";
 import { setPendingChat, setPendingOpen } from "./lib/pendingChat";
 import { fetchOwnedKeys, ownedKey } from "./lib/ownedContent";
-import { subscribeAuthorProfileRequests } from "./context/AuthorProfileContext";
+import { subscribeAuthorProfileRequests, subscribeMaterialRequests } from "./context/AuthorProfileContext";
 import Header from "./components/Header";
 import Hero from "./components/home/Hero";
 import AboutSection from "./components/AboutSection";
@@ -194,6 +194,10 @@ function AppInner() {
     }
     setProfilePreview({ kind, id, authorName });
   };
+  // a material card anywhere (e.g. under a post in «Спільнота») opens the material itself
+  const openMaterialRef = useRef(openProfileMaterial);
+  openMaterialRef.current = openProfileMaterial;
+  useEffect(() => subscribeMaterialRequests((kind, id) => { void openMaterialRef.current(kind, id); }), []);
   const [authorReturnPage, setAuthorReturnPage] = useState<typeof page>("home");
   const pageRef = useRef(page);
   pageRef.current = page;

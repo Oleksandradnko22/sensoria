@@ -409,7 +409,9 @@ export async function updatePost(
 
 export async function deletePost(postId: string): Promise<void> {
   const prev = await client().from("author_posts").select("author_id, images").eq("id", postId).maybeSingle();
-  const { error } = await client().from("author_posts").delete().eq("id", postId);
+  const { data: gone, error } = await client().from("author_posts").delete().eq("id", postId).select("id");
+  // nothing deleted (no right to) must not look like success: the post would come back on the next load
+  if (!error && (gone ?? []).length === 0) throw new Error("Публікацію не вдалося видалити.");
   if (error) fail(error);
   await removePostFiles((prev.data as { images?: string[] } | null)?.images ?? [], (prev.data as { author_id?: string } | null)?.author_id);
 }

@@ -110,12 +110,14 @@ stable
 security definer
 set search_path = public
 as $$
-  select exists (select 1 from public.purchases pu join public.content c on c.id = pu.content_id
-                  where pu.participant_id = p_user and pu.status = 'completed' and (c.id::text = p_content or c.slug = p_content))
-      or exists (select 1 from public.acquired_content a where a.user_id = p_user and a.content_id = p_content)
-      or exists (select 1 from public.content_progress cp where cp.user_id = p_user and cp.content_id = p_content)
-      or exists (select 1 from public.meditation_sessions s where s.user_id = p_user and s.meditation_id = p_content)
-      or exists (select 1 from public.guide_section_views g where g.user_id = p_user and g.guide_id = p_content);
+  -- a material is known by its id and its slug; activity tables may store either
+  with c as (select x.id, x.slug from public.content x where x.id::text = p_content or x.slug = p_content limit 1),
+  keys as (select p_content as k union select c.id::text from c union select c.slug from c where c.slug is not null)
+  select exists (select 1 from public.purchases pu where pu.participant_id = p_user and pu.status = 'completed' and pu.content_id::text in (select k from keys))
+      or exists (select 1 from public.acquired_content a where a.user_id = p_user and a.content_id in (select k from keys))
+      or exists (select 1 from public.content_progress cp where cp.user_id = p_user and cp.content_id in (select k from keys))
+      or exists (select 1 from public.meditation_sessions s where s.user_id = p_user and s.meditation_id in (select k from keys))
+      or exists (select 1 from public.guide_section_views g where g.user_id = p_user and g.guide_id in (select k from keys));
 $$;
 revoke all on function public.feed_can_tag(uuid, text) from public, anon;
 grant execute on function public.feed_can_tag(uuid, text) to authenticated;
@@ -139,6 +141,11 @@ create policy "feed posts written by audience" on public.author_posts for insert
     or (not public.feed_is_author(auth.uid()) and audience = 'participants' and not is_pinned and (content_id is null or public.feed_can_tag(auth.uid(), content_id)))
   )
 );
+-- deleting: one's own post (the author of the post), always
+drop policy if exists "authors delete their own posts" on public.author_posts;
+create policy "authors delete their own posts" on public.author_posts for delete using (auth.uid() = author_id);
+grant delete on public.author_posts to authenticated;
+
 -- a participant cannot move a post into another feed, attach a material or pin
 drop policy if exists "authors edit their own posts" on public.author_posts;
 create policy "authors edit their own posts" on public.author_posts for update

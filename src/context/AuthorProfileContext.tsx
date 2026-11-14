@@ -25,3 +25,17 @@ export function subscribeAuthorProfileRequests(listener: OpenAuthorProfile): () 
 export function useOpenAuthorProfile(): OpenAuthorProfile {
   return useCallback((id: string) => openAuthorProfile(id), []);
 }
+
+// The same for a material (program / guide / meditation), e.g. the card under a post in «Спільнота».
+export type OpenMaterial = (kind: "program" | "guide" | "meditation", id: string) => void;
+const materialListeners = new Set<OpenMaterial>();
+export function openMaterial(kind: "program" | "guide" | "meditation", id: string): void {
+  if (!id) return;
+  materialListeners.forEach((l) => l(kind, id));
+}
+export function subscribeMaterialRequests(listener: OpenMaterial): () => void {
+  materialListeners.add(listener);
+  return () => {
+    materialListeners.delete(listener);
+  };
+}

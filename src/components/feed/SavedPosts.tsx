@@ -1,7 +1,7 @@
 // Saved posts from «Спільнота» inside «Збережене» (participant cabinet): the same posts as «Спільнота → Збережені».
 import { useEffect, useState } from "react";
 import { useSession } from "../../context/SessionContext";
-import { openAuthorProfile } from "../../context/AuthorProfileContext";
+import { openAuthorProfile, openMaterial } from "../../context/AuthorProfileContext";
 import { Icon } from "../ui/Icon";
 import FeedCard from "./FeedCard";
 import { fetchFeed, type FeedPost } from "../../lib/authorPosts";
@@ -45,7 +45,7 @@ export default function SavedPosts() {
               post={p}
               viewer={viewer}
               onOpenAuthor={p.authorIsAuthor ? () => openAuthorProfile(p.authorId) : undefined}
-              onOpenContent={() => openAuthorProfile(p.authorId)}
+              onOpenContent={() => { if (p.attachment) openMaterial(p.attachment.kind, p.attachment.id); }}
               onChange={(next) => setPosts((list) => (list ?? []).map((x) => (x.id === next.id ? next : x)))}
             />
           ))}

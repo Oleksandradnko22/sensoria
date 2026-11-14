@@ -6,7 +6,7 @@
 // refreshed when the tab is opened again. Who sees and writes what is enforced by the database.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "../../context/SessionContext";
-import { openAuthorProfile } from "../../context/AuthorProfileContext";
+import { openAuthorProfile, openMaterial } from "../../context/AuthorProfileContext";
 import { getInitials, type Profile } from "../../lib/auth";
 import Avatar from "../ui/Avatar";
 import { Icon, type IconName } from "../ui/Icon";
@@ -321,7 +321,7 @@ function Feed({ kind, sort, role, viewer, canWrite, onCompose, onGoWrite, compos
             post={p}
             viewer={viewer}
             onOpenAuthor={p.authorIsAuthor && !p.authorId.startsWith("demo-") ? () => openAuthorProfile(p.authorId) : undefined}
-            onOpenContent={() => { if (!p.authorId.startsWith("demo-")) openAuthorProfile(p.authorId); }}
+            onOpenContent={() => { if (p.attachment && !p.id.startsWith("demo-")) openMaterial(p.attachment.kind, p.attachment.id); }}
             headerAction={action}
             canFeature={!!p.contentId && ownContent.has(p.contentId)}
             onChange={(next) => { if (next.id.startsWith("demo-")) demoChanges.set(next.id, next); setPosts((list) => list.map((x) => (x.id === next.id ? next : x))); }}
@@ -446,7 +446,7 @@ function NotificationsBell() {
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#12172b]/45 p-4 backdrop-blur-[2px] sm:p-8" role="dialog" aria-modal="true" aria-label="Публікація" onMouseDown={(e) => { if (e.target === e.currentTarget) setPost(null); }}>
           <div className="w-full max-w-[760px]">
             <div className="mb-2 flex justify-end"><button type="button" onClick={() => setPost(null)} className="rounded-xl bg-white/90 px-4 py-2 text-[14px] font-semibold text-[#4338ca]">Закрити ✕</button></div>
-            <FeedCard post={post} viewer={session?.profile ?? null} onOpenAuthor={post.authorIsAuthor ? () => openAuthorProfile(post.authorId) : undefined} onOpenContent={() => openAuthorProfile(post.authorId)} onChange={setPost} />
+            <FeedCard post={post} viewer={session?.profile ?? null} onOpenAuthor={post.authorIsAuthor ? () => openAuthorProfile(post.authorId) : undefined} onOpenContent={() => { if (post.attachment) openMaterial(post.attachment.kind, post.attachment.id); }} onChange={setPost} />
           </div>
         </div>
       )}

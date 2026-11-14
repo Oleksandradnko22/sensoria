@@ -191,3 +191,25 @@ export async function deleteAnnouncement(id: string): Promise<void> {
   const { error } = await client().rpc("admin_delete_announcement", { p_id: id });
   if (error) throw error;
 }
+
+// ── moderation of hidden posts (admin) ────────────────────────────────────────────────────────────────────────
+export type HiddenPost = { post: FeedPost; reason: string | null; reports: number; authorEmail: string | null };
+export async function fetchHiddenPosts(): Promise<HiddenPost[]> {
+  const { data, error } = await client().rpc("admin_hidden_posts");
+  if (error) throw error;
+  const rows = (data ?? []) as { post: FeedRow; reason: string | null; reports: number; author_email: string | null }[];
+  const posts = await toFeedPosts(rows.map((r) => r.post).filter(Boolean));
+  return rows.map((r, i) => ({ post: posts[i], reason: r.reason, reports: r.reports ?? 0, authorEmail: r.author_email ?? null })).filter((x) => x.post);
+}
+export async function decideHiddenPost(id: string, action: "restore" | "delete"): Promise<void> {
+  const { error } = await client().rpc("admin_post_decision", { p_id: id, p_action: action });
+  if (error) throw error;
+}
+
+/** Which of these authors I follow — one request for the whole page instead of one per author. */
+export async function fetchFollowing(viewerId: string, authorIds: string[]): Promise<Set<string>> {
+  if (authorIds.length === 0) return new Set();
+  const { data, error } = await client().from("author_follows").select("author_id").eq("follower_id", viewerId).in("author_id", authorIds);
+  if (error) throw error;
+  return new Set((data ?? []).map((r) => r.author_id as string));
+}

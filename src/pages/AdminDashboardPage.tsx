@@ -43,7 +43,7 @@ import AdminFinance from "../components/admin/AdminFinance";
 import AdminRestoreAccess from "../components/admin/AdminRestoreAccess";
 import { formatAbsoluteDate } from "../utils/relativeTime";
 
-import AdminAnnouncements from "../components/admin/AdminAnnouncements";
+import AdminCommunity from "../components/admin/AdminCommunity";
 type Props = {
   profile: Profile;
   onBackToSite: () => void;
@@ -335,7 +335,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
               { key: "moderation", label: "Модерація" },
               { key: "users", label: "Користувачі" },
               { key: "materials", label: "Матеріали" },
-              { key: "announcements", label: "Оголошення" },
+              { key: "announcements", label: "Спільнота" },
               { key: "finance", label: "Фінанси" },
               { key: "queue", label: "Черга" },
               { key: "actions", label: "Журнал дій" },
@@ -414,7 +414,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
           )}
 
           {tab === "actions" && <AdminActionsLog />}
-          {tab === "announcements" && <AdminAnnouncements />}
+          {tab === "announcements" && <AdminCommunity />}
 
           {tab === "moderation" && (
             <AdminModeration

@@ -181,7 +181,7 @@ alter table public.post_saves enable row level security;
 drop policy if exists "own saves" on public.post_saves;
 create policy "own saves" on public.post_saves for select using (auth.uid() = user_id);
 drop policy if exists "save visible posts" on public.post_saves;
-create policy "save visible posts" on public.post_saves for insert with check (auth.uid() = user_id and exists (select 1 from public.author_posts p where p.id = post_id));
+create policy "save visible posts" on public.post_saves for insert with check (auth.uid() = user_id and not public.feed_is_banned(auth.uid()) and exists (select 1 from public.author_posts p where p.id = post_id));
 drop policy if exists "unsave" on public.post_saves;
 create policy "unsave" on public.post_saves for delete using (auth.uid() = user_id);
 
@@ -227,7 +227,8 @@ drop policy if exists "own votes" on public.post_poll_votes;
 create policy "own votes" on public.post_poll_votes for select using (auth.uid() = user_id);
 drop policy if exists "vote in visible polls" on public.post_poll_votes;
 create policy "vote in visible polls" on public.post_poll_votes for insert with check (
-  auth.uid() = user_id and exists (select 1 from public.author_posts p where p.id = post_id and p.poll is not null and option < jsonb_array_length(p.poll -> 'options'))
+  auth.uid() = user_id and not public.feed_is_banned(auth.uid())
+  and exists (select 1 from public.author_posts p where p.id = post_id and p.poll is not null and option < jsonb_array_length(p.poll -> 'options'))
 );
 
 -- «Питання до автора»: the post's author pins the best answers on top
@@ -407,6 +408,8 @@ as $$
        and p.hidden_at is null
        and not public.feed_is_banned(p.author_id)
        and (case p_feed when 'authors' then p.audience = 'authors' and v.is_author when 'participants' then p.audience = 'participants' and not public.feed_is_author(p.author_id) else p.audience = 'all' end)
+     order by p.created_at desc
+     limit 500
   ),
   eng as (
     select c.id, c.author_id, c.created_at, c.official,
@@ -603,7 +606,7 @@ create policy "users write their own post comments" on public.author_post_commen
 );
 drop policy if exists "users like posts" on public.author_post_likes;
 create policy "users like posts" on public.author_post_likes for insert with check (
-  auth.uid() = user_id and exists (select 1 from public.author_posts p where p.id = post_id)
+  auth.uid() = user_id and not public.feed_is_banned(auth.uid()) and exists (select 1 from public.author_posts p where p.id = post_id)
 );
 
 -- ── last line of defence on the server (the app checks first and explains) ────────────────────────────────────
@@ -744,7 +747,7 @@ set search_path = public
 as $$
 begin
   if new.target_type = 'post' and (
-    select count(distinct r.reporter_id) from public.entity_reports r where r.target_type = 'post' and r.target_id = new.target_id
+    select count(distinct r.reporter_id) from public.entity_reports r where r.target_type = 'post' and r.target_id = new.target_id and coalesce(to_jsonb(r) ->> 'status', 'open') = 'open'
   ) >= 3 then
     update public.author_posts set hidden_at = coalesce(hidden_at, now()), hidden_reason = coalesce(hidden_reason, 'reports')
      where id::text = new.target_id;
@@ -872,6 +875,8 @@ begin
   if not public.feed_is_admin(auth.uid()) then raise exception 'Лише для адміністратора.'; end if;
   -- like the rest of the admin panel: only with two-factor sign-in
   if coalesce(auth.jwt() ->> 'aal', '') <> 'aal2' then raise exception 'Потрібна двофакторна автентифікація.'; end if;
+  -- announcements are the owner's (an admin with the «support» role only handles requests, as in admin-data)
+  if coalesce((select to_jsonb(p) ->> 'admin_role' from public.profiles p where p.id = auth.uid()), 'owner') = 'support' then raise exception 'Оголошення публікує власник платформи.'; end if;
   if char_length(btrim(coalesce(p_body, ''))) not between 1 and 3000 then raise exception 'Текст: від 1 до 3000 символів.'; end if;
   if p_pinned then update public.author_posts set official_pinned = false where official and official_pinned and id is distinct from p_id; end if;
   if rid is null then
@@ -897,6 +902,8 @@ begin
   if not public.feed_is_admin(auth.uid()) then raise exception 'Лише для адміністратора.'; end if;
   -- like the rest of the admin panel: only with two-factor sign-in
   if coalesce(auth.jwt() ->> 'aal', '') <> 'aal2' then raise exception 'Потрібна двофакторна автентифікація.'; end if;
+  -- announcements are the owner's (an admin with the «support» role only handles requests, as in admin-data)
+  if coalesce((select to_jsonb(p) ->> 'admin_role' from public.profiles p where p.id = auth.uid()), 'owner') = 'support' then raise exception 'Оголошення публікує власник платформи.'; end if;
   delete from public.author_posts where id = p_id and official;
 end;
 $$;
@@ -908,5 +915,62 @@ grant execute on function public.feed_announcements() to authenticated;
 grant execute on function public.admin_announcements() to authenticated;
 grant execute on function public.admin_save_announcement(uuid, text, text[], text, boolean) to authenticated;
 grant execute on function public.admin_delete_announcement(uuid) to authenticated;
+
+notify pgrst, 'reload schema';
+
+-- ── moderation of hidden posts (admin panel → «Спільнота» → «На перевірці») ───────────────────────────────────
+-- posts hidden by crisis words, 3 reports or the photo check wait here: return to the feed or delete
+create or replace function public.admin_hidden_posts()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case when public.feed_is_admin(auth.uid()) and coalesce(auth.jwt() ->> 'aal', '') = 'aal2' then
+    coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'post', public.feed_item(p.id, auth.uid()),
+               'reason', p.hidden_reason,
+               'reports', (select count(*) from public.entity_reports r where r.target_type = 'post' and r.target_id = p.id::text),
+               'author_email', (select u.email from auth.users u where u.id = p.author_id)
+             ) order by p.hidden_at desc)
+        from public.author_posts p where p.hidden_at is not null
+    ), '[]'::jsonb)
+  else '[]'::jsonb end;
+$$;
+create or replace function public.admin_post_decision(p_id uuid, p_action text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.feed_is_admin(auth.uid()) then raise exception 'Лише для адміністратора.'; end if;
+  if coalesce(auth.jwt() ->> 'aal', '') <> 'aal2' then raise exception 'Потрібна двофакторна автентифікація.'; end if;
+  if p_action = 'restore' then
+    update public.author_posts set hidden_at = null, hidden_reason = null where id = p_id;
+  elsif p_action = 'delete' then
+    delete from public.author_posts where id = p_id;
+  else
+    raise exception 'Невідома дія.';
+  end if;
+  -- the reports about it are handled, and the decision goes to the admin action log (a separate block: if an older
+  -- schema lacks something, only this bookkeeping is skipped, never the decision above)
+  begin
+    update public.entity_reports set status = 'reviewed' where target_type = 'post' and target_id = p_id::text and status <> 'reviewed';
+    if to_regclass('public.admin_actions') is not null then
+      execute 'insert into public.admin_actions (actor_id, action, target_id, details) values ($1, $2, $3, $4)'
+        using auth.uid(), case when p_action = 'restore' then 'post_restored' else 'post_deleted' end, p_id, jsonb_build_object('where', 'Спільнота: прихована публікація');
+    end if;
+  exception when others then
+    null;
+  end;
+end;
+$$;
+revoke all on function public.admin_hidden_posts() from public, anon;
+revoke all on function public.admin_post_decision(uuid, text) from public, anon;
+grant execute on function public.admin_hidden_posts() to authenticated;
+grant execute on function public.admin_post_decision(uuid, text) to authenticated;
 
 notify pgrst, 'reload schema';

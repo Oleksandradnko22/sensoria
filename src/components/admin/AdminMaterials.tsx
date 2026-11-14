@@ -105,7 +105,12 @@ export default function AdminMaterials({ role }: { role: AdminRole }) {
 
   const actionsFor = (m: AdminMaterial): MaterialAct[] => {
     const out: MaterialAct[] = [];
-    const onSale = m.saleStatus === "published" || m.saleStatus === "restored";
+    // a draft is not on sale: nothing to pause or unlist. But a material that was sold and then turned back into a draft
+    // still has buyers — their access can be restricted if it is harmful.
+    if (m.status === "draft") return role === "owner" ? [...(m.buyers > 0 || m.accessRestricted ? [m.accessRestricted ? "restore_access" as const : "restrict_access" as const] : []), "delete_material"] : [];
+    // archived by the author: buyers keep access; only that access (or the material) can be dealt with
+    if (m.status === "archived") return role === "owner" ? [m.accessRestricted ? "restore_access" : "restrict_access", "delete_material"] : [];
+    const onSale = m.status === "published" && (m.saleStatus === "published" || m.saleStatus === "restored");
     if (m.status === "review" && role === "owner") out.push("approve", "send_back");
     if (onSale) out.push("suspend_sale");
     if (role === "owner") {
@@ -157,9 +162,16 @@ export default function AdminMaterials({ role }: { role: AdminRole }) {
                 </div>
               </div>
               <div className="shrink-0 flex flex-col items-end gap-1">
-                <span className={`px-2.5 py-1 rounded-full text-[12px] font-medium ${SALE[m.saleStatus].cls}`}>
-                  {SALE[m.saleStatus].label}
-                </span>
+                {m.status === "published" ? (
+                  <span className={`px-2.5 py-1 rounded-full text-[12px] font-medium ${SALE[m.saleStatus].cls}`}>
+                    {SALE[m.saleStatus].label}
+                  </span>
+                ) : (
+                  // a draft / on review / archived material is not «У продажу», whatever its sale flag says
+                  <span className="px-2.5 py-1 rounded-full text-[12px] font-medium bg-[#eef0fd] text-[#4338ca]">
+                    {m.status === "review" ? "Чекає модерації" : m.status === "archived" ? "В архіві" : "Не опубліковано"}
+                  </span>
+                )}
                 {m.accessRestricted && (
                   <span className="px-2.5 py-1 rounded-full text-[12px] font-medium bg-rose-100 text-rose-800">
                     Доступ покупцям обмежено

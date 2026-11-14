@@ -13,10 +13,10 @@ import { Icon, type IconName } from "../ui/Icon";
 import FeedCard from "./FeedCard";
 import FeedComposer from "./FeedComposer";
 import { deletePost, fetchFeed, fetchSomeAuthors, setPostPinned, type FeedAudience, type FeedPost, type FeedSort } from "../../lib/authorPosts";
-import { fetchIsFollowing, setFollowing } from "../../lib/authorFollows";
+import { setFollowing } from "../../lib/authorFollows";
 import { fetchAuthorContent } from "../../lib/authorPublic";
 import { fetchAuthorDetails } from "../../lib/authorDetails";
-import { fetchAnnouncements, fetchFeedPost, fetchNotifications, fetchWeek, markNotificationsSeen, type FeedNotification } from "../../lib/feed";
+import { fetchAnnouncements, fetchFeedPost, fetchFollowing, fetchNotifications, fetchWeek, markNotificationsSeen, type FeedNotification } from "../../lib/feed";
 import { MENTION_RE } from "../../utils/authorPosts";
 import { formatPostDate } from "../../utils/authorProfileView";
 import { SHOW_AUTHOR_DEMO, SHOW_DEMO } from "../../utils/demoMode";
@@ -218,7 +218,7 @@ function Feed({ kind, sort, role, viewer, canWrite, onCompose, onGoWrite, compos
   useEffect(() => {
     if (!viewer || demo) return;
     const ids = [...new Set(posts.filter((p) => p.authorIsAuthor && p.authorId !== viewer.id).map((p) => p.authorId))].filter((id) => follows[id] === undefined);
-    ids.forEach((id) => fetchIsFollowing(viewer.id, id).then((v) => setFollows((f) => ({ ...f, [id]: v === true }))).catch(() => {}));
+    if (ids.length) fetchFollowing(viewer.id, ids).then((set) => setFollows((f) => ({ ...f, ...Object.fromEntries(ids.map((id) => [id, set.has(id)])) }))).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts, viewer, demo]);
   const toggleFollow = (authorId: string) => {

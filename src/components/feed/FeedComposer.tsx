@@ -67,6 +67,7 @@ export default function FeedComposer({
   const [notice, setNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const searchTimer = useRef<number | undefined>(undefined);
   const toggle = (k: Panel, v?: boolean) => setOpen((o) => ({ ...o, [k]: v ?? !o[k] }));
 
   useEffect(() => {
@@ -99,7 +100,11 @@ export default function FeedComposer({
     if (!m) { setSuggest(null); return; }
     const q = m[1];
     if (q.length < 1) { setSuggest({ q, list: [] }); return; }
-    searchAuthors(q).then((list) => setSuggest((cur) => (cur && cur.q !== q ? cur : { q, list: list.filter((a) => a.id !== viewer.id) }))).catch(() => {});
+    // one search after a short pause in typing, not one per letter
+    window.clearTimeout(searchTimer.current);
+    searchTimer.current = window.setTimeout(() => {
+      searchAuthors(q).then((list) => setSuggest((cur) => (cur && cur.q !== q ? cur : { q, list: list.filter((a) => a.id !== viewer.id) }))).catch(() => {});
+    }, 250);
     setSuggest((cur) => ({ q, list: cur?.list ?? [] }));
   };
   const pickMention = (a: { id: string; name: string }) => {

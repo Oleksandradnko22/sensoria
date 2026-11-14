@@ -91,7 +91,8 @@ export function PostImages({ images, alt = "" }: { images: string[]; alt?: strin
           <img
             src={slides[0].src}
             alt={alt}
-            loading="eager"
+            loading="lazy"
+            decoding="async"
             onLoad={(e) => setRatio(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)}
             onError={() => setFailed((f) => new Set(f).add(slides[0].i))}
             className="w-full h-full object-cover"
@@ -114,7 +115,8 @@ export function PostImages({ images, alt = "" }: { images: string[]; alt?: strin
                 <img
                   src={x.src}
                   alt={alt ? `${alt} (${idx + 1} з ${n})` : ""}
-                  loading={idx < 2 ? "eager" : "lazy"}
+                  loading="lazy"
+                  decoding="async"
                   draggable={false}
                   onError={() => setFailed((f) => new Set(f).add(x.i))}
                   className="w-full h-full object-cover"

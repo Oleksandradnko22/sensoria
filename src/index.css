@@ -314,3 +314,6 @@ body {
 }
 /* the reactions bar rises above «Підтримую», like LinkedIn */
 @keyframes pickerIn { from { opacity: 0; transform: translateY(6px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* Safari draws its own ▸ on <summary> even with list-style none: the cards use their own arrow */
+summary.list-none::-webkit-details-marker { display: none; }

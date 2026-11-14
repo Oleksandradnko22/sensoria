@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import Switch from "../ui/Switch";
+import { supabase } from "../../lib/supabaseClient";
+import { fetchArchiveBlockers } from "../../lib/content";
+import { Icon, type IconName } from "../ui/Icon";
 import { useSession } from "../../context/SessionContext";
 import {
   updateEmail,
@@ -31,10 +34,7 @@ type Toggle = { id: string; label: string; email: boolean };
 // Push removed — see ParticipantProfile.tsx's comment on the same
 // change for why (Sasha's call).
 const initialNotifications: Toggle[] = [
-  { id: "purchase", label: "Нова покупка", email: true },
-  { id: "review", label: "Новий відгук", email: true },
-  { id: "message", label: "Нове повідомлення", email: true },
-  { id: "moderation", label: "Статус модерації", email: true },
+  { id: "message", label: "Учасник написав вам повідомлення", email: true },
 ];
 
 export default function AuthorSettings() {
@@ -258,6 +258,36 @@ export default function AuthorSettings() {
     }
   };
 
+  // the same rule as archiving a material: no buyer inside the 14-day window, no open refund request
+  const [blockers, setBlockers] = useState<{ title: string; text: string }[] | null>(null);
+  const [checkingDelete, setCheckingDelete] = useState(false);
+  const checkCanDelete = async () => {
+    if (!profile || !supabase) return;
+    setCheckingDelete(true);
+    setDeleteError(null);
+    try {
+      const { data: mats } = await supabase.from("content").select("id, title").eq("author_id", profile.id);
+      const list = (mats ?? []) as { id: string; title: string }[];
+      const found = await fetchArchiveBlockers(list.map((m) => m.id));
+      const out: { title: string; text: string }[] = [];
+      list.forEach((m) => {
+        const b = found.get(m.id);
+        if (!b) return;
+        if (b.openRefunds > 0) out.push({ title: m.title, text: "відкрито запит на повернення — дочекайтеся рішення" });
+        if (b.lastPurchase) {
+          const until = new Date(new Date(b.lastPurchase).getTime() + 14 * 86_400_000);
+          if (until.getTime() > Date.now()) out.push({ title: m.title, text: `остання покупка ще в 14-денному строку — можна після ${until.toLocaleDateString("uk-UA", { day: "numeric", month: "long" })}` });
+        }
+      });
+      setBlockers(out);
+      setConfirmDelete(out.length === 0);
+    } catch {
+      setDeleteError("Не вдалося перевірити матеріали. Спробуйте ще раз.");
+    } finally {
+      setCheckingDelete(false);
+    }
+  };
+
   const handleDelete = async () => {
     setDeleting(true);
     setDeleteError(null);
@@ -278,25 +308,25 @@ export default function AuthorSettings() {
   };
 
   return (
-    <div className={`flex flex-col gap-8 ${redirecting ? "page-fade-out" : ""}`}>
+    <div className={`flex flex-col gap-5 ${redirecting ? "page-fade-out" : ""}`}>
       <div>
-        <h1 className="text-3xl font-bold">Налаштування</h1>
-        <p className="text-black/50 mt-1">Акаунт, безпека та сповіщення.</p>
+        <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Налаштування</h1>
+        <p className="mt-1 text-[15px] text-black/55">Пошта для входу, захист акаунта, листи від Sensoria.</p>
       </div>
 
-      <div className="grid lg:grid-cols-[1fr_320px] gap-8 items-start">
-        {/* MAIN COLUMN */}
-        <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5">
           {/* PERSONAL DATA */}
-          <div className="rounded-2xl bg-white border border-black/5 p-6">
-            <h2 className="text-[17px] font-semibold mb-4">Особисті дані</h2>
+          <div className={CARD}>
+            <SectionTitle icon="mail" title="Пошта для входу" hint="На неї приходять листи й коди підтвердження." />
             <div className="flex flex-col gap-4">
               <div>
-                <div className="text-[13px] font-medium text-black/50 mb-2">Email</div>
                 <input
+                  type="email"
+                  aria-label="Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-black/10 text-[14px] focus:outline-none focus:border-black/30"
+                  className={FIELD}
                 />
                 <div className="text-[12px] text-black/40 mt-1.5">
                   Зміна email вимагає підтвердження за посиланням, яке прийде на нову адресу.
@@ -326,50 +356,59 @@ export default function AuthorSettings() {
           </div>
 
           {/* NOTIFICATIONS */}
-          <div className="rounded-2xl bg-white border border-black/5 p-6">
-            <h2 className="text-[17px] font-semibold mb-4">Сповіщення</h2>
-            <p className="text-[12px] text-black/40 mb-4">
-              Лист надсилається на пошту, коли учасник пише вам повідомлення. Інші перемикачі
-              («Нова покупка», «Новий відгук», «Статус модерації») поки не підключені до
-              розсилки — готові для неї наперед.
-            </p>
-            <div className="grid grid-cols-[1fr_auto] gap-y-4 items-center">
-              <div className="text-[12px] text-black/40" />
-              <div className="text-[12px] text-black/40 text-center w-16">Email</div>
-
+          <div className={CARD}>
+            <SectionTitle icon="megaphone" title="Листи на пошту" hint="Про реакції, коментарі й інше в «Спільноті» ви дізнаєтеся там, у сповіщеннях." />
+            <div className="flex flex-col gap-3">
               {notifications.map((n) => (
-                <div key={n.id} className="contents">
-                  <div className="text-[14px]">{n.label}</div>
-                  <div className="flex justify-center w-16">
-                    <Switch on={n.email} onClick={() => toggleNotification(n.id)} />
-                  </div>
-                </div>
+                <label key={n.id} className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl bg-[#faf9ff] px-4 py-3 ring-1 ring-[#ece8fb]">
+                  <span className="text-[15px] text-[#12172b]">{n.label}</span>
+                  <Switch on={n.email} onClick={() => toggleNotification(n.id)} />
+                </label>
               ))}
             </div>
           </div>
 
-          {/* DANGER ZONE */}
-          <div className="rounded-2xl bg-red-50/60 border border-red-100 p-6">
-            <h2 className="text-[17px] font-semibold text-red-700 mb-1">
-              Видалення акаунту
-            </h2>
-            <p className="text-[13px] text-red-600/80 mb-4">
-              Це закриє доступ до кабінету автора одразу, а продаж ваших матеріалів зупиниться.
-              Запит обробляється протягом 30 календарних днів. Протягом 14 днів акаунт ще можна відновити, увійшовши знову (зняті з продажу
-              матеріали доведеться опублікувати самостійно). Після цього профіль і матеріали без
-              покупців видаляються остаточно.
-            </p>
-            <p className="text-[13px] text-red-600/80 mb-4">
-              Матеріали, які вже придбали, не видаляються: покупці зберігають до них доступ
-              (за умовами договору з автором), але писати вам більше не зможуть. Зобов’язання за
-              продажами, виплатами та поверненнями коштів залишаються чинними.
-            </p>
+          {/* DANGER ZONE — folded, at the very end */}
+          <details className="group order-last rounded-[26px] bg-white p-5 ring-1 ring-rose-100 sm:p-6">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+              <span className="flex items-center gap-3.5 text-left">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-600"><Icon name="warning" size={20} /></span>
+                <span>
+                  <span className="block text-[17px] font-semibold text-rose-700">Видалити акаунт</span>
+                  <span className="block text-[13px] text-black/50">Що буде з матеріалами й покупцями</span>
+                </span>
+              </span>
+              <Icon name="chevron" size={18} className="shrink-0 text-black/40 transition-transform group-open:rotate-180" />
+            </summary>
+            {/* four short facts, the full width of the card */}
+            <ul className="mt-4 mb-5 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                ["Кабінет закриється одразу", "Продаж ваших матеріалів зупиниться."],
+                ["14 днів на відновлення", "Просто увійдіть знову — і все повернеться."],
+                ["Покупці зберігають доступ", "Хто вже купив, і далі бачить матеріал."],
+                ["Зобов’язання залишаються", "Продажі, виплати й повернення — за договором."],
+              ].map(([t, d]) => (
+                <li key={t} className="rounded-2xl bg-rose-50/50 p-4 ring-1 ring-rose-100">
+                  <div className="text-[14px] font-semibold text-[#12172b]">{t}</div>
+                  <div className="mt-0.5 text-[13px] leading-snug text-black/55">{d}</div>
+                </li>
+              ))}
+            </ul>
+            {blockers && blockers.length > 0 && (
+              <div role="alert" className="mb-4 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-100">
+                <div className="text-[15px] font-semibold text-amber-900">Поки не можна видалити акаунт</div>
+                <p className="mt-1 text-[13px] text-amber-900/80">Спершу має завершитися строк покупців і розглянуті запити на повернення:</p>
+                <ul className="mt-2 flex flex-col gap-1.5">
+                  {blockers.map((b, i) => <li key={i} className="text-[14px] text-[#12172b]"><b>«{b.title}»</b> — {b.text}</li>)}
+                </ul>
+              </div>
+            )}
             {!confirmDelete ? (
               <button
-                onClick={() => setConfirmDelete(true)}
+                onClick={() => void checkCanDelete()}
                 className="px-5 py-2.5 rounded-xl border border-red-300 text-red-600 text-[13px] font-medium hover:bg-red-100/50 transition"
               >
-                Видалити акаунт
+                {checkingDelete ? "Перевіряємо матеріали…" : "Видалити акаунт"}
               </button>
             ) : (
               <div className="flex items-center gap-3 flex-wrap">
@@ -393,13 +432,11 @@ export default function AuthorSettings() {
                 )}
               </div>
             )}
-          </div>
-        </div>
+          </details>
 
-        {/* SIDEBAR — SECURITY */}
-        <div className="lg:sticky lg:top-6">
-          <div className="rounded-2xl bg-white border border-black/5 p-6">
-            <h2 className="text-[17px] font-semibold mb-4">Безпека</h2>
+          {/* SECURITY */}
+          <div className={CARD}>
+            <SectionTitle icon="shield" title="Захист акаунта" hint="Пароль, код при вході й пристрої, на яких ви увійшли." />
 
             {passwordAuth ? (
               <div className="flex flex-col gap-3 mb-5">
@@ -408,14 +445,14 @@ export default function AuthorSettings() {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="Поточний пароль"
-                  className="w-full px-4 py-3 rounded-xl border border-black/10 text-[14px] focus:outline-none focus:border-black/30"
+                  className={FIELD}
                 />
                 <input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Новий пароль"
-                  className="w-full px-4 py-3 rounded-xl border border-black/10 text-[14px] focus:outline-none focus:border-black/30"
+                  className={FIELD}
                 />
                 <div className="flex items-center gap-3 flex-wrap">
                   <button
@@ -444,7 +481,7 @@ export default function AuthorSettings() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Новий пароль"
-                  className="w-full px-4 py-3 rounded-xl border border-black/10 text-[14px] focus:outline-none focus:border-black/30"
+                  className={FIELD}
                 />
                 {newPassword.length > 0 && !isInitialPasswordValid && (
                   <p className="text-[12px] text-black/40">
@@ -602,6 +639,21 @@ export default function AuthorSettings() {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+const CARD = "rounded-[26px] bg-white p-5 ring-1 ring-[#ece8fb] sm:p-6";
+const FIELD = "w-full rounded-xl bg-[#faf9ff] px-4 py-3 text-[15px] ring-1 ring-[#e3def9] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7c5cf0]";
+
+function SectionTitle({ icon, title, hint }: { icon: IconName; title: string; hint: string }) {
+  return (
+    <div className="mb-4 flex items-start gap-3.5">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#5b3df5]"><Icon name={icon} size={20} /></span>
+      <div>
+        <h2 className="text-[18px] font-bold text-[#12172b]">{title}</h2>
+        <p className="text-[14px] text-black/55">{hint}</p>
       </div>
     </div>
   );

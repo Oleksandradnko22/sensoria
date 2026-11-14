@@ -71,6 +71,21 @@ Deno.serve(async (req) => {
       .eq("id", userId)
       .single();
 
+    // An author can leave only when no buyer is still inside the 14-day window and no refund request is open —
+    // the same rule as for archiving a material (Договір з автором). The app explains which materials block it.
+    if (profile?.role === "author") {
+      const { data: mats } = await admin.from("content").select("id, title").eq("author_id", userId);
+      const ids = (mats ?? []).map((m) => m.id as string);
+      if (ids.length) {
+        const since = new Date(Date.now() - 14 * 86_400_000).toISOString();
+        const { data: recent } = await admin.from("purchases").select("content_id").in("content_id", ids).eq("status", "completed").gte("created_at", since).limit(1);
+        const { data: refunds } = await admin.from("refund_requests").select("id").in("content_id", ids).eq("status", "open").limit(1);
+        if ((recent ?? []).length || (refunds ?? []).length) {
+          return json({ error: "Поки не можна видалити акаунт: у матеріалів ще йде 14-денний строк після покупки або відкрито запит на повернення." }, 409);
+        }
+      }
+    }
+
     const { error: updateError } = await admin
       .from("profiles")
       .update({ deletion_requested_at: new Date().toISOString() })

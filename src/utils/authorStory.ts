@@ -224,34 +224,33 @@ export function missingParts(s: AuthorStory, hasPhoto = true): Record<SectionId,
   if (!s.portraitUrl.trim() && !hasPhoto) out.intro.push("додайте фото");
   if (t(s.intro) < M.intro) out.intro.push(`текст знайомства: щонайменше ${M.intro} символів (зараз ${t(s.intro)})`);
   const m = s.media;
-  if (!m || !m.url.trim()) out.media.push("додайте відео (YouTube або Vimeo) чи аудіо");
-  else if (m.kind === "video" && !parseVideoUrl(m.url.trim())) out.media.push("посилання на відео не розпізнано (YouTube або Vimeo)");
+  // the video is optional; a link that is there must work
+  if (m && m.url.trim() && m.kind === "video" && !parseVideoUrl(m.url.trim())) out.media.push("посилання на відео не розпізнано (YouTube або Vimeo)");
   if (t(s.viewpoint) < M.viewpoint) out.approach.push(`заголовок: щонайменше ${M.viewpoint} символів`);
   if (t(s.viewpointNote) < M.viewpointNote) out.approach.push(`підзаголовок: щонайменше ${M.viewpointNote} символів`);
-  const steps = s.steps.filter((x) => t(x.title) >= M.stepTitle && t(x.text) >= M.stepText);
-  if (steps.length < M.steps) out.approach.push(`етапи: щонайменше ${M.steps} повні (назва від ${M.stepTitle}, пояснення від ${M.stepText} символів), зараз ${steps.length}`);
+  // required: intro, the approach heading + subheading, principles. Steps, «Чого очікувати і межі» and the questions
+  // are optional — but what the author started must be complete.
   const pr = s.principles.filter((x) => t(x) >= M.principle);
   if (pr.length < M.principles) out.principles.push(`щонайменше ${M.principles} принципи (кожен від ${M.principle} символів), зараз ${pr.length}`);
-  const of = s.offers.filter((x) => t(x) >= M.offer);
-  if (of.length < M.offers) out.limits.push(`«Чого очікувати»: щонайменше ${M.offers} пункти (від ${M.offer} символів), зараз ${of.length}`);
-  const no = s.notOffers.filter((x) => t(x) >= M.notOffer);
-  if (no.length < M.notOffers) out.limits.push(`«Межі»: щонайменше ${M.notOffers} пункт (від ${M.notOffer} символів)`);
-  const fq = s.faq.filter((x) => t(x.q) >= M.faqQ && t(x.a) >= M.faqA);
-  if (fq.length < M.faq) out.faq.push(`щонайменше ${M.faq} запитання (запитання від ${M.faqQ}, відповідь від ${M.faqA} символів), зараз ${fq.length}`);
+  if (s.steps.some((x) => (t(x.title) || t(x.text)) && (t(x.title) < M.stepTitle || t(x.text) < M.stepText)))
+    out.approach.push(`етап: назва від ${M.stepTitle}, пояснення від ${M.stepText} символів`);
+  if (s.offers.some((x) => t(x) && t(x) < M.offer)) out.limits.push(`«Чого очікувати»: кожен пункт від ${M.offer} символів`);
+  if (s.notOffers.some((x) => t(x) && t(x) < M.notOffer)) out.limits.push(`«Межі»: кожен пункт від ${M.notOffer} символів`);
+  if (s.faq.some((x) => (t(x.q) || t(x.a)) && (t(x.q) < M.faqQ || t(x.a) < M.faqA)))
+    out.faq.push(`запитання від ${M.faqQ}, відповідь від ${M.faqA} символів`);
   return out;
 }
 
 // What must be true before saving to the database (drafts stay local).
 export function validateStory(s: AuthorStory, opts: { hasProfilePhoto?: boolean } = {}): string[] {
   const errors: string[] = [];
-  if (!s.portraitUrl.trim() && !opts.hasProfilePhoto) errors.push("Додайте фото: завантажте портрет або фото профілю.");
+  if (!s.portraitUrl.trim() && !opts.hasProfilePhoto) errors.push("Додайте портрет 4:5 (найкраще 1200 × 1500).");
   if (!s.intro.trim()) errors.push("Додайте текст знайомства (до двох абзаців).");
   else if (paragraphs(s.intro).length > L.introParagraphs) errors.push("Текст знайомства: не більше двох абзаців (абзаци розділяйте порожнім рядком).");
   if (s.steps.some((x) => (x.title.trim() ? !x.text.trim() : !!x.text.trim()))) errors.push("«Підхід»: в етапі не вистачає назви або пояснення.");
   if (introLines(s.tagline, s.intro) > INTRO_MAX_LINES) errors.push("Текст знайомства задовгий: він має вміщатися по висоті біля фото. Скоротіть текст.");
   if (s.media) {
-    if (!s.media.url.trim()) errors.push("«Особисте знайомство»: додайте відео або аудіо.");
-    else if (s.media.kind === "video" && !parseVideoUrl(s.media.url.trim())) errors.push("Відео: підійде лише посилання YouTube або Vimeo.");
+    if (s.media.kind === "video" && !parseVideoUrl(s.media.url.trim())) errors.push("Відео: підійде лише посилання YouTube або Vimeo.");
   }
   if (s.faq.some((x) => (x.q.trim() ? !x.a.trim() : !!x.a.trim()))) errors.push("«Запитання та відповіді»: у питанні не вистачає запитання або відповіді.");
   if (s.viewpointNote.trim() && !s.viewpoint.trim()) errors.push("«Мій погляд»: додайте основну думку або приберіть пояснення.");

@@ -25,18 +25,23 @@ export default function AuthorKindBadge({
   // Note spans the full width of its container instead of a reading-width cap.
   wide?: boolean;
 }) {
+  // the note is not printed on the page: it opens on hover, or on tap / keyboard focus of the badge
+  const note = educationVerified ? KIND_NOTE_SPECIALIST : KIND_NOTE_AUTHOR;
   return (
-    <span className={`${wide ? "flex w-full" : "inline-flex"} flex-col gap-1 ${className}`}>
+    <span className={`group relative ${wide ? "flex w-full" : "inline-flex"} ${className}`}>
       <span
-        className={`w-fit rounded-full px-2.5 py-0.5 text-[12px] font-medium ${
+        tabIndex={showNote ? 0 : undefined}
+        aria-label={showNote ? `${educationVerified ? "Фахівець" : "Авторські освітні матеріали"}. ${note}` : undefined}
+        className={`inline-flex w-fit items-center gap-1 rounded-full px-2.5 py-0.5 text-[12px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 ${showNote ? "cursor-help" : ""} ${
           dark ? "bg-white/15 text-white" : educationVerified ? "bg-[#eef2ff] text-[#4338ca]" : "bg-black/5 text-black/70"
         }`}
       >
         {educationVerified ? "Фахівець · документи про освіту переглянуто" : "Авторські освітні матеріали"}
+        {showNote && <span aria-hidden="true" className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-current text-[9px] font-bold opacity-60">i</span>}
       </span>
       {showNote && (
-        <span className={`text-[12px] leading-relaxed ${wide ? "" : "max-w-[52ch]"} ${dark ? "text-white/70" : "text-black/60"}`}>
-          {educationVerified ? KIND_NOTE_SPECIALIST : KIND_NOTE_AUTHOR}
+        <span role="tooltip" className="pointer-events-none absolute left-0 top-full z-30 mt-1.5 hidden w-[min(320px,80vw)] rounded-xl bg-[#1d1a3b] px-3 py-2.5 text-[12px] font-normal leading-relaxed text-white shadow-[0_14px_30px_-12px_rgba(20,16,60,0.5)] group-hover:block group-focus-within:block">
+          {note}
         </span>
       )}
     </span>

@@ -18,6 +18,7 @@ type Props = {
   categoryIds?: string[]; // every chosen category: only elements that suit them are offered
   onDone: (file: File) => void;
   onClose: () => void;
+  frames?: CoverFrame[]; // where this cover is shown (default: a material's cover)
 };
 
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
@@ -26,7 +27,8 @@ const SWATCHES = ["#ffffff", "#1d1a3b", "#5b3df5", "#f59e0b", "#10b981", "#ef444
 // Every place the cover is shown, cropped differently; the author confirms each crop before saving.
 // The frame block has a fixed footprint: its height comes from the side cards, never from what is inside it.
 const FRAME_BLOCK_MIN = 150;
-const FRAMES = [
+export type CoverFrame = { label: string; where: string; r: number };
+const DEFAULT_FRAMES: CoverFrame[] = [
   { label: "Каталог 3:1", where: "Картка в каталозі", r: 3 },
   { label: "16:9", where: "Сторінка автора, головна", r: 16 / 9 },
   { label: "3:2", where: "Кошик", r: 1.5 },
@@ -108,7 +110,8 @@ function BgThumb({ doc, label, on, onPick }: { doc: CoverDoc; label: string; on:
   );
 }
 
-export default function CoverMaker({ title: initialTitle, categoryId, categoryIds, onDone, onClose }: Props) {
+export default function CoverMaker({ title: initialTitle, categoryId, categoryIds, onDone, onClose, frames }: Props) {
+  const FRAMES = frames ?? DEFAULT_FRAMES;
   const root = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const scene = useRef<HTMLDivElement>(null);
@@ -265,7 +268,7 @@ export default function CoverMaker({ title: initialTitle, categoryId, categoryId
       return String(h >>> 0);
     });
     setSigs((prev) => (prev.join() === next.join() ? prev : next));
-  }, [doc, tick, editingId, croppingId]);
+  }, [doc, tick, editingId, croppingId, FRAMES]);
   // Live thumbnail of the chosen crop: what readers will see in that place.
   useEffect(() => {
     const c = peek.current, src = canvas.current;
@@ -274,7 +277,7 @@ export default function CoverMaker({ title: initialTitle, categoryId, categoryId
     c.height = 112;
     c.width = Math.round((112 * r.w) / r.h);
     c.getContext("2d")?.drawImage(src, r.x, r.y, r.w, r.h, 0, 0, c.width, c.height);
-  }, [doc, tick, editingId, frameIdx]);
+  }, [doc, tick, editingId, frameIdx, FRAMES]);
   useEffect(() => {
     if (!editingEl) return;
     const t = textBox.current;
@@ -721,7 +724,7 @@ export default function CoverMaker({ title: initialTitle, categoryId, categoryId
                 </div>
               </div>
               <div className="flex min-h-0 items-center gap-4 rounded-xl bg-[#f6f4ff] px-3 py-2.5">
-                <canvas ref={peek} role="img" aria-label={`Так обкладинка виглядатиме: ${FRAMES[frameIdx].where}`} className="h-14 max-w-[34%] shrink-0 rounded-lg border border-[#e3e6f4] bg-white shadow-sm" />
+                <canvas ref={peek} role="img" aria-label={`Так обкладинка виглядатиме: ${FRAMES[frameIdx].where}`} className="h-auto max-h-14 w-auto max-w-[45%] shrink-0 rounded-lg border border-[#e3e6f4] bg-white shadow-sm" />
                 <div role={frameHint && !allConfirmed ? "alert" : undefined} aria-live="polite" className="min-w-0 flex-1 leading-snug">
                   <p className="truncate text-[14px] font-semibold text-[#1d1a3b]">{FRAMES[frameIdx].where} · {FRAMES[frameIdx].label}</p>
                   <p className={`text-[12px] ${frameHint && !allConfirmed ? "font-medium text-rose-700" : "text-black/70"}`}>

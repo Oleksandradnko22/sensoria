@@ -247,12 +247,43 @@ export function CoverArt({
   );
 }
 
+/** The author's own cover: a photo for the computer (10:1 strip, its vertical position chosen by dragging) and,
+ *  optionally, a separate photo for the phone (4:1). Both live in the one stored link: «desktop#y=35&m=<phone link>». */
+export type CoverPhoto = { desktop: string; y: number; mobile: string | null };
+export function parseCoverPhoto(url: string | null | undefined): CoverPhoto | null {
+  if (!url) return null;
+  const [desktop, hash = ""] = url.split("#");
+  const q = new URLSearchParams(hash);
+  const y = Number(q.get("y"));
+  return { desktop, y: Number.isFinite(y) && q.has("y") ? Math.min(100, Math.max(0, y)) : 50, mobile: q.get("m") || null };
+}
+export function buildCoverPhoto(p: CoverPhoto): string {
+  const q = new URLSearchParams({ y: String(Math.round(p.y)) });
+  if (p.mobile) q.set("m", p.mobile);
+  return `${p.desktop}#${q.toString()}`;
+}
+export function coverPhotoY(url: string | null | undefined): number {
+  return parseCoverPhoto(url)?.y ?? 50;
+}
+
+function CoverPhotoImg({ url }: { url: string }) {
+  const p = parseCoverPhoto(url)!;
+  const pos = { objectPosition: `50% ${p.y}%` };
+  if (!p.mobile) return <img src={p.desktop} alt="" className="w-full h-full object-cover" style={pos} />;
+  return (
+    <picture>
+      <source media="(max-width: 639px)" srcSet={p.mobile} />
+      <img src={p.desktop} alt="" className="w-full h-full object-cover" style={pos} />
+    </picture>
+  );
+}
+
 export default function AuthorCover({ cover }: { cover: CoverInput | CoverSpec }) {
   const spec: CoverSpec = "family" in cover ? cover : resolveCover(cover);
   if (spec.type === "personal" && spec.imageUrl) {
     return (
       <div className="relative h-20 sm:h-28 overflow-hidden bg-[#ebeafb]" aria-hidden="true">
-        <img src={spec.imageUrl} alt="" className="w-full h-full object-cover" />
+        <CoverPhotoImg url={spec.imageUrl} />
         <div className="absolute inset-0 bg-gradient-to-t from-white/25 via-transparent to-transparent" />
       </div>
     );

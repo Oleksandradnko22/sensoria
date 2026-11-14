@@ -305,9 +305,19 @@ export default function AuthorPublicProfilePage({
   const reviewWord = (n: number) => pluralUk(n, "відгук", "відгуки", "відгуків");
 
   const showAudience = !!audience;
+  const isSelf = !!viewer && viewer.id === authorId; // the author sees their page as visitors do, buttons included
 
   const actionButtons = (full: boolean) => {
     const pad = full ? "px-4 min-h-[44px] text-[14px]" : "px-5 min-h-[44px] text-[14px]";
+    if (isSelf) {
+      const hint = "Так кнопку бачать відвідувачі вашої сторінки";
+      return (
+        <>
+          <button type="button" disabled title={hint} className={`${pad} cursor-default rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] font-medium text-white`}>Підписатися</button>
+          <button type="button" disabled title={hint} className={`${pad} cursor-default rounded-xl border border-black/15 bg-white font-medium`}>Написати автору</button>
+        </>
+      );
+    }
     const writeCls = `${pad} rounded-xl border border-black/15 bg-white font-medium hover:border-black/30 hover:bg-[#f7f7fb] active:bg-[#efeff6] transition-colors disabled:opacity-60`;
     const writeBtn = canMessage ? (
       <button
@@ -454,6 +464,8 @@ export default function AuthorPublicProfilePage({
                   <div className="hidden sm:flex items-center gap-2 pb-1">{actionButtons(false)}</div>
                 </div>
 
+                <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-8">
+                <div className="min-w-0">
                 <h1 className="text-[24px] sm:text-[24px] font-bold tracking-tight leading-tight mt-3 flex items-center gap-2 flex-wrap">
                   {data.name}
                   {data.details.verified && <VerifiedBadge />}
@@ -463,7 +475,7 @@ export default function AuthorPublicProfilePage({
                 </div>
                 <AuthorKindBadge educationVerified={data.details.educationVerified} showNote className="mt-2" />
 
-                <div className="flex items-center gap-x-1.5 gap-y-1 flex-wrap mt-1.5 empty:hidden text-[14px] leading-5 text-black/60">
+                <div className="lg:hidden flex items-center gap-x-1.5 gap-y-1 flex-wrap mt-1.5 empty:hidden text-[14px] leading-5 text-black/60">
                   {showAudience && audience && (
                     <>
                       <span className="whitespace-nowrap">
@@ -494,7 +506,7 @@ export default function AuthorPublicProfilePage({
                 </div>
 
                 {data.details.positioning && (
-                  <div className="mt-3 max-w-[640px]">
+                  <div className="mt-3 max-w-[860px]">
                     <p className="text-[16px] leading-relaxed text-black/75 line-clamp-3">{data.details.positioning}</p>
                   </div>
                 )}
@@ -508,6 +520,31 @@ export default function AuthorPublicProfilePage({
                     ))}
                   </div>
                 )}
+                </div>
+                {/* the right side of the header on a computer: the numbers, in one calm card */}
+                <dl className="mt-3 hidden self-start rounded-2xl bg-[#f7f6ff] p-4 ring-1 ring-[#ece8fb] lg:grid lg:gap-3">
+                  {showAudience && audience && (
+                    <>
+                      <div className="flex items-baseline justify-between gap-3"><dt className="text-[13px] text-black/55">Підписники</dt><dd className="text-[18px] font-bold tabular-nums text-[#12172b]">{formatCount(audience.followers)}</dd></div>
+                      <div className="flex items-baseline justify-between gap-3"><dt className="text-[13px] text-black/55">Учасники</dt><dd className="text-[18px] font-bold tabular-nums text-[#12172b]">{formatCount(audience.participants)}</dd></div>
+                    </>
+                  )}
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-[13px] text-black/55">Оцінка</dt>
+                    <dd>
+                      {headerRatings.count > 0 ? (
+                        <button type="button" onClick={() => setTab("reviews")} className="inline-flex items-center gap-1.5 text-[13px] text-black/60 hover:text-black">
+                          <b className="text-[18px] text-[#12172b]">{formatRating(headerRatings.average)}</b>
+                          <Stars value={headerRatings.average} size={12} />
+                          <span>· {headerRatings.count}</span>
+                        </button>
+                      ) : (
+                        <span className="text-[13px] text-black/45">Ще немає</span>
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+                </div>
                 <div className="sm:hidden mt-4 grid grid-cols-2 gap-2 empty:hidden">{actionButtons(true)}</div>
                 {authorLeft && (
                   <p role="status" className="mt-4 rounded-xl bg-[#f3f4ff] border border-[#dfe3ff] px-4 py-3 text-[14px] text-black/70">

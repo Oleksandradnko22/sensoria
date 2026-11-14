@@ -354,7 +354,7 @@ export default function AuthorDashboardPage({
         </div>
 
         {/* CONTENT */}
-        <div className="rounded-3xl bg-[#f6f8ff] text-black min-h-[70vh] p-8">
+        <div className={`rounded-3xl bg-[#f6f8ff] text-black p-8 ${section === "profile" && !editorTarget ? "pb-10" : "min-h-[70vh]"}`}>
           {editorTarget ? (
             <AuthorCourseEditor
               target={editorTarget}

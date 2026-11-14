@@ -133,7 +133,7 @@ test("intro must fit next to the portrait (estimated lines)", () => {
 
 test("missingParts: every personalised block is required, with minimums", () => {
   const empty = missingParts(EMPTY_STORY, true);
-  assert.deepEqual(Object.values(empty).map((x) => x.length > 0), [true, true, true, true, true, true]);
+  assert.deepEqual(Object.values(empty).map((x) => x.length > 0), [true, false, true, true, false, false]);
   const t = (n: number) => "а".repeat(n);
   const full: AuthorStory = {
     ...EMPTY_STORY,
@@ -152,7 +152,8 @@ test("missingParts: every personalised block is required, with minimums", () => 
   assert.deepEqual(Object.values(missingParts(full, true)).flat(), []);
   // one character short in any block is reported
   assert.ok(missingParts({ ...full, intro: t(STORY_MIN.intro - 1) }, true).intro.length > 0);
-  assert.ok(missingParts({ ...full, faq: full.faq.slice(0, 2) }, true).faq.length > 0);
+  assert.equal(missingParts({ ...full, faq: [] }, true).faq.length, 0); // questions are optional
+  assert.ok(missingParts({ ...full, faq: [{ q: "Як?", a: "" }] }, true).faq.length > 0); // a started one must be complete
   assert.ok(missingParts(full, false).intro.length > 0); // no photo at all
-  assert.ok(missingParts({ ...full, media: null }, true).media.length > 0);
+  assert.equal(missingParts({ ...full, media: null }, true).media.length, 0); // the video is optional
 });

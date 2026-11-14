@@ -471,12 +471,16 @@ function WeekCard() {
   const [hidden, setHidden] = useState(() => { try { return localStorage.getItem(weekKey) === "1"; } catch { return false; } });
   const [week, setWeek] = useState<{ top: FeedPost[]; newAuthors: { id: string; name: string; avatarUrl: string | null }[] } | null>(null);
   useEffect(() => { if (!hidden) fetchWeek().then(setWeek).catch(() => {}); }, [hidden]);
-  if (hidden || !week || (week.top.length === 0 && week.newAuthors.length === 0)) return null;
+  // shown only when the week really had posts people responded to (new authors alone look like an empty card)
+  if (hidden || !week || week.top.length === 0) return null;
   return (
     <section className="rounded-[26px] bg-gradient-to-br from-[#eef0fd] via-white to-[#f6f1ff] px-5 py-5 ring-1 ring-[#e4def9] sm:px-6">
       <div className="flex items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#5b3df5] shadow-[0_8px_18px_-12px_rgba(91,61,245,0.6)]"><Icon name="sparkle" size={19} /></span>
-        <h3 className="flex-1 text-[17px] font-bold text-[#12172b]">Тиждень у Sensoria</h3>
+        <div className="flex-1">
+          <h3 className="text-[17px] font-bold text-[#12172b]">Тиждень у Sensoria</h3>
+          <p className="text-[13px] text-black/50">Публікації, які найбільше відгукнулися людям за 7 днів, і нові автори</p>
+        </div>
         <button type="button" onClick={() => { setHidden(true); try { localStorage.setItem(weekKey, "1"); } catch { /* private mode */ } }} className="text-[13px] font-medium text-black/45 hover:text-black/70">Сховати</button>
       </div>
       {week.top.length > 0 && (

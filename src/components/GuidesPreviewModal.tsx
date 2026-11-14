@@ -18,6 +18,7 @@ import GuideAuthorCard from "./guideDetail/GuideAuthorCard";
 import GuideReviews from "./guideDetail/GuideReviews";
 import { DEMO_GUIDE_PREFIX, demoGuideAuthor, demoGuideCriteria, demoGuideReviews } from "../data/guidesDemo";
 
+import MaterialStories from "./feed/MaterialStories";
 type Props = {
   guide: Guide;
   onClose: () => void;
@@ -403,6 +404,7 @@ export default function GuidesPreviewModal({ guide, onClose, userId, isParticipa
                 <GuideReviews reviews={demoGuideReviews} criteria={demoGuideCriteria} demo />
               ) : (
                 <>
+                  <MaterialStories contentId={guide.id} />
                   <h2 className="text-[22px] font-semibold">Відгуки</h2>
                   <div className="mt-4 flex items-start gap-3 rounded-[18px] bg-slate-50 p-5 text-slate-600">
                     <Icon name="star" size={20} />

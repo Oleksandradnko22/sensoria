@@ -12,6 +12,7 @@ import { formatPrice, isFreePrice } from "../utils/price";
 import { useOwnedKeys } from "../lib/useOwnedKeys";
 import { useOpenAuthorProfile } from "../context/AuthorProfileContext";
 
+import MaterialStories from "./feed/MaterialStories";
 type Props = {
   meditation: Meditation;
   onClose: () => void;
@@ -350,6 +351,7 @@ export default function MeditationDetailModal({ meditation, onClose, userId, isP
 
           {tab === "reviews" && (
             <section role="tabpanel" id="md-panel-reviews" aria-labelledby="md-tab-reviews" className={CARD}>
+              <MaterialStories contentId={meditation.id} />
               <h2 className="text-[22px] font-semibold">Відгуки</h2>
               <div className="mt-4 flex items-start gap-3 rounded-[18px] bg-slate-50 p-5 text-slate-600">
                 <Icon name="star" size={20} />

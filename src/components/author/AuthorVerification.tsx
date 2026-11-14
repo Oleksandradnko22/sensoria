@@ -76,7 +76,7 @@ export default function AuthorVerification({ kind = "identity" }: { kind?: Verif
   };
 
   return (
-    <div className="rounded-2xl bg-white border border-black/5 p-6">
+    <div className="rounded-[26px] bg-white p-5 ring-1 ring-[#ece8fb] sm:p-6">
       <div className="flex items-center gap-3">
         <div
           className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${
@@ -170,7 +170,7 @@ export default function AuthorVerification({ kind = "identity" }: { kind?: Verif
             <button
               type="button"
               onClick={() => input.current?.click()}
-              className="mt-3 min-h-[44px] px-4 rounded-xl border border-black/15 text-[14px] font-medium hover:bg-black/[0.04] transition"
+              className="mt-3 min-h-[44px] rounded-xl bg-[#f1eeff] px-4 text-[14px] font-semibold text-[#4338ca] transition hover:bg-[#e7e1ff]"
             >
               {files.length ? "Обрати інші файли" : "Обрати файли"}
             </button>

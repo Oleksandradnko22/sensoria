@@ -263,6 +263,20 @@ function AppInner() {
 
       if (oauthConsent) await recordConsent(oauthConsent).catch(() => undefined);
 
+      // one role per account: Google sign-in through the other form does not switch the role — the same message as
+      // for e-mail sign-in, on that form
+      if (profile && oauthRole && profile.role !== oauthRole && !profile.isAdmin) {
+        await logoutAccount();
+        setSession(null);
+        try {
+          sessionStorage.setItem("sensoria.authError", oauthRole === "author"
+            ? "Цей акаунт зареєстрований як учасник — увійдіть через «Увійти як учасник». Стати автором можна з іншою поштою."
+            : "Цей акаунт зареєстрований як автор — увійдіть через «Увійти як автор». Кабінет учасника потребує іншої пошти.");
+        } catch { /* private mode */ }
+        setPage(oauthRole === "author" ? "author-auth" : "participant-auth");
+        return;
+      }
+
       if (profile) {
         const mfaStatus = await getMfaStatus();
         if (mfaStatus.needsChallenge) {

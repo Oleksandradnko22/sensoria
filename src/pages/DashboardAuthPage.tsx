@@ -70,7 +70,10 @@ export default function DashboardAuthPage({ role, onAuthenticated, onBackToSite 
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  // a message left by a Google sign-in through the wrong form (App.tsx), shown once
+  const [formError, setFormError] = useState<string | null>(() => {
+    try { const m = sessionStorage.getItem("sensoria.authError"); sessionStorage.removeItem("sensoria.authError"); return m; } catch { return null; }
+  });
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   // Same purpose as in LoginPage.tsx: set only when sign-in succeeded

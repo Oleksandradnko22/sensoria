@@ -33,6 +33,11 @@ function post(id: string, hoursAgo: number, authorName: string, isAuthor: boolea
   };
 }
 
+// demo posts saved in this browser tab, so «Збережені» shows them too while the feed is a demo
+export const demoSaved = new Map<string, FeedPost>();
+// everything else done to a demo post in this tab (reactions, votes, saving): kept so it looks the same when you come back
+export const demoChanges = new Map<string, FeedPost>();
+
 export function demoFeed(kind: FeedKind): FeedPost[] {
   const people = demoWorld().people.map((p) => p.name);
   const who = (i: number) => people[i % Math.max(1, people.length)] ?? "Учасник Sensoria";

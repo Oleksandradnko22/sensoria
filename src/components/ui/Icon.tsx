@@ -9,6 +9,7 @@
 import type { ReactNode } from "react";
 
 export type IconName =
+  | "community"
   | "home"
   | "library"
   | "bookmark"
@@ -74,6 +75,17 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <path d="M4 20l1-4 11-11 3 3L8 19l-4 1Z" />
       <path d="m14 7 3 3" />
+    </>
+  ),
+  // «Спільнота»: three people, the middle one in front
+  community: (
+    <>
+      <circle cx="12" cy="8.5" r="3" />
+      <path d="M6.5 19.5v-.8a5.5 5.5 0 0 1 11 0v.8" />
+      <circle cx="5.2" cy="10" r="2.2" />
+      <path d="M2.2 17.5v-.4a3.4 3.4 0 0 1 4.3-3.3" />
+      <circle cx="18.8" cy="10" r="2.2" />
+      <path d="M21.8 17.5v-.4a3.4 3.4 0 0 0-4.3-3.3" />
     </>
   ),
   mail: (

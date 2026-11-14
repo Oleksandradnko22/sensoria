@@ -387,8 +387,8 @@ export default function PostComments({ postId, postAuthorId, viewer, onRequireLo
             </div>
           )}
 
-          {/* Compose: participants only (the author answers under comments). */}
-          {viewer?.role === "participant" ? (
+          {/* Compose: everyone signed in — participants and authors (e.g. authors under participants' posts) */}
+          {canWrite ? (
             <div className="mt-5">
               <textarea
                 value={draft}
@@ -399,7 +399,7 @@ export default function PostComments({ postId, postAuthorId, viewer, onRequireLo
                 rows={2}
                 maxLength={COMMENT_MAX}
                 placeholder="Поділіться думкою або запитайте автора…"
-                className="w-full rounded-xl border border-black/[0.08] bg-white text-black p-3.5 text-[16px] sm:text-[14px] resize-none focus:outline-none focus:border-black/25"
+                className="w-full resize-none rounded-xl bg-white p-3.5 text-[16px] text-[#12172b] ring-1 ring-[#e3def9] focus:outline-none focus:ring-2 focus:ring-[#7c5cf0] sm:text-[14px]"
               />
               {draftNotice && (
                 <div className="text-[12px] text-rose-600 mt-1.5" role="alert">
@@ -414,14 +414,14 @@ export default function PostComments({ postId, postAuthorId, viewer, onRequireLo
                   setPosting(false);
                 }}
                 disabled={posting || !draft.trim()}
-                className="mt-2 px-5 py-2 rounded-lg bg-black/85 text-white text-[14px] font-medium hover:bg-black transition disabled:opacity-30"
+                className="mt-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-5 py-2 text-[14px] font-semibold text-white transition hover:opacity-95 disabled:opacity-30"
               >
                 {posting ? "Надсилаємо…" : "Коментувати"}
               </button>
             </div>
           ) : !canWrite ? (
             <button onClick={onRequireLogin} className="mt-5 text-[14px] font-medium text-[#4338ca] hover:underline">
-              Увійдіть як учасник, щоб коментувати
+              Увійдіть, щоб коментувати
             </button>
           ) : null}
         </>

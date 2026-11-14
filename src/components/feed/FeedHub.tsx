@@ -20,7 +20,7 @@ import { fetchFeedPost, fetchNotifications, fetchWeek, markNotificationsSeen, ty
 import { MENTION_RE } from "../../utils/authorPosts";
 import { formatPostDate } from "../../utils/authorProfileView";
 import { SHOW_AUTHOR_DEMO, SHOW_DEMO } from "../../utils/demoMode";
-import { demoFeed } from "../../data/demoFeed";
+import { demoChanges, demoFeed, demoSaved } from "../../data/demoFeed";
 
 const TABS: Record<FeedAudience, { label: string; icon: IconName; hint: string }> = {
   all: { label: "Для всіх", icon: "sparkle", hint: "Думки, практики й новини авторів Sensoria." },
@@ -131,10 +131,13 @@ function Feed({ kind, sort, role, viewer, canWrite, onCompose, onGoWrite, compos
   const demoPosts = useCallback(async (): Promise<FeedPost[]> => {
     const base = demoFeed(kind);
     const real = await fetchSomeAuthors(3).catch(() => []);
-    if (real.length === 0) return base;
     const byName = new Map<string, (typeof real)[number]>();
+    // the same demo name always gets the same real author
+    if (real.length) base.forEach((p) => { if (p.authorIsAuthor && !byName.has(p.authorName)) byName.set(p.authorName, real[byName.size % real.length]); });
     return base.map((p) => {
-      if (!p.authorIsAuthor) return p;
+      const changed = demoChanges.get(p.id);
+      if (changed) return changed; // already shown before: the same author, reactions, vote, «Збережено»
+      if (!p.authorIsAuthor || real.length === 0) return p;
       if (!byName.has(p.authorName)) byName.set(p.authorName, real[byName.size % real.length]);
       const a = byName.get(p.authorName)!;
       return { ...p, authorId: a.id, authorName: a.name, authorAvatarUrl: a.avatarUrl };
@@ -145,7 +148,8 @@ function Feed({ kind, sort, role, viewer, canWrite, onCompose, onGoWrite, compos
     if (!quiet) setState("loading");
     try {
       const page = sort === "saved" ? await fetchFeed("saved", null, "new") : await fetchFeed(kind, null, sort);
-      if (page.posts.length === 0 && showDemo && sort !== "saved") { setPosts(await demoPosts()); setHasMore(false); setDemo(true); }
+      if (page.posts.length === 0 && sort === "saved" && demoSaved.size > 0) { setPosts([...demoSaved.values()]); setHasMore(false); setDemo(true); }
+      else if (page.posts.length === 0 && showDemo && sort !== "saved") { setPosts(await demoPosts()); setHasMore(false); setDemo(true); }
       else if (quiet) {
         // keep what is loaded: update those posts, add new ones on top
         setPosts((prev) => {
@@ -320,7 +324,7 @@ function Feed({ kind, sort, role, viewer, canWrite, onCompose, onGoWrite, compos
             onOpenContent={() => { if (!p.authorId.startsWith("demo-")) openAuthorProfile(p.authorId); }}
             headerAction={action}
             canFeature={!!p.contentId && ownContent.has(p.contentId)}
-            onChange={(next) => setPosts((list) => list.map((x) => (x.id === next.id ? next : x)))}
+            onChange={(next) => { if (next.id.startsWith("demo-")) demoChanges.set(next.id, next); setPosts((list) => list.map((x) => (x.id === next.id ? next : x))); }}
           />
         );
       })}

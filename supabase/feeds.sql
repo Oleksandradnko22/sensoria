@@ -184,11 +184,22 @@ create table if not exists public.post_mentions (
 alter table public.post_mentions enable row level security;
 drop policy if exists "mentions readable" on public.post_mentions;
 create policy "mentions readable" on public.post_mentions for select using (auth.uid() is not null);
+create or replace function public.feed_mentions_count(p_post uuid)
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select count(*)::int from public.post_mentions where post_id = p_post;
+$$;
+revoke all on function public.feed_mentions_count(uuid) from public, anon;
+grant execute on function public.feed_mentions_count(uuid) to authenticated;
 drop policy if exists "post owner mentions authors" on public.post_mentions;
 create policy "post owner mentions authors" on public.post_mentions for insert with check (
   exists (select 1 from public.author_posts p where p.id = post_id and p.author_id = auth.uid())
   and public.feed_is_author(author_id)
-  and (select count(*) from public.post_mentions m where m.post_id = post_mentions.post_id) < 5
+  and public.feed_mentions_count(post_id) < 5
 );
 drop policy if exists "post owner removes mentions" on public.post_mentions;
 create policy "post owner removes mentions" on public.post_mentions for delete using (exists (select 1 from public.author_posts p where p.id = post_id and p.author_id = auth.uid()));
@@ -549,18 +560,28 @@ drop policy if exists "post comments readable with the post" on public.author_po
 create policy "post comments readable with the post" on public.author_post_comments for select using (
   auth.uid() is not null and exists (select 1 from public.author_posts p where p.id = post_id)
 );
+-- a reply: only the post's author answers a top-level comment of that post (read with the function's own rights —
+-- a rule that reads its own table again would loop forever)
+create or replace function public.feed_reply_ok(p_parent uuid, p_post uuid, p_user uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.author_post_comments parent join public.author_posts p on p.id = parent.post_id
+     where parent.id = p_parent and parent.post_id = p_post and parent.parent_id is null and p.author_id = p_user
+  );
+$$;
+revoke all on function public.feed_reply_ok(uuid, uuid, uuid) from public, anon;
+grant execute on function public.feed_reply_ok(uuid, uuid, uuid) to authenticated;
 drop policy if exists "users write their own post comments" on public.author_post_comments;
 create policy "users write their own post comments" on public.author_post_comments for insert with check (
   auth.uid() = user_id
   and exists (select 1 from public.author_posts p where p.id = post_id)
   and not public.feed_is_banned(auth.uid())
-  and (
-    parent_id is null
-    or exists (
-      select 1 from public.author_posts p join public.author_post_comments parent on parent.id = parent_id
-       where p.id = post_id and parent.post_id = post_id and parent.parent_id is null and p.author_id = auth.uid()
-    )
-  )
+  and (parent_id is null or public.feed_reply_ok(parent_id, post_id, auth.uid()))
 );
 drop policy if exists "users like posts" on public.author_post_likes;
 create policy "users like posts" on public.author_post_likes for insert with check (
@@ -777,9 +798,9 @@ stable
 security definer
 set search_path = public
 as $$
-  select c.id::text, c.type, c.title
+  select c.id::text, c.kind, c.title
     from public.content c
-   where c.status = 'published' and c.type in ('program', 'guide', 'meditation')
+   where c.status = 'published' and c.kind in ('program', 'guide', 'meditation')
      and (public.feed_can_tag(auth.uid(), c.id::text) or (c.slug is not null and public.feed_can_tag(auth.uid(), c.slug)))
    order by c.title
    limit 50;

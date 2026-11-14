@@ -15,6 +15,7 @@ import { formatPostDate, formatReviewDate } from "../../utils/authorProfileView"
 import ReportButton from "../ReportButton";
 import PostComments from "../author/public/PostComments";
 import { PostImages, PostVideoEmbed } from "../author/public/PostMedia";
+import { demoSaved } from "../../data/demoFeed";
 
 const CLIP = 480;
 const AUDIENCE: Record<FeedPost["audience"], string> = { all: "Для всіх", participants: "Для учасників", authors: "Для авторів" };
@@ -98,7 +99,7 @@ export default function FeedCard({
     if (!viewer) return;
     const next = !post.saved;
     onChange({ ...post, saved: next });
-    if (demo) return;
+    if (demo) { if (next) demoSaved.set(post.id, { ...post, saved: true }); else demoSaved.delete(post.id); return; }
     try { await setSaved(post.id, viewer.id, next); } catch { onChange(post); }
   };
   const vote = async (i: number) => {
@@ -174,7 +175,8 @@ export default function FeedCard({
           {/* content (under a blur when the topic is delicate) */}
           <div className="relative">
             <div className={revealed ? "" : "pointer-events-none select-none blur-[10px]"} aria-hidden={!revealed}>
-              <div className="max-w-[68ch]">
+              {/* the text stops short of the right edge (where «N коментарів» sits), easier to read */}
+              <div className="sm:pr-28">
                 {headline && <h3 className="mt-3 text-[19px] font-bold leading-snug tracking-[-0.01em] text-[#12172b]"><RichText text={headline} mentions={post.mentions ?? []} /></h3>}
                 {(rest || !headline) && (
                   <p className={`whitespace-pre-line break-words text-[15.5px] leading-[1.7] text-[#2d2a5c] ${headline ? "mt-1.5" : "mt-3"}`}><RichText text={expanded ? rest : clipped.text} mentions={post.mentions ?? []} /></p>
@@ -185,7 +187,7 @@ export default function FeedCard({
               </div>
 
               {(post.images.length > 0 || post.video) && (
-                <div className="mt-4 flex max-w-[680px] flex-col gap-3">
+                <div className="mt-4 flex flex-col gap-3">
                   {post.images.length > 0 && <PostImages images={post.images} alt={post.imageAlt} />}
                   {post.video && <PostVideoEmbed video={post.video} />}
                 </div>
@@ -204,7 +206,7 @@ export default function FeedCard({
 
           {/* poll */}
           {post.poll && revealed && (
-            <div className="mt-4 max-w-[560px] rounded-2xl bg-[#faf9ff] p-4 ring-1 ring-[#ece8fb]">
+            <div className="mt-4 rounded-2xl bg-[#faf9ff] p-4 ring-1 ring-[#ece8fb]">
               {post.poll.question && <div className="mb-3 text-[15px] font-semibold text-[#12172b]">{post.poll.question}</div>}
               <div className="flex flex-col gap-2">
                 {post.poll.options.map((o, i) => {
@@ -230,7 +232,7 @@ export default function FeedCard({
 
           {/* attached material */}
           {att && revealed && (
-            <div className="mt-4 flex max-w-[680px] items-center gap-3.5 rounded-2xl bg-gradient-to-r from-[#f6f4ff] to-[#eef0fd] p-3.5 ring-1 ring-[#e4def9]">
+            <div className="mt-4 flex items-center gap-3.5 rounded-2xl bg-gradient-to-r from-[#f6f4ff] to-[#eef0fd] p-3.5 ring-1 ring-[#e4def9]">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-[#5b3df5] shadow-[0_6px_14px_-8px_rgba(91,61,245,0.5)]"><Icon name={att.kind} size={22} /></span>
               <div className="min-w-0 flex-1">
                 <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6d5bd0]">{story ? "Про матеріал" : post.isShare ? "Ділиться матеріалом" : "Матеріал автора"}</div>
@@ -253,7 +255,7 @@ export default function FeedCard({
 
           {/* summary, like LinkedIn: reactions on the left, comments on the right */}
           {(total > 0 || post.stats.commentCount > 0) && (
-            <div className="mt-3 flex max-w-[680px] items-center gap-2 pb-2 text-[13px] text-black/50">
+            <div className="mt-3 flex items-center gap-2 pb-2 text-[13px] text-black/50">
               {total > 0 && (
                 <span className="flex items-center gap-1.5">
                   <span className="flex -space-x-1.5">
@@ -275,7 +277,7 @@ export default function FeedCard({
           )}
 
           {/* actions */}
-          <div className="-ml-2.5 flex max-w-[690px] items-center gap-1 border-t border-[#f1eefb] pt-1.5">
+          <div className="-ml-2.5 flex items-center gap-1 border-t border-[#f1eefb] pt-1.5">
             <div
               ref={pickerRef}
               className="relative"
@@ -337,7 +339,7 @@ export default function FeedCard({
           {error && <p role="status" className="mt-1 text-[13px] text-rose-600">{error}</p>}
 
           {commentsOpen && (
-            <div className="mt-2 max-w-[680px] rounded-2xl bg-[#fbfaff] px-4 py-4 ring-1 ring-[#f1eefb]">
+            <div className="mt-2 rounded-2xl bg-[#fbfaff] px-4 py-4 ring-1 ring-[#f1eefb]">
               {amaOpen && <p className="mb-2 text-[13px] text-[#7c3aed]">Питання приймаються до {new Date(post.amaUntil!).toLocaleDateString("uk-UA", { day: "numeric", month: "long" })}. Автор відповідає й закріплює найкращі відповіді зверху.</p>}
               {demo
                 ? <p className="text-[13px] text-[#4a2fd0]">Демо: коментарі з’являться у справжніх публікаціях.</p>

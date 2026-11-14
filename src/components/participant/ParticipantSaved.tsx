@@ -43,6 +43,7 @@ import type { GuideBlockTarget } from "../../data/guideContent";
 import { getSavedVersion, subscribeSaved } from "../../utils/savedSignal";
 import { SAVED_SORT_OPTIONS, matchesSearch, sortSaved, type SavedSortMode } from "../../utils/savedLibrary";
 
+import SavedPosts from "../feed/SavedPosts";
 type Props = {
   onNavigate?: (key: "learning") => void;
   // Opens the program's real Lesson Player deep-linked straight to the
@@ -497,6 +498,7 @@ export default function ParticipantSaved({
           вирішили залишити собі. Те, чого ще немає у вашому кабінеті, лежить окремо у вкладці «Не придбані».
         </p>
       </div>
+      <SavedPosts />
 
       {loadError && items.length === 0 ? (
         <div className="max-w-xl rounded-2xl bg-white border border-black/5 p-8 sm:p-10 text-center">

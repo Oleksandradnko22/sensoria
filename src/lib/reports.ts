@@ -48,7 +48,7 @@ export async function submitReport(params: {
     reason: params.reason,
     details: params.details?.trim() || null,
   });
-  if (error) throw error;
+  if (error && (error as { code?: string }).code !== "23505") throw error; // already reported by this person: still «sent»
 }
 
 export type MyReport = {
@@ -59,6 +59,10 @@ export type MyReport = {
   details: string | null;
   status: "open" | "reviewed";
   createdAt: string;
+  // what was reported («Повідомлення», «Матеріал», «Публікація»…), the reason in words, and whether it can be withdrawn
+  kind?: string;
+  reasonLabel?: string;
+  deletable?: boolean;
 };
 
 // "Мої скарги" in ParticipantReviews.tsx — everything this person has
@@ -89,7 +93,7 @@ export async function fetchMyReports(reporterId: string): Promise<MyReport[]> {
   const nameById = new Map((profileRows ?? []).map((p) => [p.id, p.name]));
   const titleById = new Map((contentRows ?? []).map((c) => [c.id, c.title]));
 
-  return rows.map((r) => ({
+  const messages: MyReport[] = rows.map((r) => ({
     id: r.id,
     reportedName: nameById.get(r.reported_id) ?? "Учасник Sensoria",
     contentTitle: r.content_id ? titleById.get(r.content_id) ?? null : null,
@@ -97,7 +101,52 @@ export async function fetchMyReports(reporterId: string): Promise<MyReport[]> {
     details: r.details,
     status: r.status as "open" | "reviewed",
     createdAt: r.created_at,
+    kind: "Повідомлення",
+    reasonLabel: REPORT_REASON_LABELS[r.reason as ReportReason],
+    deletable: true,
   }));
+
+  // the other kinds of reports this person filed (materials, posts, authors, reviews, comments); a table the
+  // person can't read yet (an older database) is simply skipped
+  const other = await Promise.all([
+    client.from("content_reports").select("id, content_title, reason, details, status, created_at").eq("reporter_id", reporterId)
+      .then(({ data }) => (data ?? []).map((r) => ({ ...base(r), kind: "Матеріал", reportedName: (r.content_title as string) ?? "Матеріал" }))),
+    client.from("entity_reports").select("id, target_type, target_label, reason, details, status, created_at").eq("reporter_id", reporterId)
+      .then(({ data }) => (data ?? []).map((r) => ({ ...base(r), kind: ({ post: "Публікація", author: "Автор", review: "Відгук" } as Record<string, string>)[r.target_type as string] ?? "Скарга", reportedName: (r.target_label as string) ?? "" }))),
+    client.from("author_post_comment_reports").select("id, reason, status, created_at").eq("reporter_id", reporterId)
+      .then(({ data }) => (data ?? []).map((r) => ({ ...base(r), kind: "Коментар у «Спільноті»", reportedName: "Коментар" }))),
+    client.from("content_comment_reports").select("id, reason, status, created_at").eq("reporter_id", reporterId)
+      .then(({ data }) => (data ?? []).map((r) => ({ ...base(r), kind: "Коментар до уроку", reportedName: "Коментар" }))),
+  ].map((p) => Promise.resolve(p).catch(() => [] as MyReport[])));
+  return [...messages, ...other.flat()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+// one shape for every kind of report
+const ANY_REASON: Record<string, string> = {
+  inappropriate_content: "Неприйнятний контент",
+  requests_contact_info: "Просить особисті контакти",
+  offers_off_platform_payment: "Пропонує оплату поза Sensoria",
+  inappropriate_behavior: "Некоректна поведінка",
+  incorrect_claims: "Недостовірні твердження",
+  harassment: "Образи чи цькування",
+  spam_or_ads: "Спам або реклама",
+  misleading: "Вводить в оману",
+  impersonation: "Видає себе за іншу людину",
+  other: "Інше",
+};
+function base(r: Record<string, unknown>): MyReport {
+  const reason = String(r.reason ?? "other");
+  return {
+    id: String(r.id),
+    reportedName: "",
+    contentTitle: null,
+    reason: (reason in REPORT_REASON_LABELS ? reason : "other") as ReportReason,
+    details: (r.details as string | null) ?? null,
+    status: (r.status as "open" | "reviewed") ?? "open",
+    createdAt: String(r.created_at),
+    reasonLabel: ANY_REASON[reason] ?? "Інше",
+    deletable: false,
+  };
 }
 
 // Withdrawing a report you filed — only while it's still "open".

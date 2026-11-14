@@ -48,7 +48,7 @@ function ReportDetails({ report, onClose }: { report: MyReport; onClose: () => v
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h3 id="report-title" className="text-[16px] font-semibold text-black/90">{REPORT_REASON_LABELS[report.reason]}</h3>
+            <h3 id="report-title" className="text-[16px] font-semibold text-black/90">{report.reasonLabel ?? REPORT_REASON_LABELS[report.reason]}</h3>
             <div className="text-[14px] text-black/60 mt-0.5">
               {[report.reportedName, report.contentTitle].filter(Boolean).join(" · ")}
             </div>
@@ -220,9 +220,9 @@ export default function ParticipantReports({ active = true }: { active?: boolean
                     </span>
                     <div className="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-start gap-x-4 gap-y-2">
                       <div className="min-w-0 flex-1">
-                        <h2 className="text-[16px] font-semibold text-black/90">{REPORT_REASON_LABELS[r.reason]}</h2>
+                        <h2 className="text-[16px] font-semibold text-black/90">{r.reasonLabel ?? REPORT_REASON_LABELS[r.reason]}</h2>
                         <div className="text-[14px] text-black/60 break-words">
-                          {[r.reportedName, r.contentTitle].filter(Boolean).join(" · ")}
+                          {[r.kind, r.reportedName, r.contentTitle].filter(Boolean).join(" · ")}
                         </div>
                         {r.details && <p className="text-[14px] text-black/75 mt-1.5 line-clamp-2 break-words">{r.details}</p>}
                         <div className="text-[12px] text-black/60 mt-1.5">{formatAbsoluteDate(r.createdAt)}</div>
@@ -235,7 +235,7 @@ export default function ParticipantReports({ active = true }: { active?: boolean
                           <button onClick={() => setDetails(r)} className="min-h-[44px] px-2 text-[14px] font-medium text-[#4338ca] hover:underline underline-offset-4">
                             Деталі
                           </button>
-                          {r.status === "open" && (
+                          {r.status === "open" && r.deletable !== false && (
                             <div className="relative" data-report-menu>
                               <button
                                 onClick={() => setMenuId(menuId === r.id ? null : r.id)}

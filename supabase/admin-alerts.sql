@@ -156,3 +156,45 @@ begin
 end $$;
 
 notify pgrst, 'reload schema';
+
+-- ── reports: one open report per person per thing, at most 20 reports a day (so nobody floods moderation or the
+-- admin's mailbox). The app treats «already reported» as sent.
+do $$
+begin
+  if to_regclass('public.content_reports') is not null then
+    execute 'create unique index if not exists content_reports_one_open_per_reporter on public.content_reports (reporter_id, content_item_id) where status = ''open''';
+  end if;
+  if to_regclass('public.message_reports') is not null and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'message_reports' and column_name = 'reported_id') then
+    execute 'create unique index if not exists message_reports_one_open_per_reporter on public.message_reports (reporter_id, reported_id) where status = ''open''';
+  end if;
+exception when others then
+  null; -- old duplicates in the data: the daily limit below still protects
+end $$;
+
+create or replace function public.report_rate_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n int;
+begin
+  execute format('select count(*) from public.%I where reporter_id = $1 and created_at > now() - interval ''24 hours''', tg_table_name) into n using new.reporter_id;
+  if n >= 20 then
+    raise exception 'Забагато скарг за добу. Спробуйте завтра.' using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['entity_reports', 'content_reports', 'message_reports', 'author_post_comment_reports', 'content_comment_reports'] loop
+    if to_regclass('public.' || t) is not null then
+      execute format('drop trigger if exists report_rate_limit on public.%I', t);
+      execute format('create trigger report_rate_limit before insert on public.%I for each row execute function public.report_rate_limit()', t);
+    end if;
+  end loop;
+end $$;

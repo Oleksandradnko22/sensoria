@@ -117,5 +117,5 @@ export async function reportComment(params: {
     reporter_id: params.reporterId,
     reason: params.reason,
   });
-  if (error) throw error;
+  if (error && (error as { code?: string }).code !== "23505") throw error;
 }

@@ -566,7 +566,7 @@ export async function reportPostComment(params: { commentId: string; reporterId:
     reporter_id: params.reporterId,
     reason: params.reason,
   });
-  if (error) fail(error);
+  if (error && (error as { code?: string }).code !== "23505") fail(error);
 }
 
 // Uploads photos to the shared `content-files` bucket under the author's

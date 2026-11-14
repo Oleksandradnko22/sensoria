@@ -370,6 +370,9 @@ export type MyReportDemo = {
   details: string | null;
   status: "open" | "reviewed";
   createdAt: string;
+  kind?: string;
+  reasonLabel?: string;
+  deletable?: boolean;
 };
 
 export const myReportsDemo: MyReportDemo[] = [

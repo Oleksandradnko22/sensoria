@@ -51,5 +51,5 @@ export async function submitContentReport(params: {
     reason: params.reason,
     details: params.details?.trim() || null,
   });
-  if (error) throw error;
+  if (error && (error as { code?: string }).code !== "23505") throw error; // already reported by this person: still «sent»
 }

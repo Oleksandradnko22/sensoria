@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { LEGAL, type LegalKey } from "../../data/legalOperator";
 
+import BrandSelect from "../ui/BrandSelect";
 export type LegalSection = {
   id: string;
   title: string;
@@ -84,7 +85,7 @@ export default function LegalLayout({ title, lead, metaTitle, metaDescription, s
       <div className="mt-8 sm:mt-12 grid lg:grid-cols-[260px_1fr] gap-6 lg:gap-10 items-start">
         <div className="lg:hidden">
           <label htmlFor="legal-section" className="sr-only">Розділ</label>
-          <select
+          <BrandSelect
             id="legal-section"
             value={active}
             onChange={(e) => select(Number(e.target.value))}
@@ -95,7 +96,7 @@ export default function LegalLayout({ title, lead, metaTitle, metaDescription, s
                 {i + 1}. {s.title}
               </option>
             ))}
-          </select>
+          </BrandSelect>
         </div>
 
         <nav aria-label="Зміст" className="hidden lg:block sticky top-6 rounded-2xl bg-white/10 border border-white/20 p-4 max-h-[calc(100vh-3rem)] overflow-y-auto">

@@ -57,7 +57,7 @@ async function fetchAndDecode(url: string, audioCtx: BaseAudioContext): Promise<
     return await audioCtx.decodeAudioData(arrayBuffer.slice(0));
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
-      throw new Error(`Перевищено час очікування завантаження: ${url}`);
+      throw new Error(`Перевищено час очікування завантаження: ${url}`, { cause: err });
     }
     throw err;
   } finally {

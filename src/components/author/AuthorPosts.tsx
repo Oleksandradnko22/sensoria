@@ -35,6 +35,7 @@ import {
 } from "../../utils/authorPosts";
 import { AUTHOR_KIND_LABEL, formatReviewDate, groupAuthorContent, type AuthorContentItem } from "../../utils/authorProfileView";
 
+import BrandSelect from "../ui/BrandSelect";
 // `share` = someone else's Sensoria material (catalog guide / meditation),
 // shown on the profile as "Поділився матеріалом"; own = "Рекомендований".
 type Attach = { kind: PostContentKind; id: string; share: boolean } | null;
@@ -212,7 +213,7 @@ function Composer({
 
       <label className="block mt-4">
         <span className="text-[13px] font-medium text-black/55">Матеріал Sensoria</span>
-        <select
+        <BrandSelect
           value={keyOf(attach)}
           onChange={(e) => setAttach(parseKey(e.target.value))}
           className="mt-1.5 w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-[14px] focus:outline-none focus:border-black/30"
@@ -237,7 +238,7 @@ function Composer({
               ))}
             </optgroup>
           )}
-        </select>
+        </BrandSelect>
         {content.length === 0 && (
           <span className="block text-[12px] text-black/40 mt-1.5">
             Тут з’являться ваші опубліковані програми, гайди та медитації.

@@ -11,6 +11,7 @@ import {
 } from "../../lib/supportTickets";
 import { formatAbsoluteDate } from "../../utils/relativeTime";
 
+import BrandSelect from "../ui/BrandSelect";
 const TICKET_CATEGORIES = Object.keys(TICKET_CATEGORY_LABELS) as TicketCategory[];
 
 // "Швидко знайти відповідь" — the most common reasons an author
@@ -274,7 +275,7 @@ export default function AuthorHelp() {
               ) : (
                 <>
                   <div className="text-[12px] text-black/40 mb-1.5">Що сталося?</div>
-                  <select
+                  <BrandSelect
                     value={reportCategory}
                     onChange={(e) => setReportCategory(e.target.value as TicketCategory)}
                     className="w-full mb-3 px-3 py-2.5 rounded-xl border border-black/10 text-[13px] focus:outline-none focus:border-black/30"
@@ -284,7 +285,7 @@ export default function AuthorHelp() {
                         {TICKET_CATEGORY_LABELS[c]}
                       </option>
                     ))}
-                  </select>
+                  </BrandSelect>
                   <textarea
                     value={reportDescription}
                     onChange={(e) => setReportDescription(e.target.value)}

@@ -32,6 +32,10 @@ export const SPECIALIST_WARNING_TOPICS: readonly string[] = [
 // the same themes typed as own text
 const SPECIALIST_WORDS = /(горе|втрат|смерт|помер|насильств|згвалтув|травм|суїцид|самогуб|самоушкодж|залежн|наркот|алкогол|війн|військ|булімі|анорекс)/i;
 
+// themes only a «Фахівець» may write about in posts and polls (mirrors supabase/feeds.sql feed_text_specialist)
+export const SPECIALIST_TEXT_RE = /(птср|посттравм|травм|суїцид|самогуб|самоушкодж|розлад[иуіав]* харчов|булімі|анорекс|залежн|наркот|алкогол|діагноз|лікуванн|медикамент|антидепрес|психотерапі|насильств|згвалтув|втрат[аиуі] (близьк|рідн|дитин)|горе(?![а-яіїєґ])|смерт|помер|війн|бойов)/i;
+export const SPECIALIST_ONLY_MESSAGE = "Ця тема доступна лише авторам зі статусом «Фахівець». Надішліть документи про освіту в розділі «Модерація» або оберіть іншу тему.";
+
 export const isSpecialistWarningTopic = (topic: string): boolean => SPECIALIST_WARNING_TOPICS.includes(topic);
 
 /** True when a lesson warning may be used only by a «Фахівець»: a specialist topic, a topic no longer offered

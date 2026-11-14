@@ -67,7 +67,7 @@ const NAV: { key: SectionKey; label: string; icon: IconName }[] = [
   { key: "analytics", label: "Аналітика", icon: "chart" },
   { key: "reviews", label: "Відгуки", icon: "star" },
   { key: "messages", label: "Повідомлення", icon: "mail" },
-  { key: "posts", label: "Публікації", icon: "note" },
+  { key: "posts", label: "Спільнота", icon: "note" },
   { key: "promotion", label: "Просування", icon: "megaphone" },
   { key: "profile", label: "Профіль", icon: "idcard" },
   { key: "moderation", label: "Модерація", icon: "shield" },

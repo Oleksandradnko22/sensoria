@@ -298,3 +298,19 @@ body {
   border-color: #f43f5e !important;
   box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.16) !important;
 }
+
+/* the heart of a like pops once */
+@keyframes pop { 0% { transform: scale(1); } 45% { transform: scale(1.28); } 100% { transform: scale(1); } }
+
+/* Any native <select> left (the app uses BrandSelect): our field instead of the grey system gradient. */
+:where(select) {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236d5bd0' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+/* the reactions bar rises above «Підтримую», like LinkedIn */
+@keyframes pickerIn { from { opacity: 0; transform: translateY(6px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }

@@ -102,7 +102,7 @@ export const FEED_PAGE_SIZE = 8;
 // programs — one query for all of them.
 async function resolveAttachments(rows: PostRow[]): Promise<Map<string, PostAttachment | null>> {
   const programIds = Array.from(
-    new Set(rows.filter((r) => r.content_kind === "program" && r.content_id && isUuid(r.content_id)).map((r) => r.content_id!))
+    new Set(rows.filter((r) => r.content_kind && r.content_id && isUuid(r.content_id)).map((r) => r.content_id!))
   );
   const titleById = new Map<string, string>();
   if (programIds.length) {
@@ -112,7 +112,10 @@ async function resolveAttachments(rows: PostRow[]): Promise<Map<string, PostAtta
   const out = new Map<string, PostAttachment | null>();
   rows.forEach((r) => {
     let found: { title: string; detail?: string } | null = null;
-    if (r.content_kind === "guide") {
+    const fromDb = r.content_id ? titleById.get(r.content_id) : undefined;
+    if (fromDb) {
+      found = { title: fromDb };
+    } else if (r.content_kind === "guide") {
       const g = guides.find((x) => x.id === r.content_id);
       if (g) found = { title: g.title };
     } else if (r.content_kind === "meditation") {
@@ -227,49 +230,76 @@ export async function fetchMyPosts(authorId: string, limit = 50): Promise<Author
 
 // ── feeds («Для всіх» / «Для учасників» / «Для авторів» / «Мої») ─────────────────────────────────────────────
 export type FeedAudience = "all" | "participants" | "authors";
-export type FeedKind = FeedAudience | "mine";
-export const FEED_LABEL: Record<FeedKind, string> = { all: "Для всіх", participants: "Для учасників", authors: "Для авторів", mine: "Мої" };
-export type FeedPost = AuthorPost & { hiddenAt?: string | null; audience: FeedAudience; authorName: string; authorAvatarUrl: string | null; authorIsAuthor: boolean };
+export type FeedKind = FeedAudience | "mine" | "saved";
+export const FEED_LABEL: Record<FeedKind, string> = { all: "Для всіх", participants: "Для учасників", authors: "Для авторів", mine: "Мої", saved: "Збережені" };
+export type ReactionKind = "support" | "resonates" | "thanks" | "inspires";
+export type FeedPoll = { question: string; options: string[] };
+export type FeedPost = AuthorPost & {
+  hiddenAt?: string | null; audience: FeedAudience; authorName: string; authorAvatarUrl: string | null; authorIsAuthor: boolean;
+  reactions?: Partial<Record<ReactionKind, number>>; myReaction?: ReactionKind | null; saved?: boolean;
+  poll?: FeedPoll | null; pollCounts?: number[] | null; myVote?: number | null;
+  mentions?: { id: string; name: string }[]; amaUntil?: string | null; sensitiveTopic?: string | null;
+  feature?: { requested: boolean; consented: boolean } | null;
+};
 export const FEED_PAGE = 15;
 
-type FeedRow = PostRow & { hidden_at?: string | null; audience: FeedAudience; author_name: string; author_avatar: string | null; author_role: string | null; like_count: number; comment_count: number; liked: boolean };
+type FeedRow = PostRow & {
+  hidden_at?: string | null; audience: FeedAudience; author_name: string; author_avatar: string | null; author_role: string | null;
+  like_count: number; comment_count: number; liked: boolean;
+  reactions?: Partial<Record<ReactionKind, number>>; my_reaction?: ReactionKind | null; saved?: boolean;
+  poll?: FeedPoll | null; poll_counts?: number[] | null; my_vote?: number | null;
+  mentions?: { id: string; name: string }[]; ama_until?: string | null; sensitive_topic?: string | null;
+  feature?: { requested: boolean; consented: boolean } | null;
+};
+
+/** Rows from the feed functions (feed_item) → posts for the screen. */
+export async function toFeedPosts(rows: FeedRow[]): Promise<FeedPost[]> {
+  const attachments = await resolveAttachments(rows);
+  return rows.map((r) => ({
+    id: r.id,
+    authorId: r.author_id,
+    body: r.body,
+    contentId: r.content_id,
+    contentKind: r.content_kind,
+    isPinned: r.is_pinned,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    attachment: attachments.get(r.id) ?? null,
+    images: (r.images ?? []).filter(ownImage),
+    video: parseVideoUrl(r.video_url),
+    isShare: !!r.is_share,
+    imageAlt: r.image_alt ?? "",
+    stats: { likeCount: r.like_count ?? 0, commentCount: r.comment_count ?? 0, liked: !!r.liked },
+    hiddenAt: r.hidden_at ?? null,
+    audience: r.audience ?? "all",
+    authorName: r.author_name,
+    authorAvatarUrl: r.author_avatar,
+    authorIsAuthor: r.author_role === "author" || r.author_role === "admin",
+    reactions: r.reactions ?? {},
+    myReaction: r.my_reaction ?? null,
+    saved: !!r.saved,
+    poll: r.poll ?? null,
+    pollCounts: r.poll_counts ?? null,
+    myVote: r.my_vote ?? null,
+    mentions: r.mentions ?? [],
+    amaUntil: r.ama_until ?? null,
+    sensitiveTopic: r.sensitive_topic ?? null,
+    feature: r.feature ?? null,
+  }));
+}
+export type { FeedRow };
 
 // One page of a feed, built in the database (feed_page): the posts, their authors, counters and «liked by me».
 // sort «new»: newest first, the next page after `before`; sort «top» («Рекомендовані»): ranked for this person (feed_top),
 // the next page by `offset`.
 export type FeedSort = "top" | "new";
 export async function fetchFeed(feed: FeedKind, before: string | null = null, sort: FeedSort = "new", offset = 0): Promise<{ posts: FeedPost[]; hasMore: boolean }> {
-  const { data, error } = sort === "top" && feed !== "mine"
+  const { data, error } = sort === "top" && feed !== "mine" && feed !== "saved"
     ? await client().rpc("feed_top", { p_feed: feed, p_offset: offset, p_limit: FEED_PAGE })
     : await client().rpc("feed_page", { p_feed: feed, p_before: before, p_limit: FEED_PAGE });
   if (error) fail(error);
   const page = (data ?? { items: [], has_more: false }) as { items: FeedRow[]; has_more: boolean };
-  const rows = page.items ?? [];
-  const attachments = await resolveAttachments(rows);
-  return {
-    hasMore: !!page.has_more,
-    posts: rows.map((r) => ({
-      id: r.id,
-      authorId: r.author_id,
-      body: r.body,
-      contentId: r.content_id,
-      contentKind: r.content_kind,
-      isPinned: r.is_pinned,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at,
-      attachment: attachments.get(r.id) ?? null,
-      images: (r.images ?? []).filter(ownImage),
-      video: parseVideoUrl(r.video_url),
-      isShare: !!r.is_share,
-      imageAlt: r.image_alt ?? "",
-      stats: { likeCount: r.like_count ?? 0, commentCount: r.comment_count ?? 0, liked: !!r.liked },
-      hiddenAt: r.hidden_at ?? null,
-      audience: r.audience ?? "all",
-      authorName: r.author_name,
-      authorAvatarUrl: r.author_avatar,
-      authorIsAuthor: r.author_role === "author" || r.author_role === "admin",
-    })),
-  };
+  return { hasMore: !!page.has_more, posts: await toFeedPosts(page.items ?? []) };
 }
 
 // Demo feeds: real authors of the platform (published profiles), so a demo post's author opens a real author page.
@@ -415,6 +445,8 @@ export type PostComment = {
   updatedAt: string | null;
   // Derived (comment.user_id === post.author_id), never stored.
   isAuthor: boolean;
+  // «Питання до автора»: the post's author pinned this one on top
+  isPinned?: boolean;
 };
 
 type CommentRow = {
@@ -427,7 +459,7 @@ type CommentRow = {
   updated_at: string | null;
 };
 
-const COMMENT_COLUMNS = "id, post_id, user_id, parent_id, body, created_at, updated_at";
+const COMMENT_COLUMNS = "id, post_id, user_id, parent_id, body, created_at, updated_at, is_pinned";
 
 export async function fetchPostComments(postId: string, postAuthorId: string): Promise<PostComment[]> {
   if (isAuthorPreview()) return previewComments(postId, postAuthorId);
@@ -457,6 +489,7 @@ export async function fetchPostComments(postId: string, postAuthorId: string): P
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     isAuthor: r.user_id === postAuthorId,
+    isPinned: !!(r as { is_pinned?: boolean }).is_pinned,
   }));
 }
 

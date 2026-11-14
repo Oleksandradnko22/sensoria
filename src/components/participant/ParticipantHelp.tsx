@@ -19,6 +19,7 @@ import { searchFaq } from "../../utils/helpSearch";
 import { friendlyAuthError } from "../../utils/authErrors";
 import HelpIllustration from "./HelpIllustration";
 
+import BrandSelect from "../ui/BrandSelect";
 const TICKET_CATEGORIES = Object.keys(TICKET_CATEGORY_LABELS) as TicketCategory[];
 const TICKET_MAX = 2000;
 
@@ -316,13 +317,13 @@ export default function ParticipantHelp() {
                 >
                   <div>
                     <label htmlFor="ticket-category" className="block text-[14px] font-medium text-black/70 mb-1.5">Тема</label>
-                    <select id="ticket-category" value={reportCategory} onChange={(e) => setReportCategory(e.target.value as TicketCategory)} className={field}>
+                    <BrandSelect id="ticket-category" value={reportCategory} onChange={(e) => setReportCategory(e.target.value as TicketCategory)} className={field}>
                       {TICKET_CATEGORIES.map((c) => (
                         <option key={c} value={c}>
                           {TICKET_CATEGORY_LABELS[c]}
                         </option>
                       ))}
-                    </select>
+                    </BrandSelect>
                   </div>
                   <div>
                     <label htmlFor="ticket-text" className="block text-[14px] font-medium text-black/70 mb-1.5">

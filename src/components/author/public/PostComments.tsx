@@ -16,6 +16,8 @@ import {
 } from "../../../lib/authorPosts";
 import { COMMENT_MAX, checkPublicText, threadComments } from "../../../utils/authorPosts";
 import { formatRelativeTime } from "../../../utils/relativeTime";
+import { CRISIS_RE, pinComment } from "../../../lib/feed";
+import CrisisHelp from "../../feed/CrisisHelp";
 import { DeleteCommentDialog, ReportCommentDialog } from "../../participant/ProgramLessonDialogs";
 
 const REPORT_REASONS = [
@@ -51,8 +53,21 @@ export default function PostComments({ postId, postAuthorId, viewer, onRequireLo
   useEffect(load, [postId]);
 
   const isPostAuthor = !!viewer && viewer.id === postAuthorId;
-  const canWrite = !!viewer && (viewer.role === "participant" || isPostAuthor);
-  const threads = useMemo(() => threadComments(comments), [comments]);
+  const canWrite = !!viewer;
+  const [crisisOpen, setCrisisOpen] = useState(false);
+  // pinned answers («Питання до автора») go first
+  const threads = useMemo(() => {
+    const t = threadComments(comments);
+    return [...t.filter((x) => x.comment.isPinned), ...t.filter((x) => !x.comment.isPinned)];
+  }, [comments]);
+  const togglePin = async (c: PostComment) => {
+    try {
+      await pinComment(c.id, !c.isPinned);
+      setComments((list) => list.map((x) => (x.id === c.id ? { ...x, isPinned: !c.isPinned } : x)));
+    } catch {
+      /* stays as it was */
+    }
+  };
   const [shown, setShown] = useState(20);
 
   const [draft, setDraft] = useState("");
@@ -85,6 +100,11 @@ export default function PostComments({ postId, postAuthorId, viewer, onRequireLo
     const check = checkPublicText(text, COMMENT_MAX);
     if (!check.ok) {
       setNotice(check.message);
+      return false;
+    }
+    // crisis words: where to get help right now (the server would not publish such a comment anyway)
+    if (viewer.role === "participant" && CRISIS_RE.test(text)) {
+      setCrisisOpen(true);
       return false;
     }
     setNotice(null);
@@ -258,6 +278,12 @@ export default function PostComments({ postId, postAuthorId, viewer, onRequireLo
             <p className="text-[14px] leading-relaxed text-black/70 mt-1 whitespace-pre-line break-words">{c.body}</p>
           )}
 
+          {c.isPinned && <span className="mr-2 mt-1.5 inline-flex items-center gap-1 rounded-full bg-[#eef0fd] px-2 py-0.5 text-[11px] font-semibold text-[#4338ca]">Закріплено автором</span>}
+          {isPostAuthor && !c.parentId && !c.id.startsWith("local-") && (
+            <button type="button" onClick={() => void togglePin(c)} className="mr-3 mt-1.5 text-[12px] font-medium text-black/50 hover:text-[#4338ca]">
+              {c.isPinned ? "Відкріпити" : "Закріпити зверху"}
+            </button>
+          )}
           {canReply && replyTo !== c.id && (
             <button
               onClick={() => {
@@ -316,6 +342,7 @@ export default function PostComments({ postId, postAuthorId, viewer, onRequireLo
 
   return (
     <div className="mt-4 pt-4 border-t border-black/[0.06]">
+      {crisisOpen && <CrisisHelp onBack={() => setCrisisOpen(false)} />}
       {state === "loading" && (
         <div className="animate-pulse flex flex-col gap-3" aria-busy="true">
           <div className="h-3 w-1/3 rounded bg-black/[0.06]" />

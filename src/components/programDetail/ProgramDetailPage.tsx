@@ -19,6 +19,7 @@ import { HERO_VISUALS, heroVisualForTags } from "../../utils/heroVisual";
 import HeroArt from "./HeroArt";
 import ProgramCurriculum, { buildDisplayModules, programStats, type Learning } from "./ProgramCurriculum";
 import ProgramReviewsPanel from "./ProgramReviewsPanel";
+import MaterialStories from "../feed/MaterialStories";
 import { useProgramDetailData } from "./useProgramDetailData";
 import { DEMO_BENEFITS, demoLearning, devHeroArt, isDevDemo } from "../../utils/devPreview";
 
@@ -355,6 +356,7 @@ function Detail({ program: loadedProgram, session, onBackToCatalog, onRequireLog
 
           {active === "reviews" && (
           <section role="tabpanel" id="pd-panel-reviews" aria-labelledby="pd-tab-reviews" className={CARD}>
+            <MaterialStories contentId={program.id} slug={(program as { slug?: string | null }).slug ?? null} />
             <ProgramReviewsPanel
               programId={program.id}
               authorId={program.authorId}

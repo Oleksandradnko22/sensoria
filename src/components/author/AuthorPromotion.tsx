@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSession } from "../../context/SessionContext";
 import { buildReferralLink } from "../../utils/referral";
+import BrandSelect from "../ui/BrandSelect";
 import {
   authoredContent,
   promoCodes as promoCodesData,
@@ -164,7 +165,7 @@ export default function AuthorPromotion() {
           </div>
           <div>
             <div className="text-[12px] text-black/45 mb-1.5">Діє на</div>
-            <select
+            <BrandSelect
               value={newTarget}
               onChange={(e) => setNewTarget(e.target.value)}
               disabled={atLimit}
@@ -176,11 +177,11 @@ export default function AuthorPromotion() {
                   {c.title}
                 </option>
               ))}
-            </select>
+            </BrandSelect>
           </div>
           <div>
             <div className="text-[12px] text-black/45 mb-1.5">Причина</div>
-            <select
+            <BrandSelect
               value={newReason}
               onChange={(e) =>
                 setNewReason(e.target.value as (typeof PROMO_REASONS)[number])
@@ -193,7 +194,7 @@ export default function AuthorPromotion() {
                   {r}
                 </option>
               ))}
-            </select>
+            </BrandSelect>
           </div>
           <button
             onClick={createCode}

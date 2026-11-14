@@ -305,7 +305,8 @@ export default function AuthorStoryEditor({ authorId, name, initials, avatarUrl,
         /* ignore */
       }
     } catch (e) {
-      setErrors([e instanceof Error ? e.message : "Не вдалося зберегти."]);
+      const m = (e as { message?: string } | null)?.message ?? "";
+      setErrors([/^Посилання/.test(m) ? m : e instanceof Error ? e.message : "Не вдалося зберегти."]);
     } finally {
       setSaving(false);
     }

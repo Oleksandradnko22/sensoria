@@ -21,8 +21,14 @@ export type TextCheck = { ok: true } | { ok: false; message: string };
 // Public text (posts, comments) goes through the SAME contact filter that
 // private messages use (utils/contactFilter.ts) — no second filter. WARN
 // is allowed, like in lesson comments; only BLOCK stops the text.
+/** Mentions are written «@[Ім'я Прізвище]» in the text. */
+export const MENTION_RE = /@\[([^\]\n]{1,60})\]/g;
+/** Links and contacts in any form (the server checks the same: supabase/feeds.sql feed_text_has_contacts). */
+export const LINK_RE = /(https?:|www\.|t\.me|@(?!\[)[a-z0-9_.]{2,}|[a-z0-9-]{2,}\.(com|net|org|ua|ru|io|me|ly|link|site|online|shop|store|info|biz|pro|app|page|xyz|top|club|co|tv|by|kz|eu|de|pl|uk|bio|gg|cc|fm|to|ws|in|live|life|space|world|art|blog|tech|school|academy|courses|guru)\b)/i;
+
 export function checkPublicText(text: string, max: number): TextCheck {
-  const t = text.trim();
+  const t = text.trim().replace(MENTION_RE, "$1");
+  if (LINK_RE.test(t)) return { ok: false, message: "Посилання й контакти публікувати не можна: так ми захищаємо учасників від спаму й реклами поза Sensoria." };
   if (!t) return { ok: false, message: "Напишіть текст." };
   if (t.length > max) return { ok: false, message: `Занадто довго: не більше ${max} символів.` };
   const mod = moderateMessage(t);

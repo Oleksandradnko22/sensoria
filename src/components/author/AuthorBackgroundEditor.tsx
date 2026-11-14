@@ -39,6 +39,7 @@ import { CASE_LIMITS, EMPTY_CASE_DETAILS, validateCase, type CaseDetails } from 
 import { categoryLabels } from "../../data/categoryLabels";
 import { fetchAuthorContent } from "../../lib/authorPublic";
 import type { AuthorContentItem } from "../../utils/authorProfileView";
+import BrandSelect from "../ui/BrandSelect";
 import {
   deleteCase,
   saveCase,
@@ -264,11 +265,11 @@ export default function AuthorBackgroundEditor({ authorId }: { authorId: string 
               <div>
 
                 <div className={label}>Тип</div>
-                <select value={cd.kind} onChange={(e) => setCd({ ...cd, kind: e.target.value as CredentialKind })} className={input}>
+                <BrandSelect value={cd.kind} onChange={(e) => setCd({ ...cd, kind: e.target.value as CredentialKind })} className={input}>
                   {(Object.keys(CREDENTIAL_KIND_LABEL) as CredentialKind[]).map((k) => (
                     <option key={k} value={k}>{CREDENTIAL_KIND_LABEL[k]}</option>
                   ))}
-                </select>
+                </BrandSelect>
               </div>
               <div>
 
@@ -281,12 +282,12 @@ export default function AuthorBackgroundEditor({ authorId }: { authorId: string 
               <div>
 
                 <div className={label}>Рівень освіти (покажемо в блоці «Професійний бекграунд»)</div>
-                <select value={cd.degree ?? ""} onChange={(e) => setCd({ ...cd, degree: isDegreeLevel(e.target.value) ? e.target.value : null })} className={input}>
+                <BrandSelect value={cd.degree ?? ""} onChange={(e) => setCd({ ...cd, degree: isDegreeLevel(e.target.value) ? e.target.value : null })} className={input}>
                   <option value="">Не вказувати</option>
                   {(Object.keys(DEGREE_LABEL) as DegreeLevel[]).map((k) => (
                     <option key={k} value={k}>{DEGREE_LABEL[k]}</option>
                   ))}
-                </select>
+                </BrandSelect>
               </div>
             )}
             <div>
@@ -388,12 +389,12 @@ export default function AuthorBackgroundEditor({ authorId }: { authorId: string 
             <div>
 
               <div className={label}>Тема (необов’язково)</div>
-              <select value={kd.details.topic} onChange={(e) => setKd({ ...kd, details: { ...kd.details, topic: e.target.value } })} className={input}>
+              <BrandSelect value={kd.details.topic} onChange={(e) => setKd({ ...kd, details: { ...kd.details, topic: e.target.value } })} className={input}>
                 <option value="">Без теми</option>
                 {Object.entries(categoryLabels).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
                 ))}
-              </select>
+              </BrandSelect>
             </div>
             <div>
 
@@ -452,12 +453,12 @@ export default function AuthorBackgroundEditor({ authorId }: { authorId: string 
             <div>
 
               <div className={label}>Матеріал, який підходить (необов’язково)</div>
-              <select value={kd.link} onChange={(e) => setKd({ ...kd, link: e.target.value })} className={input}>
+              <BrandSelect value={kd.link} onChange={(e) => setKd({ ...kd, link: e.target.value })} className={input}>
                 <option value="">Без матеріалу</option>
                 {myContent.map((c) => (
                   <option key={`${c.kind}:${c.id}`} value={`${c.kind}:${c.id}`}>{c.title}</option>
                 ))}
-              </select>
+              </BrandSelect>
             </div>
             <PublicToggle on={kd.isPublic} onChange={(v) => setKd({ ...kd, isPublic: v })} />
             <div className="flex gap-2">

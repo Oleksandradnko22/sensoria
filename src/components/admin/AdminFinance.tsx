@@ -7,6 +7,7 @@ import { callFinance } from "../../lib/finance";
 import ConfirmDialog from "../author/public/ConfirmDialog";
 import { STATUS_LABEL, TYPE_LABEL, uahFromKop } from "../../utils/financeView";
 
+import BrandSelect from "../ui/BrandSelect";
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 type Overview = {
@@ -338,10 +339,10 @@ export default function AdminFinance() {
               <div className="text-[14px] font-medium mb-2">Зафіксувати погашення боргу</div>
               <div className="flex flex-wrap gap-2 items-center text-[13px]">
                 <input value={repay.amount} onChange={(e) => setRepay({ ...repay, amount: e.target.value.replace(/[^\d.,]/g, "") })} placeholder="Сума, ₴" className="w-32 px-3 py-2 rounded-lg border border-black/10" />
-                <select value={repay.source} onChange={(e) => setRepay({ ...repay, source: e.target.value })} className="px-3 py-2 rounded-lg border border-black/10">
+                <BrandSelect value={repay.source} onChange={(e) => setRepay({ ...repay, source: e.target.value })} className="px-3 py-2 rounded-lg border border-black/10">
                   <option value="cash">Автор переказав кошти</option>
                   <option value="available">Зарахувати з доступного балансу</option>
-                </select>
+                </BrandSelect>
                 <button
                   disabled={!owner || !repay.amount}
                   onClick={() => ask({

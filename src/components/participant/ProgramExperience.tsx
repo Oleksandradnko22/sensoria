@@ -622,38 +622,10 @@ export default function ProgramExperience({
     };
   }, [openItem?.itemId, session?.id]);
 
-  // While a real program is still being fetched, show nothing rather
-  // than flashing the "немає проходження" empty state below only to
-  // replace it a moment later once the real data arrives.
-  if (loadingReal) {
-    return createPortal(
-      <div className="fixed inset-0 z-[9999] bg-[#f6f8ff]" />,
-      document.body
-    );
-  }
-
-  if (!program || !modules || !summary) {
-    // Portaled straight to document.body — see the note on the main
-    // return below for why (an ancestor's page-transition animation can
-    // otherwise hijack position:fixed).
-    return createPortal(
-      <div className="fixed inset-0 z-[9999] bg-[#f6f8ff] flex items-center justify-center p-4">
-        <div className="w-full max-w-[440px] rounded-[24px] bg-white p-8 text-center shadow-[0_20px_80px_rgba(0,0,0,0.1)]">
-          <div className="text-[16px] font-semibold mb-2">Проходження ще недоступне</div>
-          <p className="text-[14px] text-black/50 mb-5">
-            У цієї програми поки немає покрокового проходження — автор ще додає матеріали.
-          </p>
-          <button
-            onClick={onClose}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition"
-          >
-            Закрити
-          </button>
-        </div>
-      </div>,
-      document.body
-    );
-  }
+  // ---- every hook of this screen runs before the early returns below (same order on every render) ----
+  const [keepSelection, setKeepSelection] = useState<Set<string> | null>(null);
+  const [keepCommitting, setKeepCommitting] = useState(false);
+  const [keepJustSaved, setKeepJustSaved] = useState(false);
 
   const openAt = (ref: FlatItemRef) => {
     setOpenItem(ref);
@@ -736,6 +708,178 @@ export default function ProgramExperience({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialItemId, flat]);
 
+  // Freezes the completion report's stats the FIRST moment the program
+  // reaches 100% (see lib/programCompletions.ts) — waits for
+  // completionSnapshotChecked so it never races the fetch effect above
+  // into recording a duplicate, and bails once completionSnapshot is
+  // already set (either fetched, or written by this same effect a
+  // moment ago). Fetches reflections/practice counts/mood average
+  // itself rather than trusting the reflectionsCount/practiceResponsesCount/
+  // moodAverage state above, since those are only kept fresh while view
+  // is "overview"/"completed" — and completion typically happens while
+  // still in "item" view, a render or two before view actually becomes
+  // "completed". investedMinutes, doneModulesCount etc. ARE already
+  // fresh at this exact render (no fetch needed), since they're derived
+  // straight from the progress map that just flipped isCompleted true.
+  useEffect(() => {
+    if (!session?.id || !program || !modules || !summary?.isCompleted || !completionSnapshotChecked || completionSnapshot) return;
+    // the same counts the screen shows (computed here: this runs before the screen's own values exist)
+    const doneModulesCount = modules.reduce((acc, _mod, mi) => acc + (isModuleDone(modules, progress, mi) ? 1 : 0), 0);
+    const totalItemsCount = modules.reduce((acc, mod) => acc + mod.items.length, 0);
+    const doneItemsCount = modules.reduce((acc, mod) => acc + mod.items.filter((it) => isResolved(progress[it.id] ?? "not_started")).length, 0);
+    const investedMinutes = flat.reduce((acc, f) => (progress[f.itemId] !== "completed" ? acc : acc + (itemById.get(f.itemId)?.durationMinutes ?? 0)), 0);
+    const userId = session.id;
+    let cancelled = false;
+    Promise.all([
+      countReflectionsForProgram(programId, userId),
+      countPracticeResponsesForProgram(programId, userId),
+      fetchMoodAverageForProgram(programId, userId),
+      fetchAllReflections(userId),
+    ]).then(([reflections, practices, moodAvg, allReflections]) => {
+      if (cancelled) return;
+      // Two most recent notes FOR THIS PROGRAM, trimmed so the report
+      // stays a short excerpt, not a full copy of "Ваші спостереження".
+      const reflectionExcerpts = allReflections
+        .filter((r) => r.programId === programId)
+        .slice(0, 2)
+        .map((r) => (r.note.length > 240 ? `${r.note.slice(0, 240)}…` : r.note));
+      const modulesSnapshot: ProgramCompletionModuleSnapshot[] = modules.map((mod) => ({
+        title: mod.title,
+        items: mod.items.map((it) => ({
+          title: it.title,
+          status: progress[it.id] ?? "not_started",
+          isRequired: it.isRequired,
+        })),
+      }));
+      recordProgramCompletion({
+        programId,
+        programTitle: program.title,
+        userId,
+        modulesDone: doneModulesCount,
+        modulesTotal: summary.totalModules,
+        itemsDone: doneItemsCount,
+        itemsTotal: totalItemsCount,
+        practicesCount: practices,
+        reflectionsCount: reflections,
+        investedMinutes,
+        moodBeforeAvg: moodAvg?.before ?? null,
+        moodAfterAvg: moodAvg?.after ?? null,
+        reflectionExcerpts,
+        modulesSnapshot,
+      }).then((snap) => {
+        if (!cancelled) setCompletionSnapshot(snap);
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.id, summary?.isCompleted, completionSnapshotChecked, completionSnapshot, programId]);
+
+  // "Повернутися пізніше" — creates a real YouTube IFrame Player (not a
+  // bare <iframe src>) once the person actually taps play, so the
+  // actual playback position can be read/saved (a static src has no
+  // way to know where you are). Resumes at savedVideoPosition if one
+  // exists; polls every 8s while playing and also saves on pause, so a
+  // closed tab loses at most a few seconds of progress. Tears itself
+  // down (stops polling, destroys the player, saves one last time) the
+  // moment videoStarted goes false or the item changes — nothing keeps
+  // running for a lesson that isn't the one currently open.
+  const videoItem = modules?.[openItem?.moduleIndex ?? -1]?.items[openItem?.itemIndex ?? -1];
+  useEffect(() => {
+    const currentItem = videoItem;
+    if (!videoStarted || !currentItem?.videoUrl) return;
+    const videoId = getYouTubeVideoId(currentItem.videoUrl);
+    if (!videoId) return;
+
+    let cancelled = false;
+    const itemId = currentItem.id;
+    const userId = session?.id;
+
+    const persistIfNotFinished = (player: YouTubePlayer) => {
+      if (!userId) return;
+      const position = player.getCurrentTime();
+      const duration = player.getDuration();
+      if (duration > 0 && position / duration > 0.97) {
+        clearVideoPosition(itemId, userId).catch(() => {});
+        return;
+      }
+      saveVideoPosition({ itemId, userId, positionSeconds: position, durationSeconds: duration || null }).catch(() => {});
+    };
+
+    loadYouTubeIframeApi().then((YT) => {
+      if (cancelled) return;
+      const startAt =
+        savedVideoPosition && savedVideoPosition.positionSeconds > 5
+          ? Math.floor(savedVideoPosition.positionSeconds)
+          : 0;
+      const player = new YT.Player("yt-lesson-player", {
+        videoId,
+        playerVars: { autoplay: 1, start: startAt },
+        events: {
+          onStateChange: (event) => {
+            if (event.data === YT.PlayerState.PAUSED) persistIfNotFinished(player);
+            else if (event.data === YT.PlayerState.ENDED && userId) clearVideoPosition(itemId, userId).catch(() => {});
+          },
+        },
+      });
+      youtubePlayerRef.current = player;
+      positionIntervalRef.current = window.setInterval(() => persistIfNotFinished(player), 8000);
+    });
+
+    return () => {
+      cancelled = true;
+      if (positionIntervalRef.current != null) {
+        window.clearInterval(positionIntervalRef.current);
+        positionIntervalRef.current = null;
+      }
+      if (youtubePlayerRef.current) {
+        persistIfNotFinished(youtubePlayerRef.current);
+        youtubePlayerRef.current.destroy();
+        youtubePlayerRef.current = null;
+      }
+    };
+    // savedVideoPosition intentionally excluded — it's only meant to
+    // seed the initial `start=`, not restart the player if it changes
+    // later (e.g. from this same effect's own saves).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoStarted, videoItem?.id]);
+
+  // While a real program is still being fetched, show nothing rather
+  // than flashing the "немає проходження" empty state below only to
+  // replace it a moment later once the real data arrives.
+  if (loadingReal) {
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] bg-[#f6f8ff]" />,
+      document.body
+    );
+  }
+
+  if (!program || !modules || !summary) {
+    // Portaled straight to document.body — see the note on the main
+    // return below for why (an ancestor's page-transition animation can
+    // otherwise hijack position:fixed).
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] bg-[#f6f8ff] flex items-center justify-center p-4">
+        <div className="w-full max-w-[440px] rounded-[24px] bg-white p-8 text-center shadow-[0_20px_80px_rgba(0,0,0,0.1)]">
+          <div className="text-[16px] font-semibold mb-2">Проходження ще недоступне</div>
+          <p className="text-[14px] text-black/50 mb-5">
+            У цієї програми поки немає покрокового проходження — автор ще додає матеріали.
+          </p>
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-medium hover:opacity-90 transition"
+          >
+            Закрити
+          </button>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+
+
   // The one shared "what's next" algorithm (lib/contentProgress.ts) —
   // reused here for both the hero CTA and the highlighted "Наступний"
   // row inside the current module below, instead of two separately
@@ -796,68 +940,6 @@ export default function ProgramExperience({
     return acc + (itemById.get(f.itemId)?.durationMinutes ?? 0);
   }, 0);
 
-  // Freezes the completion report's stats the FIRST moment the program
-  // reaches 100% (see lib/programCompletions.ts) — waits for
-  // completionSnapshotChecked so it never races the fetch effect above
-  // into recording a duplicate, and bails once completionSnapshot is
-  // already set (either fetched, or written by this same effect a
-  // moment ago). Fetches reflections/practice counts/mood average
-  // itself rather than trusting the reflectionsCount/practiceResponsesCount/
-  // moodAverage state above, since those are only kept fresh while view
-  // is "overview"/"completed" — and completion typically happens while
-  // still in "item" view, a render or two before view actually becomes
-  // "completed". investedMinutes, doneModulesCount etc. ARE already
-  // fresh at this exact render (no fetch needed), since they're derived
-  // straight from the progress map that just flipped isCompleted true.
-  useEffect(() => {
-    if (!session?.id || !summary.isCompleted || !completionSnapshotChecked || completionSnapshot) return;
-    const userId = session.id;
-    let cancelled = false;
-    Promise.all([
-      countReflectionsForProgram(programId, userId),
-      countPracticeResponsesForProgram(programId, userId),
-      fetchMoodAverageForProgram(programId, userId),
-      fetchAllReflections(userId),
-    ]).then(([reflections, practices, moodAvg, allReflections]) => {
-      if (cancelled) return;
-      // Two most recent notes FOR THIS PROGRAM, trimmed so the report
-      // stays a short excerpt, not a full copy of "Ваші спостереження".
-      const reflectionExcerpts = allReflections
-        .filter((r) => r.programId === programId)
-        .slice(0, 2)
-        .map((r) => (r.note.length > 240 ? `${r.note.slice(0, 240)}…` : r.note));
-      const modulesSnapshot: ProgramCompletionModuleSnapshot[] = modules.map((mod) => ({
-        title: mod.title,
-        items: mod.items.map((it) => ({
-          title: it.title,
-          status: progress[it.id] ?? "not_started",
-          isRequired: it.isRequired,
-        })),
-      }));
-      recordProgramCompletion({
-        programId,
-        programTitle: program.title,
-        userId,
-        modulesDone: doneModulesCount,
-        modulesTotal: summary.totalModules,
-        itemsDone: doneItemsCount,
-        itemsTotal: totalItemsCount,
-        practicesCount: practices,
-        reflectionsCount: reflections,
-        investedMinutes,
-        moodBeforeAvg: moodAvg?.before ?? null,
-        moodAfterAvg: moodAvg?.after ?? null,
-        reflectionExcerpts,
-        modulesSnapshot,
-      }).then((snap) => {
-        if (!cancelled) setCompletionSnapshot(snap);
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id, summary.isCompleted, completionSnapshotChecked, completionSnapshot, programId]);
 
   const completeCurrentItem = () => {
     if (!openItem) return;
@@ -886,72 +968,6 @@ export default function ProgramExperience({
   const currentModule = modules[openItem?.moduleIndex ?? -1];
   const currentItem = currentModule?.items[openItem?.itemIndex ?? -1];
 
-  // "Повернутися пізніше" — creates a real YouTube IFrame Player (not a
-  // bare <iframe src>) once the person actually taps play, so the
-  // actual playback position can be read/saved (a static src has no
-  // way to know where you are). Resumes at savedVideoPosition if one
-  // exists; polls every 8s while playing and also saves on pause, so a
-  // closed tab loses at most a few seconds of progress. Tears itself
-  // down (stops polling, destroys the player, saves one last time) the
-  // moment videoStarted goes false or the item changes — nothing keeps
-  // running for a lesson that isn't the one currently open.
-  useEffect(() => {
-    if (!videoStarted || !currentItem?.videoUrl) return;
-    const videoId = getYouTubeVideoId(currentItem.videoUrl);
-    if (!videoId) return;
-
-    let cancelled = false;
-    const itemId = currentItem.id;
-    const userId = session?.id;
-
-    const persistIfNotFinished = (player: YouTubePlayer) => {
-      if (!userId) return;
-      const position = player.getCurrentTime();
-      const duration = player.getDuration();
-      if (duration > 0 && position / duration > 0.97) {
-        clearVideoPosition(itemId, userId).catch(() => {});
-        return;
-      }
-      saveVideoPosition({ itemId, userId, positionSeconds: position, durationSeconds: duration || null }).catch(() => {});
-    };
-
-    loadYouTubeIframeApi().then((YT) => {
-      if (cancelled) return;
-      const startAt =
-        savedVideoPosition && savedVideoPosition.positionSeconds > 5
-          ? Math.floor(savedVideoPosition.positionSeconds)
-          : 0;
-      const player = new YT.Player("yt-lesson-player", {
-        videoId,
-        playerVars: { autoplay: 1, start: startAt },
-        events: {
-          onStateChange: (event) => {
-            if (event.data === YT.PlayerState.PAUSED) persistIfNotFinished(player);
-            else if (event.data === YT.PlayerState.ENDED && userId) clearVideoPosition(itemId, userId).catch(() => {});
-          },
-        },
-      });
-      youtubePlayerRef.current = player;
-      positionIntervalRef.current = window.setInterval(() => persistIfNotFinished(player), 8000);
-    });
-
-    return () => {
-      cancelled = true;
-      if (positionIntervalRef.current != null) {
-        window.clearInterval(positionIntervalRef.current);
-        positionIntervalRef.current = null;
-      }
-      if (youtubePlayerRef.current) {
-        persistIfNotFinished(youtubePlayerRef.current);
-        youtubePlayerRef.current.destroy();
-        youtubePlayerRef.current = null;
-      }
-    };
-    // savedVideoPosition intentionally excluded — it's only meant to
-    // seed the initial `start=`, not restart the player if it changes
-    // later (e.g. from this same effect's own saves).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoStarted, currentItem?.id]);
 
   // Where the current item sits in the flattened whole-program order —
   // drives the bottom Prev/Next nav row and the "Далі"/"Завершити
@@ -1088,9 +1104,6 @@ export default function ProgramExperience({
   // effectiveKeepSelection below); once set, it's the local draft the
   // checkboxes reflect, independent of savedPracticesById until
   // "Додати в кабінет" is pressed.
-  const [keepSelection, setKeepSelection] = useState<Set<string> | null>(null);
-  const [keepCommitting, setKeepCommitting] = useState(false);
-  const [keepJustSaved, setKeepJustSaved] = useState(false);
   const effectiveKeepSelection = keepSelection ?? new Set(savedPracticesById.keys());
 
   const toggleKeepSelection = (itemId: string) => {

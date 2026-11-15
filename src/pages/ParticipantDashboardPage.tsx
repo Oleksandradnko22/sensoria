@@ -285,7 +285,7 @@ function ParticipantDashboardPageInner({
             >
               <Icon name="mail" size={18} />
               {unreadMessages > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[12px] font-semibold flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#7c5cf0] text-white text-[12px] font-semibold flex items-center justify-center">
                   {unreadMessages}
                 </span>
               )}
@@ -358,7 +358,7 @@ function ParticipantDashboardPageInner({
                         className={`
                           min-w-[20px] h-5 px-1 rounded-full text-[12px] font-semibold
                           flex items-center justify-center
-                          ${isActive ? "bg-[#4338ca] text-white" : "bg-blue-500 text-white"}
+                          ${isActive ? "bg-[#4338ca] text-white" : "bg-[#7c5cf0] text-white"}
                         `}
                       >
                         {unreadMessages}

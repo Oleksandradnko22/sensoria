@@ -156,7 +156,7 @@ function LibraryCard({ item }: { item: LibraryItem }) {
             type="button"
             onClick={() => setExpanded((e) => !e)}
             aria-expanded={expanded}
-            className="inline-flex items-center min-h-[44px] mt-1.5 text-[12px] font-medium text-blue-600 hover:underline"
+            className="inline-flex items-center min-h-[44px] mt-1.5 text-[12px] font-medium text-[#4338ca] hover:underline"
           >
             {expanded ? "Згорнути" : "Показати повністю"}
           </button>
@@ -537,7 +537,7 @@ export default function ParticipantSaved({
             {onNavigate && (
               <button
                 onClick={() => onNavigate("learning")}
-                className="inline-flex items-center min-h-[44px] text-[14px] font-medium text-blue-600 hover:underline"
+                className="inline-flex items-center min-h-[44px] text-[14px] font-medium text-[#4338ca] hover:underline"
               >
                 Перейти до навчання →
               </button>
@@ -691,7 +691,7 @@ export default function ParticipantSaved({
                     <button
                       key={f.key}
                       onClick={() => setFilter(f.key)}
-                      className="inline-flex items-center min-h-[44px] text-blue-600 hover:underline"
+                      className="inline-flex items-center min-h-[44px] text-[#4338ca] hover:underline"
                     >
                       {f.label}: {countIn(f.key)} →
                     </button>
@@ -707,7 +707,7 @@ export default function ParticipantSaved({
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-[14px]">
                   <span className="inline-flex min-h-[44px] items-center text-black/60">У збереженому вже є:</span>
                   {FILTERS.filter((f) => f.key !== filter && totalIn(f.key) > 0).map((f) => (
-                    <button key={f.key} onClick={() => setFilter(f.key)} className="inline-flex items-center min-h-[44px] text-blue-600 hover:underline">
+                    <button key={f.key} onClick={() => setFilter(f.key)} className="inline-flex items-center min-h-[44px] text-[#4338ca] hover:underline">
                       {f.label}: {totalIn(f.key)} →
                     </button>
                   ))}
@@ -716,7 +716,7 @@ export default function ParticipantSaved({
               {browse[filter] && (
                 <button
                   onClick={browse[filter]}
-                  className="inline-flex items-center min-h-[44px] mt-3 text-[14px] font-medium text-blue-600 hover:underline"
+                  className="inline-flex items-center min-h-[44px] mt-3 text-[14px] font-medium text-[#4338ca] hover:underline"
                 >
                   {EMPTY_COPY[filter].cta}
                 </button>
@@ -741,7 +741,7 @@ export default function ParticipantSaved({
           }`}
         >
           {queueState.pending.length > 0 && (
-            <div className="flex items-center justify-between gap-4 rounded-xl bg-black/90 text-white text-[14px] px-4 py-3 shadow-lg">
+            <div className="flex items-center justify-between gap-4 rounded-xl bg-[#1d1a3b] text-white text-[14px] px-4 py-3 shadow-lg">
               <span>
                 {queueState.pending.length === 1
                   ? "Прибрано зі збереженого"

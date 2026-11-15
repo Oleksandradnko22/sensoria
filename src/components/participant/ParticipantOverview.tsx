@@ -733,7 +733,7 @@ export default function ParticipantOverview({
                 </div>
               )}
               {primaryPercent !== null && (
-                <div className="h-1.5 rounded-full bg-black/10 overflow-hidden mt-3 max-w-[280px]">
+                <div className="h-1.5 rounded-full bg-[#ece9fe] overflow-hidden mt-3 max-w-[280px]">
                   <div
                     className="h-full bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0]"
                     style={{ width: `${primaryPercent}%` }}
@@ -1059,7 +1059,7 @@ export default function ParticipantOverview({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-[15px] font-semibold text-[#12172b] truncate">{m.authorName}</span>
-                    {m.unread && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
+                    {m.unread && <span className="w-1.5 h-1.5 rounded-full bg-[#7c5cf0] shrink-0" />}
                   </div>
                   {m.contentTitle && (
                     <div className="text-[12px] text-black/60 truncate">{m.contentTitle}</div>

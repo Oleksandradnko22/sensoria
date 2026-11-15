@@ -1689,7 +1689,7 @@ function ContentCard({
             shown together (a recommendation is by definition something
             not yet completed). */}
         {isRecommended && (
-          <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/90 text-indigo-700 text-[12px] font-bold tracking-wide">
+          <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/90 text-[#6d5bd0] text-[12px] font-bold tracking-wide">
             ДЛЯ ВАС
           </div>
         )}
@@ -2002,7 +2002,7 @@ function MeditationLearningCard({
           </div>
         )}
         {!isCompleted && isStoppedMeditation && (
-          <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/90 text-indigo-700 text-[12px] font-bold tracking-wide">
+          <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/90 text-[#6d5bd0] text-[12px] font-bold tracking-wide">
             В ПРОЦЕСІ
           </div>
         )}

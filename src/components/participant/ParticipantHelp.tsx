@@ -198,7 +198,7 @@ export default function ParticipantHelp() {
         </div>
       </section>
 
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
+      <div className="flex flex-col gap-6">
         {/* FAQ */}
         <div className="flex flex-col gap-3">
           {searching && found.total === 0 && (
@@ -277,20 +277,21 @@ export default function ParticipantHelp() {
 
         {/* SIDE: support, form, tickets, reassurance */}
         <aside className="flex flex-col gap-4">
-          <section className="rounded-2xl bg-gradient-to-br from-[#eef0fd] to-[#f6f0ff] border border-[#4338ca]/10 p-5 sm:p-6">
-            <span aria-hidden="true" className="w-12 h-12 rounded-2xl bg-white text-[#6d5bd0] flex items-center justify-center shadow-[0_8px_20px_-12px_rgba(91,61,245,0.6)]">
+          <section className="flex flex-col gap-4 rounded-[26px] bg-gradient-to-br from-[#eef0fd] via-white to-[#f6f1ff] p-5 ring-1 ring-[#e4def9] shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] sm:flex-row sm:items-center sm:gap-5 sm:p-6">
+            <span aria-hidden="true" className="w-12 h-12 shrink-0 rounded-2xl bg-white text-[#6d5bd0] flex items-center justify-center shadow-[0_8px_20px_-12px_rgba(91,61,245,0.6)]">
               <Icon name="lifebuoy" size={22} />
             </span>
-            <h2 className="text-[20px] font-bold text-[#12172b] mt-3">Не знайшли того, що шукали?</h2>
-            <p className="text-[14px] text-black/65 mt-1 leading-relaxed">Розкажіть, що сталося — ми підкажемо, що робити далі.</p>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[20px] font-bold text-[#12172b]">Не знайшли того, що шукали?</h2>
+              <p className="text-[14px] text-black/60 mt-1 leading-relaxed">Розкажіть, що сталося — ми підкажемо, що робити далі. Зазвичай відповідаємо протягом 1 робочого дня.</p>
+            </div>
             <button
               onClick={openSupportForm}
-              className="mt-4 w-full inline-flex items-center justify-center gap-2 min-h-[48px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition"
+              className="w-full sm:w-auto shrink-0 px-6 inline-flex items-center justify-center gap-2 min-h-[48px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition"
             >
               <Icon name="mail" size={18} />
               Написати в підтримку
             </button>
-            <p className="text-[12px] text-black/60 mt-2.5">Зазвичай відповідаємо протягом 1 робочого дня.</p>
           </section>
 
           {reportOpen && (
@@ -385,12 +386,6 @@ export default function ParticipantHelp() {
             </section>
           )}
 
-          <div className="flex items-start gap-3 rounded-2xl bg-gradient-to-br from-[#fff7ea] to-[#fffdf8] border border-amber-200/50 p-4 sm:p-5">
-            <span aria-hidden="true" className="shrink-0 text-amber-600 mt-0.5"><Icon name="bulb" size={20} /></span>
-            <p className="text-[14px] text-[#2d2a5c] leading-relaxed">
-              Ми читаємо кожне звернення особисто — Sensoria завжди поруч, якщо щось піде не так.
-            </p>
-          </div>
         </aside>
       </div>
     </div>

@@ -192,6 +192,16 @@ export default function GuideExperience({
   const [readerOpen, setReaderOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
+  // Opened from a saved fragment/note: go straight into the reader at that block
+  // (once). Unstructured guides have no blocks, so they just open as usual.
+  const consumedTarget = useRef(false);
+  useEffect(() => {
+    if (consumedTarget.current || !initialTarget || !isStructured || !guide?.guideContent) return;
+    consumedTarget.current = true;
+    if (locateBlock(guide.guideContent, initialTarget, SECTIONS_PER_PAGE)) setReaderOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTarget, isStructured]);
+
   if (!guide) {
     return createPortal(
       <div className="fixed inset-0 z-[9999] bg-[#f6f8ff] flex items-center justify-center p-4">
@@ -255,15 +265,6 @@ export default function GuideExperience({
     }
   };
 
-  // Opened from a saved fragment/note: go straight into the reader at that block
-  // (once). Unstructured guides have no blocks, so they just open as usual.
-  const consumedTarget = useRef(false);
-  useEffect(() => {
-    if (consumedTarget.current || !initialTarget || !isStructured || !guide?.guideContent) return;
-    consumedTarget.current = true;
-    if (locateBlock(guide.guideContent, initialTarget, SECTIONS_PER_PAGE)) setReaderOpen(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialTarget, isStructured]);
 
   const handleOpen = () => {
     setReaderOpen(true);

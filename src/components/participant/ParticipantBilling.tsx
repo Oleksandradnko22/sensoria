@@ -287,7 +287,7 @@ function PurchaseDialog({ p, isDemo, canOpen, onOpenMaterial, onClose }: { p: Pu
 
   const input = "w-full min-h-[44px] px-3 py-2 rounded-lg border border-[#d9d4f5] text-[16px] sm:text-[14px] focus:outline-none focus:border-black/40";
   return createPortal(
-    <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] bg-[#12172b]/45 flex items-center justify-center p-4" onClick={onClose}>
       <div
         ref={root}
         role="dialog"

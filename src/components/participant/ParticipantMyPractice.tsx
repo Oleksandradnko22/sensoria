@@ -128,7 +128,7 @@ export default function ParticipantMyPractice({ onNavigate, onOpenProgramAtItem,
           {onNavigate && (
             <button
               onClick={() => onNavigate("learning")}
-              className="text-[14px] font-medium text-blue-600 hover:underline"
+              className="text-[14px] font-medium text-[#4338ca] hover:underline"
             >
               Перейти до навчання →
             </button>
@@ -205,7 +205,7 @@ function PracticeRow({
     <div
       onClick={clickable ? handleClick : undefined}
       className={`rounded-2xl bg-white border border-black/5 px-5 py-4 flex items-center justify-between gap-3 ${
-        clickable ? "cursor-pointer hover:border-black/15 transition" : ""
+        clickable ? "cursor-pointer hover:border-[#e3def9] transition" : ""
       }`}
     >
       <div className="min-w-0">

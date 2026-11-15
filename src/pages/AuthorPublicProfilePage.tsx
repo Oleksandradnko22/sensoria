@@ -165,7 +165,7 @@ export default function AuthorPublicProfilePage({
   }, [authorId]);
 
   // ── publications ──
-  const [feedState, setFeedState] = useState<"loading" | "ready" | "error" | "unavailable">("loading");
+  const [feedState, setFeedState] = useState<"loading" | "ready" | "error" | "unavailable" | "login">("loading");
   const [pinned, setPinned] = useState<AuthorPost | null>(null);
   const [posts, setPosts] = useState<AuthorPost[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -174,6 +174,13 @@ export default function AuthorPublicProfilePage({
 
   const loadFeed = useCallback(() => {
     let cancelled = false;
+    // publications are for signed-in people only (the database refuses them to visitors)
+    if (!viewerId) {
+      setFeedState("login");
+      return () => {
+        cancelled = true;
+      };
+    }
     setFeedState("loading");
     fetchAuthorPosts(authorId, viewerId)
       .then((page) => {
@@ -602,6 +609,17 @@ export default function AuthorPublicProfilePage({
                         <button onClick={() => loadFeed()} className="underline font-medium text-black/80">
                           Спробувати ще раз
                         </button>
+                      </div>
+                    )}
+                    {feedState === "login" && (
+                      <div className={`${SURFACE} px-6 py-10 text-center`}>
+                        <p className="text-[15px] font-semibold text-[#12172b]">Публікації автора бачать учасники Sensoria</p>
+                        <p className="mt-1 text-[14px] text-black/55">Увійдіть, щоб читати й коментувати.</p>
+                        {onRequireLogin && (
+                          <button type="button" onClick={onRequireLogin} className="mt-4 min-h-[44px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-5 text-[14px] font-semibold text-white hover:opacity-95">
+                            Увійти
+                          </button>
+                        )}
                       </div>
                     )}
                     {feedState === "unavailable" && (

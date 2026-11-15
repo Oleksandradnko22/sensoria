@@ -428,7 +428,7 @@ export default function ParticipantEmotionalProfile({
                   const active = tick.key === insight.intensity;
                   return (
                     <div key={tick.key} className="flex-1 min-w-0">
-                      <div className={`h-1.5 rounded-full ${active ? accent.dot : "bg-black/10"}`} />
+                      <div className={`h-1.5 rounded-full ${active ? accent.dot : "bg-[#ece9fe]"}`} />
                       <div
                         className={`mt-2 text-[12px] truncate ${
                           active ? "font-semibold text-black/80" : "text-black/60"
@@ -465,7 +465,7 @@ export default function ParticipantEmotionalProfile({
             <button
               type="button"
               onClick={() => setExplainerExpanded((v) => !v)}
-              className="text-[14px] text-blue-600 hover:underline mt-3"
+              className="text-[14px] text-[#4338ca] hover:underline mt-3"
             >
               {explainerExpanded ? "Згорнути ↑" : "Дізнатися більше про цей стан →"}
             </button>
@@ -559,7 +559,7 @@ export default function ParticipantEmotionalProfile({
                         type="button"
                         onClick={() => openViewAll(section.key)}
                         disabled={!handler}
-                        className="text-[12px] text-blue-600 hover:underline disabled:text-black/25 disabled:no-underline disabled:cursor-default shrink-0"
+                        className="text-[12px] text-[#4338ca] hover:underline disabled:text-black/25 disabled:no-underline disabled:cursor-default shrink-0"
                       >
                         {section.viewAllLabel}
                       </button>
@@ -623,7 +623,7 @@ export default function ParticipantEmotionalProfile({
                               <p className="text-[12px] text-black/60 leading-snug line-clamp-2 mt-1">
                                 {item.description}
                               </p>
-                              <span className="text-[12px] text-blue-600 mt-1.5">{section.cta} →</span>
+                              <span className="text-[12px] text-[#4338ca] mt-1.5">{section.cta} →</span>
                             </button>
                           );
                         })}

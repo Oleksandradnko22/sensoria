@@ -74,7 +74,7 @@ type Props = {
 
 const actionRow = "flex flex-wrap items-center justify-end gap-2 mt-4";
 const openBtn =
-  "min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30";
+  "min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30";
 const deleteBtn =
   "min-h-[44px] px-4 py-2 rounded-xl border border-[#d9d4f5] bg-white text-[14px] font-medium text-black/65 hover:border-red-300 hover:text-red-600 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30";
 
@@ -281,11 +281,11 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
   const noteGroups = useMemo(() => groupByMonth(filteredNotes.slice(0, limit), (n) => n.createdAt), [filteredNotes, limit]);
 
   const emptyState = (title: string, text: string) => (
-    <div className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-5 py-6">
+    <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] px-5 py-6">
       <div className="text-[14px] font-medium">{title}</div>
       <p className="text-[14px] text-black/60 mt-1">{text}</p>
       {onNavigate && (
-        <button onClick={() => onNavigate("learning")} className="inline-flex items-center min-h-[44px] mt-3 text-[14px] text-blue-600 hover:underline">
+        <button onClick={() => onNavigate("learning")} className="inline-flex items-center min-h-[44px] mt-3 text-[14px] font-semibold text-[#4338ca] hover:underline">
           Перейти до навчання →
         </button>
       )}
@@ -384,7 +384,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
       </div>
 
       {loadError && noData ? (
-        <div className="max-w-xl rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-8 sm:p-10 text-center">
+        <div className="max-w-xl rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-8 sm:p-10 text-center">
           <div className="mx-auto mb-3 w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
             <Icon name="warning" size={18} />
           </div>
@@ -394,7 +394,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
           </p>
           <button
             onClick={() => setReloadKey((k) => k + 1)}
-            className="min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition"
+            className="min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition"
           >
             Спробувати ще раз
           </button>
@@ -413,7 +413,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
           <div
             role="tablist"
             aria-label="Розділи спостережень"
-            className="flex flex-wrap gap-2"
+            className={`grid gap-1.5 rounded-[20px] bg-white p-1.5 shadow-[0_14px_36px_-30px_rgba(60,50,140,0.55)] ring-1 ring-[#ece8fb] ${tabs.length >= 4 ? "grid-cols-2 sm:grid-cols-4" : tabs.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}
             onKeyDown={(e) => {
               if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
               e.preventDefault();
@@ -435,14 +435,16 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                   aria-controls="reflections-panel"
                   tabIndex={isActive ? 0 : -1}
                   onClick={() => setTab(t.key)}
-                  className={`min-h-[44px] px-3.5 py-1.5 rounded-full text-[14px] font-medium border transition ${
+                  className={`flex min-h-[50px] min-w-0 items-center justify-center gap-2 rounded-2xl px-3 text-[14px] font-semibold transition ${
                     isActive
-                      ? "bg-[#eef0fd] text-[#4338ca] border-[#4338ca]/35"
-                      : "bg-white text-black/60 border-[#e3def9] hover:border-[#c9bff7]"
+                      ? "bg-gradient-to-r from-[#eef0fd] to-[#f3eeff] text-[#4338ca] shadow-[inset_0_0_0_1px_rgba(67,56,202,0.25)]"
+                      : "text-black/60 hover:bg-[#faf9ff] hover:text-[#3b3f66]"
                   }`}
                 >
-                  {t.label}
-                  {!loading && <span className={isActive ? "text-[#4338ca]/80" : "text-black/60"}> · {t.count}</span>}
+                  <span className="truncate">{t.label}</span>
+                  <span className={`flex h-6 min-w-[24px] shrink-0 items-center justify-center rounded-lg px-1.5 text-[12px] font-bold tabular-nums ${isActive ? "bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white" : "bg-[#f1eeff] text-[#6d5bd0]"}`}>
+                    {loading ? "…" : t.count}
+                  </span>
                 </button>
               );
             })}
@@ -460,7 +462,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Пошук у цьому розділі"
                   aria-label="Пошук у цьому розділі"
-                  className="w-full rounded-xl bg-white border border-[#e3def9] pl-10 pr-20 py-2.5 text-[14px] focus:outline-none focus:border-black/30 transition"
+                  className="min-h-[50px] w-full rounded-2xl bg-white ring-1 ring-[#ece8fb] shadow-[0_14px_36px_-30px_rgba(60,50,140,0.55)] pl-10 pr-20 py-2.5 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#7c5cf0] transition"
                 />
                 {searching && (
                   <button
@@ -506,10 +508,10 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
             {loading ? (
               <div className="flex flex-col gap-3" aria-hidden="true">
                 {[0, 1, 2].map((i) => (
-                  <div key={i} className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-4 animate-pulse">
-                    <div className="h-2.5 w-24 rounded bg-black/[0.07]" />
-                    <div className="h-3.5 w-2/3 rounded bg-black/[0.07] mt-3" />
-                    <div className="h-8 w-28 rounded bg-black/[0.05] mt-3" />
+                  <div key={i} className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-4 animate-pulse">
+                    <div className="h-2.5 w-24 rounded bg-[#e7e3fb]" />
+                    <div className="h-3.5 w-2/3 rounded bg-[#e7e3fb] mt-3" />
+                    <div className="h-8 w-28 rounded bg-[#efecfc] mt-3" />
                   </div>
                 ))}
               </div>
@@ -521,12 +523,12 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                   {/* Overview: a real chart once there are enough complete pairs,
                       an honest early-data note until then. Hidden while searching. */}
                   {!searching && (
-                    <section aria-label="Огляд змін" className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-4 sm:p-5">
+                    <section aria-label="Огляд змін" className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-4 sm:p-5">
                       {activeSeries ? (
                         <>
                           <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 mb-4">
                             <div className="min-w-0">
-                              <div className="text-[16px] font-semibold text-black/85">Як змінювалась ваша оцінка</div>
+                              <div className="text-[17px] font-bold text-[#12172b]">Як змінювалась ваша оцінка</div>
                               <div className="text-[12px] text-black/60 mt-0.5">
                                 {activeSeries.measure} · шкала від {activeSeries.min} до {activeSeries.scale} ·{" "}
                                 {activeSeries.points.length < activeSeries.total
@@ -579,7 +581,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                         </>
                       ) : (
                         <div>
-                          <div className="text-[16px] font-semibold text-black/85">Історія змін складатиметься поступово</div>
+                          <div className="text-[17px] font-bold text-[#12172b]">Історія змін складатиметься поступово</div>
                           <p className="text-[14px] text-black/60 mt-1 leading-relaxed">
                             Коли накопичиться кілька спостережень «було — стало», тут з'явиться огляд того, як змінювались
                             ваші оцінки. Поки що записів: {stateChanges.length}.
@@ -617,7 +619,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                                     {STATE_SOURCE_LABEL[c.source]} · {c.measure}
                                   </span>
                                   {c.context && (
-                                    <div className="text-[16px] font-semibold text-black/85 leading-snug break-words mt-1">
+                                    <div className="text-[17px] font-bold text-[#12172b] leading-snug break-words mt-1">
                                       {c.context}
                                     </div>
                                   )}
@@ -629,7 +631,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                                       {c.tags.map((t) => (
                                         <span
                                           key={t}
-                                          className="rounded-full bg-black/[0.06] text-black/60 px-2 py-0.5 text-[12px] font-medium"
+                                          className="rounded-full bg-[#f1eeff] text-[#6d5bd0] px-2 py-0.5 text-[12px] font-semibold"
                                         >
                                           {t}
                                         </span>

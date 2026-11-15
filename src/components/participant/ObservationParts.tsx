@@ -14,21 +14,22 @@ export function DateBlock({ iso }: { iso: string }) {
   const ok = Number.isFinite(d.getTime());
   const time = ok ? d.toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" }) : "";
   return (
-    <time dateTime={iso} title={formatAbsoluteDate(iso)} className="flex items-baseline gap-1.5 sm:block sm:pt-0.5">
-      <span className="font-serif text-[20px] sm:text-[30px] leading-none text-black/80">{ok ? d.getDate() : "—"}</span>
-      <span className="text-[12px] font-semibold uppercase tracking-wider text-black/60 sm:block sm:mt-1">
-        {ok ? SHORT_MONTHS[d.getMonth()] : ""}
+    <time dateTime={iso} title={formatAbsoluteDate(iso)} className="flex items-center gap-2.5 sm:flex-col sm:items-center sm:gap-1.5">
+      {/* a date tile, like the icon squares on «Огляд» */}
+      <span className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-[#eef0fd] to-[#f3eeff] ring-1 ring-[#e4def9]">
+        <span className="text-[20px] font-bold leading-none tabular-nums text-[#4338ca]">{ok ? d.getDate() : "—"}</span>
+        <span className="mt-1 text-[11px] font-bold uppercase leading-none tracking-[0.06em] text-[#6d5bd0]">{ok ? SHORT_MONTHS[d.getMonth()] : ""}</span>
       </span>
-      {time && <span className="text-[12px] text-black/60 sm:block sm:mt-0.5">{time}</span>}
+      {time && <span className="text-[12px] font-medium tabular-nums text-black/50">{time}</span>}
     </time>
   );
 }
 
 export function MonthHeading({ children }: { children: ReactNode }) {
-  return <h2 className="font-serif text-[20px] text-black/70 pt-2 pb-1 px-4">{children}</h2>;
+  return <h2 className="px-1 pb-2 pt-3 text-[13px] font-bold uppercase tracking-[0.14em] text-black/40">{children}</h2>;
 }
 
-export const MOMENT_CLS = "block w-full text-left py-5 px-4 sm:grid sm:grid-cols-[72px_minmax(0,1fr)] sm:gap-x-5 rounded-xl";
+export const MOMENT_CLS = "block w-full text-left p-4 sm:p-5 sm:grid sm:grid-cols-[64px_minmax(0,1fr)] sm:gap-x-5 rounded-[22px] bg-white shadow-[0_10px_30px_-18px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff]";
 
 // Before → after as the focal point of a moment: two numbers on a short track
 // of the record's own scale (position only — no derived value).
@@ -41,31 +42,31 @@ export function ChangeFigure({ c }: { c: StateChange }) {
     <div className="min-w-0">
       <div className="flex items-end gap-3">
         <div>
-          <div className="text-[12px] font-semibold uppercase tracking-wide text-black/60">Було</div>
-          <div className="font-serif text-[32px] leading-none text-black/60">{c.beforeValue ?? "—"}</div>
+          <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-black/45">Було</div>
+          <div className="mt-1 text-[28px] font-bold leading-none tabular-nums text-black/40">{c.beforeValue ?? "—"}</div>
         </div>
-        <span aria-hidden="true" className="pb-1.5 text-black/30 text-[20px]">
+        <span aria-hidden="true" className="mb-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-[#f1eeff] text-[14px] text-[#6d5bd0]">
           →
         </span>
         <div>
-          <div className="text-[12px] font-semibold uppercase tracking-wide text-[#4338ca]/70">Стало</div>
-          <div className="font-serif text-[32px] leading-none text-black/90">{c.afterValue ?? "—"}</div>
+          <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#6d5bd0]">Стало</div>
+          <div className="mt-1 text-[28px] font-bold leading-none tabular-nums text-[#12172b]">{c.afterValue ?? "—"}</div>
         </div>
-        {c.scale !== null && <span className="pb-1 text-[12px] text-black/60">з {c.scale}</span>}
+        {c.scale !== null && <span className="pb-0.5 text-[13px] font-medium text-black/45">з {c.scale}</span>}
       </div>
       {pb !== null && pa !== null && (
-        <div className="relative mt-3 h-3 max-w-[200px]" aria-hidden="true">
-          <div className="absolute left-0 right-0 top-1/2 h-px bg-black/10" />
+        <div className="relative mt-3.5 h-4 max-w-[220px]" aria-hidden="true">
+          <div className="absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-[#ece9fe]" />
           <div
-            className="absolute top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-[#4338ca]/25"
+            className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-gradient-to-r from-[#c9bff7] to-[#8f7ff0]"
             style={{ left: `${Math.min(pb, pa)}%`, width: `${Math.abs(pa - pb)}%` }}
           />
           <span
-            className="absolute top-1/2 w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#4338ca]/60 bg-[#fffdf9]"
+            className="absolute top-1/2 w-3.5 h-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[2.5px] border-[#8f7ff0] bg-white"
             style={{ left: `${pb}%` }}
           />
           <span
-            className="absolute top-1/2 w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#4338ca]"
+            className="absolute top-1/2 w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-[#3b6df0] to-[#7c5cf0] ring-2 ring-white shadow-[0_4px_10px_-2px_rgba(91,61,245,0.6)]"
             style={{ left: `${pa}%` }}
           />
         </div>

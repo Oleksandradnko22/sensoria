@@ -528,8 +528,8 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                         <>
                           <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 mb-4">
                             <div className="min-w-0">
-                              <div className="text-[17px] font-bold text-[#12172b]">Як змінювалась ваша оцінка</div>
-                              <div className="text-[12px] text-black/60 mt-0.5">
+                              <div className="text-[20px] font-bold text-[#12172b]">Як змінювалась ваша оцінка</div>
+                              <div className="text-[13px] text-black/55 mt-1">
                                 {activeSeries.measure} · шкала від {activeSeries.min} до {activeSeries.scale} ·{" "}
                                 {activeSeries.points.length < activeSeries.total
                                   ? `останні ${activeSeries.points.length} з ${activeSeries.total}`
@@ -544,10 +544,10 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                                     type="button"
                                     aria-pressed={sr.source === activeSeries.source}
                                     onClick={() => setChartSource(sr.source)}
-                                    className={`min-h-[44px] px-3 py-1 rounded-full text-[12px] font-medium border transition ${
+                                    className={`min-h-[40px] px-3.5 rounded-xl text-[13px] font-semibold transition ${
                                       sr.source === activeSeries.source
-                                        ? "bg-[#eef0fd] text-[#4338ca] border-[#4338ca]/35"
-                                        : "bg-white text-black/60 border-[#e3def9] hover:border-[#c9bff7]"
+                                        ? "bg-gradient-to-r from-[#eef0fd] to-[#f3eeff] text-[#4338ca] shadow-[inset_0_0_0_1px_rgba(67,56,202,0.25)]"
+                                        : "bg-white text-black/60 ring-1 ring-[#ebe8ff] hover:ring-[#c9bff7]"
                                     }`}
                                   >
                                     {STATE_SOURCE_LABEL[sr.source]}
@@ -561,18 +561,18 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                             показано оцінку до і після за шкалою від {activeSeries.min} до {activeSeries.scale}.
                           </p>
                           <ObservationsChart series={activeSeries} />
-                          <div className="flex items-center gap-4 mt-3 text-[12px] text-black/60">
-                            <span className="inline-flex items-center gap-1.5">
-                              <span className="w-2.5 h-2.5 rounded-full border-2 border-[#4338ca]/60 bg-white" /> було
+                          <div className="flex flex-wrap items-center gap-2 mt-3 text-[13px] font-medium text-black/60">
+                            <span className="inline-flex items-center gap-2 rounded-full bg-[#faf9ff] px-3 py-1 ring-1 ring-[#ece8fb]">
+                              <span className="w-3 h-3 rounded-full border-[2.5px] border-[#8f7ff0] bg-white" /> було
                             </span>
-                            <span className="inline-flex items-center gap-1.5">
-                              <span className="w-2.5 h-2.5 rounded-full bg-[#4338ca]" /> стало
+                            <span className="inline-flex items-center gap-2 rounded-full bg-[#faf9ff] px-3 py-1 ring-1 ring-[#ece8fb]">
+                              <span className="w-3 h-3 rounded-full bg-gradient-to-br from-[#3b6df0] to-[#7c5cf0]" /> стало
                             </span>
                           </div>
                           {insights.length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-black/[0.07] flex flex-col gap-1.5">
+                            <div className="mt-4 flex flex-col gap-2 rounded-2xl bg-[#faf9ff] px-4 py-3.5 ring-1 ring-[#f1eefb]">
                               {insights.map((t) => (
-                                <p key={t} className="text-[14px] text-black/65 leading-relaxed">
+                                <p key={t} className="text-[14px] text-[#2d2a5c] leading-relaxed">
                                   {t}
                                 </p>
                               ))}
@@ -589,7 +589,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                           {insights.length > 0 && (
                             <div className="mt-3 flex flex-col gap-1.5">
                               {insights.map((t) => (
-                                <p key={t} className="text-[14px] text-black/65 leading-relaxed">
+                                <p key={t} className="text-[14px] text-[#2d2a5c] leading-relaxed">
                                   {t}
                                 </p>
                               ))}
@@ -607,19 +607,19 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                       {changeGroups.map((g) => (
                         <section key={g.key} aria-label={g.label}>
                           <MonthHeading>{g.label}</MonthHeading>
-                          <div className="flex flex-col divide-y divide-black/[0.06]">
+                          <div className="flex flex-col gap-3">
                             {g.items.map((c) => (
                               <article key={c.key} className={MOMENT_CLS}>
                                 <div className="mb-2 sm:mb-0">
                                   <DateBlock iso={c.at} />
                                 </div>
                                 <div className="min-w-0">
-                                  <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-black/60">
-                                    <Icon name={c.source === "practice" ? "toolbox" : "meditation"} size={14} />
+                                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f1eeff] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#6d5bd0]">
+                                    <Icon name={c.source === "practice" ? "toolbox" : "meditation"} size={13} />
                                     {STATE_SOURCE_LABEL[c.source]} · {c.measure}
                                   </span>
                                   {c.context && (
-                                    <div className="text-[17px] font-bold text-[#12172b] leading-snug break-words mt-1">
+                                    <div className="text-[17px] font-bold text-[#12172b] leading-snug break-words mt-2">
                                       {c.context}
                                     </div>
                                   )}
@@ -639,7 +639,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                                     </div>
                                   )}
                                   {c.note && (
-                                    <blockquote className="mt-3 border-l-2 border-[#4338ca]/20 pl-3 font-serif italic text-[16px] leading-relaxed text-black/70 break-words">
+                                    <blockquote className="mt-3 rounded-xl bg-[#faf9ff] px-3.5 py-2.5 text-[15px] leading-relaxed text-[#2d2a5c] ring-1 ring-[#f1eefb] break-words">
                                       «{c.note}»
                                     </blockquote>
                                   )}
@@ -677,7 +677,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                   {answerGroups.map((g) => (
                     <section key={g.key} aria-label={g.label}>
                       <MonthHeading>{g.label}</MonthHeading>
-                      <div className="flex flex-col divide-y divide-black/[0.06]">
+                      <div className="flex flex-col gap-3">
                         {g.items.map((p) => {
                           const at = p.updatedAt ?? p.createdAt;
                           const context = [p.programTitle, p.itemTitle].filter(Boolean).join(" · ");
@@ -687,15 +687,15 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                                 <DateBlock iso={at} />
                               </div>
                               <div className="min-w-0">
-                                <div className="text-[12px] text-black/60 break-words">
+                                <div className="text-[13px] text-black/55 break-words">
                                   {context || "Відповідь без назви уроку"}
                                 </div>
                                 {p.prompt && (
-                                  <div className="font-serif text-[20px] leading-snug text-black/85 break-words mt-1">
+                                  <div className="text-[17px] font-bold leading-snug text-[#12172b] break-words mt-1">
                                     {p.prompt}
                                   </div>
                                 )}
-                                <div className="mt-2.5 border-l-2 border-[#4338ca]/25 pl-3 text-[16px] font-medium text-black/85 leading-relaxed whitespace-pre-line break-words">
+                                <div className="mt-3 rounded-xl bg-[#faf9ff] px-3.5 py-2.5 text-[15px] text-[#2d2a5c] leading-relaxed whitespace-pre-line break-words ring-1 ring-[#f1eefb]">
                                   {formatPracticeAnswer(p.response)}
                                 </div>
                                 {renderActions(
@@ -728,7 +728,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                 {noteGroups.map((g) => (
                   <section key={g.key} aria-label={g.label}>
                     <MonthHeading>{g.label}</MonthHeading>
-                    <div className="flex flex-col divide-y divide-black/[0.06]">
+                    <div className="flex flex-col gap-3">
                       {g.items.map((r) => {
                         const context = [r.programTitle, r.itemTitle].filter(Boolean).join(" · ");
                         return (
@@ -737,10 +737,10 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                               <DateBlock iso={r.createdAt} />
                             </div>
                             <div className="min-w-0">
-                              <p className="font-serif text-[20px] leading-relaxed text-black/85 whitespace-pre-line break-words border-l-2 border-[#e3d6bd] pl-4">
+                              <p className="text-[16px] leading-relaxed text-[#2d2a5c] whitespace-pre-line break-words">
                                 {r.note}
                               </p>
-                              {context && <div className="text-[12px] text-black/60 break-words mt-2.5 pl-4">{context}</div>}
+                              {context && <div className="text-[13px] text-black/55 break-words mt-2.5">{context}</div>}
                               {renderActions(
                                 "note",
                                 r.id,

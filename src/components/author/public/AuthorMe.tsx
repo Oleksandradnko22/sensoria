@@ -22,7 +22,9 @@ const FACT_ICON: Record<BackgroundFact["key"], string> = {
   education: "M22 10 12 5 2 10l10 5 10-5zM6 12v5c3 2.5 9 2.5 12 0v-5",
   years: "M3 8h18v11H3zM8 8V5h8v3M3 13h18",
   certificates: "M12 14a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM8.5 13.5 7 21l5-3 5 3-1.5-7.5",
+  courses: "M4 5h11a3 3 0 0 1 3 3v11H7a3 3 0 0 1-3-3zM18 8h2v11M8 9h6M8 13h6",
 };
+const FACT_COLS = ["", "sm:grid-cols-1", "sm:grid-cols-2", "sm:grid-cols-3", "sm:grid-cols-2 lg:grid-cols-4"];
 
 type Kind = "program" | "meditation" | "guide";
 
@@ -159,7 +161,7 @@ export default function AuthorMe(p: Props) {
       {facts.length > 0 && (
         <section aria-labelledby="me-bg" className="rounded-xl border border-black/[0.08] bg-white overflow-hidden">
           <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3"><SectionLabel as="h3" id="me-bg">Професійний бекграунд</SectionLabel></div>
-          <ul className="grid grid-cols-1 sm:grid-cols-3 border-t border-black/[0.06] divide-y sm:divide-y-0 sm:divide-x divide-black/[0.06]">
+          <ul className={`grid grid-cols-1 ${FACT_COLS[facts.length]} border-t border-black/[0.06] divide-y sm:divide-y-0 sm:divide-x divide-black/[0.06]`}>
             {facts.map((f) => (
               <li key={f.key} className="min-w-0 flex items-center gap-3.5 px-4 sm:px-6 py-4 sm:py-5">
                 <span aria-hidden className="shrink-0 w-11 h-11 rounded-full bg-[#f1f0fb] flex items-center justify-center">

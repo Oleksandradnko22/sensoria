@@ -353,11 +353,11 @@ export default function ParticipantEmotionalProfile({
       </button>
 
       {!assessmentChecked && !insight ? (
-        <div className="rounded-2xl bg-white border border-black/5 p-10 text-center text-black/60 text-[14px]">
+        <div className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-10 text-center text-black/60 text-[14px]">
           Завантаження…
         </div>
       ) : !insight || !stateProfile || !accent ? (
-        <div className="rounded-2xl bg-white border border-black/5 p-10 flex flex-col items-center text-center gap-4">
+        <div className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-10 flex flex-col items-center text-center gap-4">
           <div>
             <div className="text-[16px] font-semibold">Ви ще не проходили оцінку стану</div>
             <p className="text-[14px] text-black/60 mt-2 leading-relaxed max-w-[420px]">
@@ -586,7 +586,7 @@ export default function ParticipantEmotionalProfile({
                               type="button"
                               onClick={() => open?.(item.id)}
                               disabled={!open}
-                              className="text-left rounded-xl border border-black/5 p-4 flex flex-col gap-1 transition hover:border-black/15 hover:shadow-[0_4px_16px_rgba(0,0,0,0.05)] disabled:cursor-default disabled:hover:border-black/5 disabled:hover:shadow-none"
+                              className="text-left rounded-xl border border-black/5 p-4 flex flex-col gap-1 transition hover:border-[#d9d4f5] hover:shadow-[0_4px_16px_rgba(0,0,0,0.05)] disabled:cursor-default disabled:hover:border-black/5 disabled:hover:shadow-none"
                             >
                               <div className="text-[14px] font-semibold leading-snug line-clamp-2">{item.title}</div>
                               <div className="text-[12px] text-black/60">
@@ -673,7 +673,7 @@ export default function ParticipantEmotionalProfile({
               <div className="mt-6 pt-6 border-t border-black/5">
                 <button
                   onClick={onRetakeAssessment}
-                  className="px-4 py-2 rounded-lg border border-black/10 text-[14px] font-medium text-black/70 hover:bg-black/[0.03] transition"
+                  className="px-4 py-2 rounded-lg border border-[#e3def9] text-[14px] font-medium text-black/70 hover:bg-[#f6f4ff] transition"
                 >
                   Пройти оцінку ще раз
                 </button>

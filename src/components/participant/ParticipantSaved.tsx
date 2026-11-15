@@ -110,7 +110,7 @@ function LibraryCard({ item }: { item: LibraryItem }) {
   return (
     <div
       className={`rounded-2xl border transition flex items-start gap-2 p-4 min-w-0 ${
-        dim ? "bg-black/[0.025] border-black/5" : "bg-white border-black/5 hover:border-black/15"
+        dim ? "bg-black/[0.025] border-black/5" : "bg-white border-black/5 hover:border-[#d9d4f5]"
       }`}
     >
       <div className="min-w-0 flex-1">
@@ -168,7 +168,7 @@ function LibraryCard({ item }: { item: LibraryItem }) {
           onClick={item.onRemove}
           aria-label={`Прибрати зі збереженого: ${item.title.length > 60 ? `${item.title.slice(0, 60)}…` : item.title}`}
           title="Прибрати зі збереженого"
-          className={`relative shrink-0 -mr-1 -mt-1 w-9 h-9 before:absolute before:-inset-1 before:content-[''] rounded-full flex items-center justify-center hover:bg-black/5 hover:text-black/45 transition ${
+          className={`relative shrink-0 -mr-1 -mt-1 w-9 h-9 before:absolute before:-inset-1 before:content-[''] rounded-full flex items-center justify-center hover:bg-[#f6f4ff] hover:text-black/45 transition ${
             dim ? "text-black/60" : "text-[#4338ca]"
           }`}
         >
@@ -213,7 +213,7 @@ function SortMenu({ value, onChange }: { value: SavedSortMode; onChange: (v: Sav
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`Сортування: ${current.label}`}
-        className="min-h-[44px] w-full sm:w-auto flex items-center justify-between gap-2.5 rounded-xl bg-white border border-black/10 hover:border-black/25 px-3.5 py-2.5 text-[14px] font-medium text-black/70 transition focus:outline-none focus-visible:border-black/30"
+        className="min-h-[44px] w-full sm:w-auto flex items-center justify-between gap-2.5 rounded-xl bg-white border border-[#e3def9] hover:border-[#c9bff7] px-3.5 py-2.5 text-[14px] font-medium text-black/70 transition focus:outline-none focus-visible:border-black/30"
       >
         <span>{current.label}</span>
         <span className={`text-black/60 transition-transform ${open ? "rotate-180" : ""}`}>
@@ -228,7 +228,7 @@ function SortMenu({ value, onChange }: { value: SavedSortMode; onChange: (v: Sav
             ref={listRef}
             role="listbox"
             aria-label="Сортування"
-            className="absolute right-0 top-full mt-1.5 z-10 min-w-full sm:min-w-[210px] rounded-xl bg-white border border-black/10 shadow-[0_8px_24px_rgba(15,23,42,0.08)] py-1"
+            className="absolute right-0 top-full mt-1.5 z-10 min-w-full sm:min-w-[210px] rounded-xl bg-white border border-[#e3def9] shadow-[0_8px_24px_rgba(15,23,42,0.08)] py-1"
           >
             {SAVED_SORT_OPTIONS.map((o) => {
               const selected = o.key === value;
@@ -240,7 +240,7 @@ function SortMenu({ value, onChange }: { value: SavedSortMode; onChange: (v: Sav
                       onChange(o.key);
                       setOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between gap-3 px-3.5 py-2 text-left text-[14px] transition hover:bg-black/[0.04] ${
+                    className={`w-full flex items-center justify-between gap-3 px-3.5 py-2 text-left text-[14px] transition hover:bg-[#f6f4ff] ${
                       selected ? "font-semibold text-black/85" : "text-black/65"
                     }`}
                   >
@@ -492,8 +492,8 @@ export default function ParticipantSaved({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-3xl font-bold">Збережене</h1>
-        <p className="text-black/60 mt-1">
+        <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Збережене</h1>
+        <p className="mt-1 text-[15px] text-black/55">
           Ваша особиста бібліотека допомоги: гайди, медитації, вправи з курсів і нотатки, які ви
           вирішили залишити собі. Те, чого ще немає у вашому кабінеті, лежить окремо у вкладці «Не придбані».
         </p>
@@ -501,7 +501,7 @@ export default function ParticipantSaved({
       <SavedPosts />
 
       {loadError && items.length === 0 ? (
-        <div className="max-w-xl rounded-2xl bg-white border border-black/5 p-8 sm:p-10 text-center">
+        <div className="max-w-xl rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-8 sm:p-10 text-center">
           <div className="mx-auto mb-3 w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
             <Icon name="warning" size={18} />
           </div>
@@ -517,7 +517,7 @@ export default function ParticipantSaved({
           </button>
         </div>
       ) : !loading && items.length === 0 ? (
-        <div className="max-w-xl rounded-2xl bg-white border border-black/5 p-8 sm:p-10 text-center">
+        <div className="max-w-xl rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-8 sm:p-10 text-center">
           <div className="mx-auto mb-3 w-10 h-10 rounded-full bg-[#eef2ff] text-[#4338ca] flex items-center justify-center">
             <Icon name="bookmark" size={18} />
           </div>
@@ -565,7 +565,7 @@ export default function ParticipantSaved({
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Пошук у збереженому"
                 aria-label="Пошук у збереженому"
-                className="min-h-[44px] w-full rounded-xl bg-white border border-black/10 pl-10 pr-20 py-2.5 text-[14px] focus:outline-none focus:border-black/30 transition"
+                className="min-h-[50px] w-full rounded-2xl bg-white ring-1 ring-[#ece8fb] shadow-[0_14px_36px_-30px_rgba(60,50,140,0.55)] pl-10 pr-20 py-2.5 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#7c5cf0] transition"
               />
               {searching && (
                 <button
@@ -583,7 +583,7 @@ export default function ParticipantSaved({
           <div
             role="tablist"
             aria-label="Фільтр збереженого"
-            className="flex flex-wrap gap-2"
+            className={`grid gap-1.5 rounded-[20px] bg-white p-1.5 shadow-[0_14px_36px_-30px_rgba(60,50,140,0.55)] ring-1 ring-[#ece8fb] grid-cols-2 ${FILTERS.length >= 6 ? "sm:grid-cols-3 lg:grid-cols-6" : FILTERS.length === 5 ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}
             onKeyDown={(e) => {
               if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
               e.preventDefault();
@@ -604,20 +604,22 @@ export default function ParticipantSaved({
                   aria-controls="saved-panel"
                   tabIndex={active ? 0 : -1}
                   onClick={() => setFilter(f.key)}
-                  className={`min-h-[44px] px-3.5 py-1.5 rounded-full text-[14px] font-medium border transition ${
+                  className={`flex min-h-[50px] min-w-0 items-center justify-center gap-2 rounded-2xl px-3 text-[14px] font-semibold transition ${
                     active
-                      ? "bg-[#eef0fd] text-[#4338ca] border-[#4338ca]/35"
-                      : "bg-white text-black/60 border-black/10 hover:border-black/25"
+                      ? "bg-gradient-to-r from-[#eef0fd] to-[#f3eeff] text-[#4338ca] shadow-[inset_0_0_0_1px_rgba(67,56,202,0.25)]"
+                      : "text-black/60 hover:bg-[#faf9ff] hover:text-[#3b3f66]"
                   }`}
                 >
-                  {f.label}
-                  <span className={active ? "text-[#4338ca]/80" : "text-black/60"}> · {searching ? countIn(f.key) : totalIn(f.key)}</span>
+                  <span className="truncate">{f.label}</span>
+                  <span className={`flex h-6 min-w-[24px] shrink-0 items-center justify-center rounded-lg px-1.5 text-[12px] font-bold tabular-nums ${active ? "bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white" : "bg-[#f1eeff] text-[#6d5bd0]"}`}>
+                    {searching ? countIn(f.key) : totalIn(f.key)}
+                  </span>
                 </button>
               );
             })}
           </div>
 
-          <p className="text-[12px] text-black/60 -mt-3">{FILTERS.find((f) => f.key === filter)?.hint}</p>
+          <p className="text-[13px] text-black/55 -mt-3 px-1">{FILTERS.find((f) => f.key === filter)?.hint}</p>
 
           <div id="saved-panel" role="tabpanel" aria-labelledby={`saved-tab-${filter}`} aria-busy={loading}>
           {visible.length > 0 ? (
@@ -635,7 +637,7 @@ export default function ParticipantSaved({
                     if (part.length === 0) return null;
                     return (
                       <section key={sec.id} aria-label={sec.title}>
-                        <h2 className="text-[16px] font-semibold">
+                        <h2 className="text-[17px] font-bold text-[#12172b]">
                           {sec.title} <span className="font-normal text-black/60">· {part.length}</span>
                         </h2>
                         <p className="mb-3 text-[13px] text-black/60">{sec.hint}</p>
@@ -660,7 +662,7 @@ export default function ParticipantSaved({
                   <button
                     type="button"
                     onClick={() => setLimit((n) => n + PAGE_SIZE)}
-                    className="min-h-[44px] px-4 py-2 rounded-xl border border-black/10 bg-white text-[14px] font-medium text-black/65 hover:border-black/25 transition"
+                    className="min-h-[44px] px-4 py-2 rounded-xl border border-[#e3def9] bg-white text-[14px] font-medium text-black/65 hover:border-[#c9bff7] transition"
                   >
                     Показати ще ({visible.length - limit})
                   </button>
@@ -670,7 +672,7 @@ export default function ParticipantSaved({
           ) : loading ? (
             <div className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-2 gap-3" aria-hidden="true">
               {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="rounded-2xl border border-black/5 bg-white p-4 animate-pulse">
+                <div key={i} className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-4 animate-pulse">
                   <div className="h-2.5 w-20 rounded bg-black/[0.07]" />
                   <div className="h-3.5 w-3/4 rounded bg-black/[0.07] mt-3" />
                   <div className="h-2.5 w-1/3 rounded bg-black/[0.05] mt-3" />
@@ -678,7 +680,7 @@ export default function ParticipantSaved({
               ))}
             </div>
           ) : searching ? (
-            <div className="rounded-2xl bg-white border border-black/5 px-5 py-5">
+            <div className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-5 py-5">
               <div className="text-[14px] font-medium">Нічого не знайдено</div>
               <p className="text-[14px] text-black/60 mt-1">
                 За запитом «{query.trim()}» у розділі «{FILTERS.find((f) => f.key === filter)?.label}» збігів немає.
@@ -698,7 +700,7 @@ export default function ParticipantSaved({
               )}
             </div>
           ) : groupTotal === 0 ? (
-            <div className="rounded-2xl bg-white border border-black/5 px-5 py-6">
+            <div className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-5 py-6">
               <div className="text-[14px] font-medium">Тут поки порожньо</div>
               <p className="text-[14px] text-black/60 mt-1">{EMPTY_COPY[filter].text}</p>
               {FILTERS.some((f) => f.key !== filter && totalIn(f.key) > 0) && (

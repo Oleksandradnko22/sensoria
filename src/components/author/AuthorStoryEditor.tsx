@@ -24,14 +24,7 @@ import {
   type StoryStep,
 } from "../../utils/authorStory";
 
-type Props = {
-  authorId: string;
-  name: string;
-  initials: string;
-  avatarUrl: string | null;
-  role: string;
-  approach: string;
-};
+type Props = { authorId: string };
 
 const input = "w-full rounded-xl bg-[#faf9ff] px-4 py-3 text-[15px] ring-1 ring-[#e3def9] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7c5cf0]";
 const inputW = "w-full rounded-xl bg-white px-4 py-3 text-[15px] ring-1 ring-[#b9adf7] focus:outline-none focus:ring-2 focus:ring-[#7c5cf0]";
@@ -257,6 +250,7 @@ export default function AuthorStoryEditor({ authorId }: Props) {
     }
     setErrors([]);
     setTried(false);
+    if (!dirty) { setJustSaved(true); return; } // nothing changed and everything is filled
     setSaving(true);
     try {
       await saveAuthorStory(authorId, s);
@@ -360,6 +354,12 @@ export default function AuthorStoryEditor({ authorId }: Props) {
           <Section n={2} title="Відеознайомство" {...sec("media")} filled={!!s.media?.url && !!parseVideoUrl(s.media.url)}>
             <div className="flex flex-col gap-4">
               <p className="text-[14px] text-black/60">Коротке відео, де ви самі розповідаєте, хто ви й як працюєте. За бажанням — без нього блок просто не показується.</p>
+              {s.media?.kind === "audio" && (
+                <div className="flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 px-4 py-3 text-[13px] text-amber-900 ring-1 ring-amber-100">
+                  Зараз на сторінці аудіо. Аудіо більше не додається: вставте посилання на відео або приберіть запис.
+                  <button type="button" onClick={() => set("media", null)} className="font-semibold underline">Прибрати аудіо</button>
+                </div>
+              )}
               <div>
                 <div className={label}>Посилання на відео YouTube або Vimeo</div>
                 <input value={s.media?.kind === "video" ? s.media.url : ""} onChange={(e) => { const url = e.target.value.trim(); set("media", url ? { ...mediaOf("video"), url } : null); }} className={input} placeholder="https://youtu.be/…" aria-label="Посилання на відео" aria-invalid={tried && !!s.media?.url && !parseVideoUrl(s.media.url) ? true : undefined} />
@@ -499,7 +499,7 @@ export default function AuthorStoryEditor({ authorId }: Props) {
 
         {/* save at the end too: the author fills everything in, then saves */}
         <div className="flex flex-wrap items-center gap-3">
-          <button onClick={save} disabled={saving || !dirty} className="px-5 py-3 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold hover:opacity-90 transition disabled:opacity-40">
+          <button onClick={save} disabled={saving} className="px-5 py-3 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold hover:opacity-90 transition disabled:opacity-40">
             {saving ? "Зберігаємо…" : "Зберегти зміни"}
           </button>
           <span className="text-[13px]" aria-live="polite">

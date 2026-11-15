@@ -103,11 +103,11 @@ export default function ParticipantBilling({ onNavigate, onOpenProgram, onOpenGu
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Оплати</h1>
-          <p className="text-black/60 mt-1">Історія ваших покупок на Sensoria.</p>
+          <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Оплати</h1>
+          <p className="mt-1 text-[15px] text-black/55">Історія ваших покупок на Sensoria.</p>
         </div>
         {state === "ready" && all.length > 0 && (
-          <button onClick={exportCsv} className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-xl border border-black/[0.12] bg-white text-[14px] font-medium text-black/80 hover:bg-black/[0.04]">
+          <button onClick={exportCsv} className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-xl border border-[#e3def9] bg-white text-[14px] font-medium text-black/80 hover:bg-[#f6f4ff]">
             <Icon name="clip" size={16} />
             Експорт історії
           </button>
@@ -117,23 +117,23 @@ export default function ParticipantBilling({ onNavigate, onOpenProgram, onOpenGu
       {state === "loading" && !demo && (
         <div className="flex flex-col gap-3" aria-busy="true" aria-label="Завантаження покупок">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-[72px] rounded-2xl bg-white border border-black/[0.06] animate-pulse" />
+            <div key={i} className="h-[72px] rounded-[22px] bg-white ring-1 ring-[#ece8fb] animate-pulse" />
           ))}
         </div>
       )}
 
       {state === "error" && !demo && (
-        <div role="alert" className="rounded-2xl bg-white border border-black/[0.06] px-6 py-10 text-center">
+        <div role="alert" className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-6 py-10 text-center">
           <div className="text-[16px] font-medium">Не вдалося завантажити покупки</div>
           <p className="text-[14px] text-black/60 mt-1">Перевірте з'єднання і спробуйте ще раз.</p>
-          <button onClick={() => load()} className="mt-3 min-h-[44px] px-5 rounded-xl border border-black/[0.12] text-[14px] text-black/75 hover:bg-black/[0.04]">
+          <button onClick={() => load()} className="mt-3 min-h-[44px] px-5 rounded-xl border border-[#e3def9] text-[14px] text-black/75 hover:bg-[#f6f4ff]">
             Спробувати ще раз
           </button>
         </div>
       )}
 
       {(state === "ready" || demo) && all.length === 0 && (
-        <div className="max-w-[560px] rounded-2xl bg-white border border-black/[0.06] px-6 py-10 text-center">
+        <div className="max-w-[560px] rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-6 py-10 text-center">
           <span className="mx-auto w-12 h-12 rounded-full bg-[#eef0fd] text-[#4338ca] flex items-center justify-center">
             <Icon name="card" size={22} />
           </span>
@@ -152,7 +152,7 @@ export default function ParticipantBilling({ onNavigate, onOpenProgram, onOpenGu
       {(state === "ready" || demo) && all.length > 0 && (
         <>
           {/* desktop / tablet: table */}
-          <div className="hidden md:block rounded-2xl bg-white border border-black/[0.06] overflow-hidden">
+          <div className="hidden md:block rounded-[22px] bg-white ring-1 ring-[#ece8fb] overflow-hidden">
             <table className="w-full text-[14px]">
               <thead>
                 <tr className="text-left text-[12px] uppercase tracking-wide text-black/60 border-b border-black/[0.06]">
@@ -166,7 +166,7 @@ export default function ParticipantBilling({ onNavigate, onOpenProgram, onOpenGu
               </thead>
               <tbody>
                 {all.map((p) => (
-                  <tr key={p.id} onClick={() => setDetailsId(p.id)} className="border-b border-black/[0.06] last:border-0 hover:bg-black/[0.02] cursor-pointer">
+                  <tr key={p.id} onClick={() => setDetailsId(p.id)} className="border-b border-black/[0.06] last:border-0 hover:bg-[#f6f4ff] cursor-pointer">
                     <td className="px-5 py-3 text-black/70 whitespace-nowrap">{formatAbsoluteDate(p.date)}</td>
                     <td className="px-3 py-3 min-w-0">
                       {canOpen(p) ? (
@@ -196,7 +196,7 @@ export default function ParticipantBilling({ onNavigate, onOpenProgram, onOpenGu
           <ul className="md:hidden flex flex-col gap-3">
             {all.map((p) => (
               <li key={p.id}>
-                <button onClick={() => setDetailsId(p.id)} aria-label={`Деталі покупки: ${title(p)}`} className="w-full text-left rounded-2xl bg-white border border-black/[0.06] p-4 flex flex-col gap-2">
+                <button onClick={() => setDetailsId(p.id)} aria-label={`Деталі покупки: ${title(p)}`} className="w-full text-left rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-4 flex flex-col gap-2">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className={`text-[16px] font-semibold break-words ${p.title ? "text-black/90" : "text-black/60"}`}>{title(p)}</div>
@@ -285,7 +285,7 @@ function PurchaseDialog({ p, isDemo, canOpen, onOpenMaterial, onClose }: { p: Pu
     }
   };
 
-  const input = "w-full min-h-[44px] px-3 py-2 rounded-lg border border-black/15 text-[16px] sm:text-[14px] focus:outline-none focus:border-black/40";
+  const input = "w-full min-h-[44px] px-3 py-2 rounded-lg border border-[#d9d4f5] text-[16px] sm:text-[14px] focus:outline-none focus:border-black/40";
   return createPortal(
     <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
       <div
@@ -327,12 +327,12 @@ function PurchaseDialog({ p, isDemo, canOpen, onOpenMaterial, onClose }: { p: Pu
               <p className="text-[12px] text-black/60 text-center">Повернення можливе лише протягом {REFUND_WINDOW_DAYS} днів після покупки.</p>
             )}
             {!sent && refundable && !refundMode && (
-              <button onClick={() => setRefundMode(true)} className="min-h-[44px] rounded-xl border border-black/[0.12] text-[14px] font-medium hover:bg-black/[0.03]">
+              <button onClick={() => setRefundMode(true)} className="min-h-[44px] rounded-xl border border-[#e3def9] text-[14px] font-medium hover:bg-[#f6f4ff]">
                 Запросити повернення коштів
               </button>
             )}
             {!sent && refundable && refundMode && (
-              <div className="flex flex-col gap-3 p-4 rounded-xl bg-black/[0.02] border border-black/10">
+              <div className="flex flex-col gap-3 p-4 rounded-xl bg-black/[0.02] border border-[#e3def9]">
                 <div className="text-[14px] font-medium">Запит на повернення коштів</div>
                 <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ім'я та прізвище" aria-label="Ім'я та прізвище" className={input} />
                 <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" aria-label="Email" type="email" className={input} />
@@ -344,7 +344,7 @@ function PurchaseDialog({ p, isDemo, canOpen, onOpenMaterial, onClose }: { p: Pu
                   <button onClick={submit} disabled={!canSubmit || busy} className="min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 disabled:opacity-40">
                     {busy ? "Надсилаємо…" : "Надіслати запит"}
                   </button>
-                  <button onClick={() => setRefundMode(false)} className="min-h-[44px] px-4 rounded-xl text-[14px] text-black/70 hover:bg-black/5">Скасувати</button>
+                  <button onClick={() => setRefundMode(false)} className="min-h-[44px] px-4 rounded-xl text-[14px] text-black/70 hover:bg-[#f6f4ff]">Скасувати</button>
                 </div>
               </div>
             )}
@@ -352,7 +352,7 @@ function PurchaseDialog({ p, isDemo, canOpen, onOpenMaterial, onClose }: { p: Pu
         )}
 
         <div className="mt-5 flex justify-end">
-          <button data-autofocus onClick={onClose} className="min-h-[44px] px-5 rounded-xl border border-black/[0.12] text-[14px] text-black/70 hover:bg-black/[0.04]">
+          <button data-autofocus onClick={onClose} className="min-h-[44px] px-5 rounded-xl border border-[#e3def9] text-[14px] text-black/70 hover:bg-[#f6f4ff]">
             Закрити
           </button>
         </div>

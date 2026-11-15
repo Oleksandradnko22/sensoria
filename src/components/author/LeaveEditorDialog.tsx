@@ -39,7 +39,7 @@ export default function LeaveEditorDialog({ noun, published, busy, canSave = tru
         {!canSave && <p className="mt-3 text-[13px] text-black/60">Щоб зберегти чернетку, спершу вкажіть назву.</p>}
         {error && <p role="alert" className="mt-3 text-[13px] text-rose-700">{error}</p>}
         <div className="mt-5 flex flex-col gap-2">
-          <button data-autofocus onClick={onSave} disabled={busy || !canSave} className="min-h-[46px] rounded-xl bg-[#2b2a5a] px-5 text-[14px] font-medium text-white transition hover:bg-[#23224b] disabled:opacity-60">
+          <button data-autofocus onClick={onSave} disabled={busy || !canSave} className="min-h-[46px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] hover:opacity-95 px-5 text-[14px] font-medium text-white transition hover:bg-[#23224b] disabled:opacity-60">
             {busy ? "Зберігаємо…" : published ? "Зберегти зміни" : "Зберегти чернетку"}
           </button>
           <button onClick={onDiscard} disabled={busy} className="min-h-[46px] rounded-xl border border-black/[0.12] px-5 text-[14px] font-medium text-rose-700 transition hover:bg-rose-50 disabled:opacity-60">

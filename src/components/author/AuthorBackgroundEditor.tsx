@@ -220,7 +220,7 @@ export default function AuthorBackgroundEditor({ authorId }: { authorId: string 
           <p className="text-[13px] text-emerald-800 bg-emerald-50 rounded-2xl px-4 py-3 ring-1 ring-emerald-100">Блок «Професійний бекграунд» показується на вашому профілі.</p>
         ) : (
           <p className="text-[13px] text-amber-800 bg-amber-50 rounded-2xl px-4 py-3 ring-1 ring-amber-100">
-            Блок «Професійний бекграунд» з’явиться на сторінці, коли буде все потрібне: {missing.join("; ")}.
+            Блок «Професійний бекграунд» з’явиться на сторінці, коли ви додасте {missing.join("; ")}. Найкраще — усе, що маєте: диплом, курси й сертифікати.
           </p>
         );
       })()}
@@ -231,7 +231,7 @@ export default function AuthorBackgroundEditor({ authorId }: { authorId: string 
       )}
 
       {/* EDUCATION */}
-      <Card n={1} title="Освіта та сертифікати" hint="Диплом, курс чи сертифікат — щонайменше один запис.">
+      <Card n={1} title="Освіта та сертифікати" hint="Щонайменше один запис: диплом, курс або сертифікат. Найкраще — усе, що маєте.">
         {sortCredentials(creds).map((c) => (
           <div key={c.id} className="flex items-start gap-3 rounded-2xl bg-white p-4 ring-1 ring-[#ece8fb]">
             {c.imageUrl ? <img src={c.imageUrl} alt="" className="w-14 h-14 rounded-lg object-contain bg-[#f6f5fb] border border-black/5 shrink-0" /> : <div className="w-14 h-14 rounded-lg bg-[#f6f5fb] border border-black/5 shrink-0" />}
@@ -316,7 +316,7 @@ export default function AuthorBackgroundEditor({ authorId }: { authorId: string 
       </Card>
 
       {/* CASES */}
-      <Card n={2} title="Кейси" hint="Необов’язково. Узагальнені історії без імен і впізнаваних деталей.">
+      <Card n={2} title="Кейси" hint="Необов’язково.">
         <p className="text-[13px] text-black/50">
           Узагальнена історія: з яким запитом приходять і що допомагає. Без імен і деталей, за якими можна впізнати людину, і без обіцянок результату. За бажанням
           прив’яжіть до свого матеріалу.
@@ -339,7 +339,7 @@ export default function AuthorBackgroundEditor({ authorId }: { authorId: string 
                           setCases(await saveCaseOrder(l));
                         })
                       }
-                      className="w-8 h-8 rounded-lg bg-black/5 hover:bg-black/10 disabled:opacity-30 text-[14px]"
+                      className="w-8 h-8 rounded-lg bg-white ring-1 ring-[#e3def9] text-[#4338ca] hover:ring-[#c9bff7] disabled:opacity-30 text-[14px]"
                     >
                       {d < 0 ? "↑" : "↓"}
                     </button>
@@ -364,7 +364,7 @@ export default function AuthorBackgroundEditor({ authorId }: { authorId: string 
               <div className={label}>Назва</div>
               <input value={kd.title} maxLength={160} onChange={(e) => setKd({ ...kd, title: e.target.value })} className={input} placeholder="Наприклад: Постійна напруга після роботи" />
             </div>
-            <p className="text-[12px] leading-relaxed text-black/50 rounded-lg bg-black/[0.03] p-3">
+            <p className="text-[12px] leading-relaxed text-black/50 rounded-xl bg-[#faf9ff] p-3 ring-1 ring-[#ece8fb]">
               Пишіть знеособлено: без імен, місць роботи, міст, дат, телефонів, пошти й посилань. Змініть деталі, за якими людину можна впізнати. Кейс — це приклад
               підходу, а не обіцянка результату.
             </p>

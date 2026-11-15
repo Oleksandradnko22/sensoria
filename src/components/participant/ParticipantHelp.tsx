@@ -42,7 +42,7 @@ const QUICK_SCENARIOS: { label: string; icon: IconName; categoryId: string; ques
 ];
 
 const field =
-  "w-full min-h-[44px] px-3.5 py-2.5 rounded-xl border border-black/15 bg-white text-[16px] sm:text-[14px] focus:outline-none focus:border-[#4338ca]/60 focus-visible:ring-2 focus-visible:ring-[#4338ca]/20";
+  "w-full min-h-[44px] px-3.5 py-2.5 rounded-xl border border-[#d9d4f5] bg-white text-[16px] sm:text-[14px] focus:outline-none focus:border-[#4338ca]/60 focus-visible:ring-2 focus-visible:ring-[#4338ca]/20";
 
 export default function ParticipantHelp() {
   const session = useSession();
@@ -146,7 +146,7 @@ export default function ParticipantHelp() {
       <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#eef0fd] via-white to-[#f4eefe] border border-black/[0.05] p-5 sm:p-7">
         <HelpIllustration className="hidden sm:block absolute right-4 top-3 w-[240px] lg:w-[300px] opacity-95 pointer-events-none" />
         <div className="relative max-w-[640px]">
-          <h1 className="text-3xl font-bold">Допомога</h1>
+          <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Допомога</h1>
           <p className="text-black/65 mt-1.5 leading-relaxed sm:max-w-[420px] lg:max-w-none">
             Ми поруч, якщо щось не працює, незрозуміло або просто виникло питання.
           </p>
@@ -161,7 +161,7 @@ export default function ParticipantHelp() {
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Пошук відповіді"
               placeholder="Наприклад: «я оплатив(-ла) курс, але не бачу його»"
-              className="w-full min-h-[52px] pl-11 pr-11 rounded-2xl border border-black/[0.12] bg-white text-[16px] sm:text-[14px] focus:outline-none focus:border-[#4338ca]/60 focus-visible:ring-2 focus-visible:ring-[#4338ca]/20 shadow-[0_1px_2px_rgba(0,0,0,0.03)] [&::-webkit-search-cancel-button]:hidden"
+              className="w-full min-h-[52px] pl-11 pr-11 rounded-2xl border border-[#e3def9] bg-white text-[16px] sm:text-[14px] focus:outline-none focus:border-[#4338ca]/60 focus-visible:ring-2 focus-visible:ring-[#4338ca]/20 shadow-[0_1px_2px_rgba(0,0,0,0.03)] [&::-webkit-search-cancel-button]:hidden"
             />
             {searching && (
               <button
@@ -185,7 +185,7 @@ export default function ParticipantHelp() {
                   <button
                     key={s.label}
                     onClick={() => jumpToFaq(s.categoryId, s.question)}
-                    className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-full bg-white border border-black/[0.12] hover:border-[#4338ca]/40 hover:bg-[#f6f7ff] transition-colors text-[14px] font-medium text-black/85"
+                    className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-full bg-white border border-[#e3def9] hover:border-[#4338ca]/40 hover:bg-[#f6f7ff] transition-colors text-[14px] font-medium text-black/85"
                   >
                     <span className="text-[#4338ca]"><Icon name={s.icon} size={16} /></span>
                     {s.label}
@@ -202,10 +202,10 @@ export default function ParticipantHelp() {
         {/* FAQ */}
         <div className="flex flex-col gap-3">
           {searching && found.total === 0 && (
-            <div className="rounded-2xl bg-white border border-black/[0.06] px-6 py-8 text-center">
+            <div className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-6 py-8 text-center">
               <div className="text-[16px] font-medium">Нічого не знайдено</div>
               <p className="text-[14px] text-black/60 mt-1">Спробуйте інші слова або напишіть у підтримку.</p>
-              <button onClick={openSupportForm} className="mt-3 min-h-[44px] px-5 rounded-xl border border-black/[0.12] text-[14px] font-medium hover:bg-black/[0.04]">
+              <button onClick={openSupportForm} className="mt-3 min-h-[44px] px-5 rounded-xl border border-[#e3def9] text-[14px] font-medium hover:bg-[#f6f4ff]">
                 Написати в підтримку
               </button>
             </div>
@@ -215,7 +215,7 @@ export default function ParticipantHelp() {
             const open = catOpen(cat.id);
             const panelId = `faq-panel-${cat.id}`;
             return (
-              <section key={cat.id} className="rounded-2xl bg-white border border-black/[0.06] overflow-hidden">
+              <section key={cat.id} className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] overflow-hidden">
                 <h2>
                   <button
                     onClick={() => !searching && toggleCat(cat.id)}
@@ -251,7 +251,7 @@ export default function ParticipantHelp() {
                               onClick={() => setOpenKey(openKey === item.key ? null : item.key)}
                               aria-expanded={isOpen}
                               aria-controls={`${item.key}-answer`}
-                              className="w-full flex items-center justify-between gap-4 min-h-[52px] px-4 sm:px-5 py-3 text-left hover:bg-black/[0.02] focus-visible:outline-2 focus-visible:outline-[#4338ca] focus-visible:-outline-offset-2"
+                              className="w-full flex items-center justify-between gap-4 min-h-[52px] px-4 sm:px-5 py-3 text-left hover:bg-[#f6f4ff] focus-visible:outline-2 focus-visible:outline-[#4338ca] focus-visible:-outline-offset-2"
                             >
                               <span className={`text-[14px] ${isOpen ? "font-semibold text-black/90" : "font-medium text-black/85"}`}>{item.q}</span>
                               <span aria-hidden="true" className={`shrink-0 text-xl leading-none text-black/60 transition-transform ${isOpen ? "rotate-45" : ""}`}>+</span>
@@ -278,7 +278,7 @@ export default function ParticipantHelp() {
             <span aria-hidden="true" className="w-11 h-11 rounded-full bg-white text-[#4338ca] flex items-center justify-center shadow-sm">
               <Icon name="lifebuoy" size={22} />
             </span>
-            <h2 className="text-[20px] font-semibold mt-3">Не знайшли того, що шукали?</h2>
+            <h2 className="text-[20px] font-bold text-[#12172b] mt-3">Не знайшли того, що шукали?</h2>
             <p className="text-[14px] text-black/65 mt-1 leading-relaxed">Розкажіть, що сталося — ми підкажемо, що робити далі.</p>
             <button
               onClick={openSupportForm}
@@ -291,13 +291,13 @@ export default function ParticipantHelp() {
           </section>
 
           {reportOpen && (
-            <section id="support-form" aria-labelledby="support-form-title" className="rounded-2xl bg-white border border-black/[0.06] p-5 sm:p-6 scroll-mt-4">
+            <section id="support-form" aria-labelledby="support-form-title" className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-5 sm:p-6 scroll-mt-4">
               <div className="flex items-center justify-between">
                 <h2 id="support-form-title" className="text-[16px] font-semibold">Розкажіть, що сталося</h2>
                 <button
                   onClick={() => !reportSubmitting && setReportOpen(false)}
                   aria-label="Закрити форму"
-                  className="-mr-2 w-11 h-11 rounded-full hover:bg-black/5 text-black/60 text-xl leading-none"
+                  className="-mr-2 w-11 h-11 rounded-full hover:bg-[#f6f4ff] text-black/60 text-xl leading-none"
                 >
                   ×
                 </button>
@@ -356,7 +356,7 @@ export default function ParticipantHelp() {
           )}
 
           {(ticketsState === "error" || tickets.length > 0) && (
-            <section className="rounded-2xl bg-white border border-black/[0.06] p-5 sm:p-6" aria-labelledby="tickets-title">
+            <section className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-5 sm:p-6" aria-labelledby="tickets-title">
               <h2 id="tickets-title" className="text-[16px] font-semibold mb-3">Ваші звернення</h2>
               {ticketsState === "error" ? (
                 <div role="alert" className="text-[14px] text-red-700">

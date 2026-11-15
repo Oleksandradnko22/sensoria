@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { touchFinanceActivity } from "../lib/finance";
 import { Icon, type IconName } from "../components/ui/Icon";
 import { SHOW_AUTHOR_DEMO } from "../utils/demoMode";
@@ -89,6 +89,13 @@ export default function AuthorDashboardPage({
   onOpenAdmin,
 }: Props) {
   const [section, setSection] = useState<SectionKey>("overview");
+  // phone menu row: keep the open section in view (only sideways — the page itself never jumps)
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const nav = navRef.current;
+    const el = nav?.querySelector<HTMLElement>("[data-active]");
+    if (nav && el && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = el.offsetLeft - (nav.clientWidth - el.offsetWidth) / 2;
+  }, [section]);
   // «Написати» in «Учасники» → this person's conversation in «Повідомлення»
   const [openChat, setOpenChat] = useState<{ otherId: string; name: string; contentId: string | null; contentTitle: string | null; key: number } | null>(null);
   // Opening the cabinet counts as the author being present (finance: inactivity rule).
@@ -259,20 +266,20 @@ export default function AuthorDashboardPage({
           Header: this is a logged-in area with a different job (identity,
           quick way back to the public site), not catalog nav. */}
       <div className="border-b border-white/10">
-        <div className="max-w-[1400px] mx-auto px-6 py-5 flex items-center justify-between">
+        <div className="max-w-[1400px] mx-auto px-3 py-3 sm:px-6 sm:py-5 flex items-center justify-between gap-2">
           <button
             onClick={() => leaveWith(onBackToSite)}
-            className="flex items-center gap-2 text-white/80 hover:text-white transition"
+            className="flex shrink-0 items-center gap-2 whitespace-nowrap text-white/80 hover:text-white transition"
           >
             <span className="text-xl">←</span>
             <span className="font-semibold tracking-wide">SENSORIA</span>
-            <span className="text-white/40 text-sm ml-1">Кабінет автора</span>
+            <span className="hidden text-white/40 text-sm ml-1 sm:inline">Кабінет автора</span>
           </button>
 
-          <div className="flex items-center gap-4">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
             <button
               onClick={() => openSection("messages")}
-              className="relative w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-lg"
+              className="relative shrink-0 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-lg"
               aria-label="Повідомлення"
             >
               <Icon name="mail" size={18} />
@@ -285,20 +292,21 @@ export default function AuthorDashboardPage({
 
             <button
               onClick={() => openSection("profile")}
-              className="flex items-center gap-3 pl-1 pr-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition"
+              aria-label="Профіль"
+              className="flex shrink-0 items-center gap-3 p-1 sm:pr-3 rounded-full bg-white/10 hover:bg-white/20 transition"
             >
               <Avatar
                 avatarUrl={profile.avatarUrl}
                 initials={getInitials(profile.name)}
                 className="w-8 h-8 text-[13px]"
               />
-              <span className="text-sm font-medium">{profile.name}</span>
+              <span className="hidden max-w-[180px] truncate text-sm font-medium sm:inline">{profile.name}</span>
             </button>
 
             {onOpenAdmin && (
               <button
                 onClick={() => leaveWith(onOpenAdmin)}
-                className="text-sm text-white/60 hover:text-white transition"
+                className="shrink-0 whitespace-nowrap text-sm text-white/60 hover:text-white transition"
               >
                 Адмін-панель
               </button>
@@ -306,7 +314,7 @@ export default function AuthorDashboardPage({
 
             <button
               onClick={() => leaveWith(onLogout)}
-              className="text-sm text-white/60 hover:text-white transition"
+              className="shrink-0 whitespace-nowrap text-sm text-white/60 hover:text-white transition"
             >
               Вийти
             </button>
@@ -314,28 +322,29 @@ export default function AuthorDashboardPage({
         </div>
       </div>
 
-      <div className="max-w-[1400px] mx-auto px-6 pt-8 pb-24 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[260px_minmax(0,1fr)] gap-8 items-start">
+      <div className="max-w-[1400px] mx-auto px-3 pt-4 pb-24 sm:px-6 sm:pt-8 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[260px_minmax(0,1fr)] gap-4 lg:gap-8 items-start">
         {/* SIDEBAR */}
-        <div className="rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 p-4">
-          <nav className="flex flex-col gap-1">
+        <div className="min-w-0 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 p-2 lg:p-4">
+          <nav ref={navRef} className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-col lg:overflow-visible">
             {NAV.map((item) => {
               const isActive = section === item.key && !editorTarget;
               return (
                 <button
                   key={item.key}
+                  data-active={isActive || undefined}
                   onClick={() => openSection(item.key)}
                   className={`
-                    flex items-center gap-3 px-4 py-3 rounded-2xl text-left text-[14px] font-medium
+                    flex shrink-0 items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2.5 lg:py-3 rounded-2xl text-left text-[14px] font-medium whitespace-nowrap
                     transition
                     ${
                       isActive
-                        ? "bg-white text-black"
+                        ? "bg-white text-[#12172b]"
                         : "text-white/75 hover:bg-white/10 hover:text-white"
                     }
                   `}
                 >
                   <Icon name={item.icon} size={18} />
-                  <span className="flex-1">{item.label}</span>
+                  <span className="lg:flex-1">{item.label}</span>
                   {item.key === "messages" && unreadMessages > 0 && (
                     <span
                       className={`
@@ -354,7 +363,7 @@ export default function AuthorDashboardPage({
         </div>
 
         {/* CONTENT */}
-        <div className={`rounded-3xl bg-[#f6f8ff] text-black p-8 ${section === "profile" && !editorTarget ? "pb-10" : "min-h-[70vh]"}`}>
+        <div className={`min-w-0 rounded-3xl bg-[#f6f8ff] text-black p-4 sm:p-8 ${section === "profile" && !editorTarget ? "sm:pb-10" : "min-h-[70vh]"}`}>
           {editorTarget ? (
             <AuthorCourseEditor
               target={editorTarget}

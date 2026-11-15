@@ -865,7 +865,9 @@ export default function AuthorCourseEditor({
             if (li >= 0) setLessonIdx((prev) => ({ ...prev, [mi]: li }));
           }
         }
-        setError(INVALID_FIELDS_MESSAGE);
+        // a module without lessons has no field to outline: say it in words
+        const empty = type === "program" && firstStep <= 0 ? modules.findIndex((m) => (m.items?.length ?? 0) === 0) : -1;
+        setError(empty >= 0 ? `У модулі ${empty + 1} ще немає уроків: натисніть «+ Додати урок».` : INVALID_FIELDS_MESSAGE);
         focusInvalid();
         return false;
       }
@@ -1431,7 +1433,7 @@ export default function AuthorCourseEditor({
               </button>
             )}
             {step < STEPS.length && (
-              <button type="button" onClick={goNext} disabled={saving} className="inline-flex min-h-[46px] items-center gap-2 rounded-xl bg-[#2b2a5a] px-6 text-[14px] font-semibold text-white shadow-[0_10px_20px_-14px_rgba(43,42,90,0.7)] transition hover:bg-[#23224b] disabled:opacity-60">
+              <button type="button" onClick={goNext} disabled={saving} className="inline-flex min-h-[46px] items-center gap-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] hover:opacity-95 px-6 text-[14px] font-semibold text-white shadow-[0_10px_20px_-14px_rgba(43,42,90,0.7)] transition hover:bg-[#23224b] disabled:opacity-60">
                 Далі <span aria-hidden="true">→</span>
               </button>
             )}

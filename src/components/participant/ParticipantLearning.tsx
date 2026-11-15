@@ -877,19 +877,20 @@ export default function ParticipantLearning({
   // viewed). Meditations still have no equivalent "touched but 0% done"
   // concept (no percent at all, only a real resumable position or none),
   // so they remain genuinely unaffected.
-  const matchesStatusFilter = (i: LearningItem): boolean => {
-    if (statusFilter === "all") return true;
-    if (statusFilter === "saved") return i.status === "saved" || i.saved === true;
-    if (statusFilter === "in-progress" && i.kind === "program" && i.status === "in-progress") {
+  const matchesFilter = (f: StatusFilter) => (i: LearningItem): boolean => {
+    if (f === "all") return true;
+    if (f === "saved") return i.status === "saved" || i.saved === true;
+    if (f === "in-progress" && i.kind === "program" && i.status === "in-progress") {
       const percent = getProgramProgress(session?.profile.id ?? null, i.contentId, false)?.percent ?? 0;
       return percent > 0;
     }
-    if (statusFilter === "in-progress" && i.kind === "guide" && i.status === "in-progress") {
+    if (f === "in-progress" && i.kind === "guide" && i.status === "in-progress") {
       const percent = i.enrollment?.progressPercent ?? 0;
       return percent > 0;
     }
-    return i.status === statusFilter;
+    return i.status === f;
   };
+  const matchesStatusFilter = matchesFilter(statusFilter);
 
   // Drops any item that no longer resolves to real catalog content
   // (2026-09-29 fix, found via Sasha's live report: "Збережені" showed a
@@ -906,6 +907,9 @@ export default function ParticipantLearning({
   // actually empty, just unrenderable. Filtering here, once, before that
   // check runs, means a stale save always reads as "nothing here" rather
   // than a silent blank patch of grid.
+  const known = (item: LearningItem) => Boolean(getContentInfo(item.contentId, item.kind, realProgramMetaById[item.contentId]));
+  const tabItems = (tab === "program" ? programLearningItems : combineByType(tab, realSavedIdsForTab, correctedEnrollments, savedContent)).filter(known);
+  const countFor = (f: StatusFilter) => (f === "recommended" ? recommendedGuides.length : tabItems.filter(matchesFilter(f)).length);
   const items = (
     statusFilter === "recommended"
       ? recommendedGuides.map(
@@ -963,13 +967,11 @@ export default function ParticipantLearning({
   };
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-bold">Моє навчання</h1>
-        <p className="text-black/60 mt-0.5">
-          Усі ваші програми, гайди та медитації в одному місці.
-        </p>
-      </div>
+    <div className="flex flex-col gap-7">
+      <header className="min-w-0">
+        <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Моє навчання</h1>
+        <p className="mt-1 text-[15px] text-black/55">Усі ваші програми, гайди та медитації в одному місці.</p>
+      </header>
 
       {/* ВАШ МАРШРУТ — for programs, real per-item progress
           (lib/programProgress.ts) instead of the old hand-typed
@@ -995,22 +997,22 @@ export default function ParticipantLearning({
         const isResumable = typeof realStoppedSeconds[continueTarget.contentId] === "number";
         return (
           <div
-            className="relative overflow-hidden rounded-2xl p-5"
+            className="relative overflow-hidden rounded-[26px] p-5 sm:p-6 shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff]"
             style={{ background: `linear-gradient(120deg, ${c1}26, ${c2}26 55%, ${c3}26)` }}
           >
             <div className="pointer-events-none absolute -top-10 -right-6 w-40 h-40 rounded-full opacity-50 blur-3xl" style={{ background: c3 }} />
             <div className="pointer-events-none absolute -bottom-12 -left-10 w-36 h-36 rounded-full opacity-40 blur-3xl" style={{ background: c1 }} />
             <div className="relative flex items-center gap-4 flex-wrap">
               <div className="flex-1 min-w-[220px]">
-                <div className="text-[14px] font-medium text-black/60 mb-1">
+                <div className="text-[13px] font-bold uppercase tracking-[0.12em] text-[#6d5bd0] mb-1">
                   {isResumable ? "Продовжити практику" : "Розпочати практику"}
                 </div>
-                <div className="font-semibold text-[16px]">{continueInfo.title}</div>
+                <div className="text-[20px] font-bold leading-snug text-[#12172b]">{continueInfo.title}</div>
                 <div className="text-[12px] text-black/60 mt-0.5">{continueInfo.duration}</div>
               </div>
               <button
                 onClick={() => openContent("meditation", continueTarget.contentId)}
-                className="min-h-[44px] px-4 py-2 rounded-xl bg-black/80 text-white text-[14px] font-medium hover:bg-black transition shrink-0"
+                className="min-h-[44px] px-5 py-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition shrink-0"
               >
                 {isResumable ? "Продовжити →" : "Почати →"}
               </button>
@@ -1022,16 +1024,16 @@ export default function ParticipantLearning({
       {continueTarget && continueInfo && continueTarget.kind === "program" && (() => {
         const routeProgress = getProgramProgress(session?.profile.id ?? null, continueTarget.contentId, false);
         return (
-        <div className="rounded-2xl bg-gradient-to-br from-[#eef2ff] to-white border border-black/5 p-4">
-          <div className="text-[14px] font-medium text-black/60 mb-2">
+        <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-5 sm:p-6">
+          <div className="text-[13px] font-bold uppercase tracking-[0.12em] text-[#6d5bd0] mb-3">
             Зараз вам може бути корисно продовжити
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[16px] shrink-0 border border-black/5">
-              <span className="text-black/45"><Icon name={kindIcon[continueTarget.kind]} size={18} /></span>
+          <div className="flex items-center gap-3.5 flex-wrap">
+            <div className="w-12 h-12 rounded-2xl bg-[#f1eeff] flex items-center justify-center shrink-0">
+              <span className="text-[#6d5bd0]"><Icon name={kindIcon[continueTarget.kind]} size={22} /></span>
             </div>
             <div className="flex-1 min-w-[220px]">
-              <div className="font-semibold text-[16px]">{continueInfo.title}</div>
+              <div className="text-[20px] font-bold leading-snug text-[#12172b]">{continueInfo.title}</div>
               <div className="text-[12px] text-black/60 mt-0.5">
                 {kindLabel[continueTarget.kind]} · {continueInfo.author}
                 {routeProgress &&
@@ -1039,9 +1041,9 @@ export default function ParticipantLearning({
               </div>
               {routeProgress && (
                 <div className="flex items-center gap-2 mt-1.5 max-w-[280px]">
-                  <div className="flex-1 h-1 rounded-full bg-black/10 overflow-hidden">
+                  <div className="flex-1 h-1.5 rounded-full bg-[#ece9fe] overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
+                      className="h-full bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0]"
                       style={{ width: `${routeProgress.percent}%` }}
                     />
                   </div>
@@ -1050,7 +1052,7 @@ export default function ParticipantLearning({
             </div>
             <button
               onClick={() => openContent(continueTarget.kind, continueTarget.contentId)}
-              className="min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white text-[14px] font-medium hover:opacity-90 transition shrink-0"
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition shrink-0"
             >
               {/* 0%-but-touched fix (2026-09-24) — a program can land
                   here (real activity, so it's a real "continue"
@@ -1077,20 +1079,20 @@ export default function ParticipantLearning({
           guideRec ? guideSizeLabel(guideRec) : null,
         ].filter(Boolean);
         return (
-          <div className="rounded-2xl bg-gradient-to-br from-[#f3f6ff] to-white border border-black/5 p-4">
-            <div className="text-[14px] font-medium text-indigo-500/70 mb-2">
+          <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-5 sm:p-6">
+            <div className="text-[13px] font-bold uppercase tracking-[0.12em] text-[#6d5bd0] mb-3">
               Може бути корисно зараз
             </div>
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex-1 min-w-[220px]">
-                <div className="font-semibold text-[16px]">{continueInfo.title}</div>
+                <div className="text-[20px] font-bold leading-snug text-[#12172b]">{continueInfo.title}</div>
                 <div className="text-[12px] text-black/60 mt-0.5">
                   Гайд{metaBits.length > 0 ? ` · ${metaBits.join(" · ")}` : ""}
                 </div>
               </div>
               <button
                 onClick={() => openContent("guide", continueTarget.contentId)}
-                className="min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white text-[14px] font-medium hover:opacity-90 transition shrink-0"
+                className="min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition shrink-0"
               >
                 Відкрити →
               </button>
@@ -1110,13 +1112,13 @@ export default function ParticipantLearning({
           the continue block above is already showing (2026-09-09, per
           Sasha's explicit call — two teasers stacked read as noise). */}
       {tab === "guide" && !continueTarget && topRecommendedGuide && (
-        <div className="rounded-2xl bg-gradient-to-br from-[#f3f6ff] to-white border border-black/5 p-4">
-          <div className="text-[14px] font-medium text-indigo-500/70 mb-2">
+        <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-5 sm:p-6">
+          <div className="text-[13px] font-bold uppercase tracking-[0.12em] text-[#6d5bd0] mb-3">
             Може бути корисно зараз
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex-1 min-w-[220px]">
-              <div className="font-semibold text-[16px]">{topRecommendedGuide.title}</div>
+              <div className="text-[20px] font-bold leading-snug text-[#12172b]">{topRecommendedGuide.title}</div>
               <div className="text-[12px] text-black/60 mt-0.5">
                 Гайд · {topRecommendedGuide.author}
                 {` · ${guideSizeLabel(topRecommendedGuide)}`}
@@ -1124,7 +1126,7 @@ export default function ParticipantLearning({
             </div>
             <button
               onClick={() => openContent("guide", topRecommendedGuide.id)}
-              className="min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white text-[14px] font-medium hover:opacity-90 transition shrink-0"
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition shrink-0"
             >
               Відкрити →
             </button>
@@ -1135,18 +1137,18 @@ export default function ParticipantLearning({
       {/* Same block once there is nothing new or in progress to point at:
           the most relevant guide the person already has, to open again. */}
       {tab === "guide" && !continueTarget && !topRecommendedGuide && revisitGuide && (
-        <div className="rounded-2xl bg-gradient-to-br from-[#f3f6ff] to-white border border-black/5 p-4">
-          <div className="text-[14px] font-medium text-indigo-500/70 mb-2">Може бути корисно зараз</div>
+        <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-5 sm:p-6">
+          <div className="text-[13px] font-bold uppercase tracking-[0.12em] text-[#6d5bd0] mb-3">Може бути корисно зараз</div>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex-1 min-w-[220px]">
-              <div className="font-semibold text-[16px]">{revisitGuide.title}</div>
+              <div className="text-[20px] font-bold leading-snug text-[#12172b]">{revisitGuide.title}</div>
               <div className="text-[12px] text-black/60 mt-0.5">
                 Гайд · {revisitGuide.author}
               </div>
             </div>
             <button
               onClick={() => openContent("guide", revisitGuide.id)}
-              className="min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white text-[14px] font-medium hover:opacity-90 transition shrink-0"
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition shrink-0"
             >
               Відкрити знову →
             </button>
@@ -1200,7 +1202,7 @@ export default function ParticipantLearning({
         <div className="flex flex-col gap-3">
           {tab === "guide" ? (
             <div>
-              <h2 className="text-[20px] font-semibold tracking-tight">Гайди</h2>
+              <h2 className="text-[20px] font-bold text-[#12172b] tracking-tight">Гайди</h2>
               <p className="text-black/60 text-[14px] mt-1 leading-relaxed max-w-[520px]">
                 Інструменти, до яких можна повертатися тоді, коли вони вам потрібні.
               </p>
@@ -1215,7 +1217,7 @@ export default function ParticipantLearning({
               Практики, до яких можна повертатися щоразу, коли потрібно заспокоїтись або перезавантажитись.
             </p>
           ) : (
-            <h2 className="text-[20px] font-semibold flex items-center gap-2">
+            <h2 className="text-[20px] font-bold text-[#12172b] flex items-center gap-2">
               <span className="text-black/45"><Icon name={kindIcon[tab]} size={18} /></span>
               {kindLabelPlural[tab]}
             </h2>
@@ -1232,30 +1234,40 @@ export default function ParticipantLearning({
               on. Now one shared style everywhere — the active chip keeps
               strong contrast, inactive ones drop the border/fill
               entirely and read as plain quiet text until hovered. */}
-          <div className="flex flex-wrap gap-1">
-            {filterOptions.map((s) => (
-              <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className={`min-h-[44px] px-3.5 py-1.5 rounded-full text-[14px] font-medium transition ${
-                  statusFilter === s
-                    ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35"
-                    : "text-black/60 hover:text-black/70 hover:bg-black/[0.04]"
-                }`}
-              >
-                {filterLabel[s]}
-              </button>
-            ))}
+          {/* status tabs with the real count in each — one full-width bar, the same as the tabs in the author's «Профіль» */}
+          <div
+            role="tablist"
+            aria-label="Фільтр"
+            className={`grid gap-1.5 rounded-[20px] bg-white p-1.5 shadow-[0_14px_36px_-30px_rgba(60,50,140,0.55)] ring-1 ring-[#ece8fb] ${filterOptions.length > 4 ? "grid-cols-2 sm:grid-cols-5" : filterOptions.length > 2 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2"}`}
+          >
+            {filterOptions.map((f) => {
+              const on = statusFilter === f;
+              return (
+                <button
+                  key={f}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => setStatusFilter(f)}
+                  className={`flex min-h-[50px] items-center justify-center gap-2 rounded-2xl px-3 text-[14px] font-semibold transition ${on ? "bg-gradient-to-r from-[#eef0fd] to-[#f3eeff] text-[#4338ca] shadow-[inset_0_0_0_1px_rgba(67,56,202,0.25)]" : "text-black/60 hover:bg-[#faf9ff] hover:text-[#3b3f66]"}`}
+                >
+                  <span className="truncate">{filterLabel[f]}</span>
+                  <span className={`flex h-6 min-w-[24px] shrink-0 items-center justify-center rounded-lg px-1.5 text-[12px] font-bold tabular-nums ${on ? "bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white" : "bg-[#f1eeff] text-[#6d5bd0]"}`}>
+                    {programsLoading ? "…" : countFor(f)}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* GRID */}
         {programsLoading ? (
-          <div className="rounded-2xl bg-white border border-black/5 p-10 text-center text-black/60 text-[14px]">
+          <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-10 text-center text-black/60 text-[14px]">
             Завантажуємо ваш прогрес…
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-2xl bg-white border border-black/5 p-10 text-center text-black/60 text-[14px]">
+          <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-10 text-center text-black/60 text-[14px]">
             {emptyStateCopy[statusFilter]}
           </div>
         ) : (
@@ -1572,7 +1584,7 @@ function ContentCard({
       ? info.sizeLabel
       : undefined;
     return (
-      <div className="group rounded-[28px] bg-white border border-black/[0.06] overflow-hidden hover:shadow-[0_16px_40px_rgba(15,23,42,0.09)] transition-all duration-200 flex flex-col">
+      <div className="group rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] overflow-hidden hover:ring-[#c9bff7] hover:shadow-[0_16px_40px_-16px_rgba(60,60,140,0.4)] transition-all duration-200 flex flex-col">
         <div className="relative">
           <GuideVisual tag={info.tags?.[0]} />
           {onToggleGuideSaved && (
@@ -1592,7 +1604,7 @@ function ContentCard({
 
         <div className="p-5 flex flex-col gap-2 flex-1">
           <div className="text-[12px] font-semibold text-black/60 uppercase tracking-wider">{category}</div>
-          <div className="font-semibold text-[16px] leading-snug line-clamp-2 text-black/85">{info.title}</div>
+          <div className="text-[17px] font-bold leading-snug line-clamp-2 text-[#12172b]">{info.title}</div>
           {info.description && (
             <p className="text-[14px] text-black/60 leading-relaxed line-clamp-2">{info.description}</p>
           )}
@@ -1606,13 +1618,13 @@ function ContentCard({
                 </span>
               ) : hasSectionProgress && guidePercent > 0 ? (
                 <div className="flex items-center gap-1.5 w-[86px]">
-                  <div className="flex-1 h-[3px] rounded-full bg-black/10 overflow-hidden">
+                  <div className="flex-1 h-[3px] rounded-full bg-[#ece9fe] overflow-hidden">
                     <div className="h-full rounded-full bg-teal-500" style={{ width: `${guidePercent}%` }} />
                   </div>
                   <span className="text-[12px] text-black/60 shrink-0">{guidePercent}%</span>
                 </div>
               ) : isRecommended ? (
-                <span className="text-[12px] text-indigo-500/80">Може бути корисно</span>
+                <span className="text-[12px] text-[#6d5bd0]">Може бути корисно</span>
               ) : isSavedOnly ? (
                 <span className="text-[12px] text-black/60">Збережено</span>
               ) : (
@@ -1621,7 +1633,7 @@ function ContentCard({
             </div>
             <button
               onClick={onOpen}
-              className="min-h-[44px] px-4 py-2 rounded-full bg-gradient-to-r from-[#2f6bff] to-[#8b5cf6] text-white text-[12px] font-medium hover:opacity-90 transition shrink-0"
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-semibold hover:opacity-95 transition shrink-0"
             >
               {ctaLabel(item.kind, isSavedOnly ? undefined : item.enrollment?.status, percent)} →
             </button>
@@ -1632,7 +1644,7 @@ function ContentCard({
   }
 
   return (
-    <div className="rounded-3xl bg-white border border-black/5 overflow-hidden hover:shadow-lg transition flex flex-col">
+    <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] overflow-hidden hover:ring-[#c9bff7] hover:shadow-[0_16px_40px_-16px_rgba(60,60,140,0.4)] transition flex flex-col">
       {/* COVER — compacted 2026-09-16 (viewport-first refinement):
           h-28 → h-20, icon scaled down to match. Same badges/toggles,
           just less vertical weight so 3 cards fit the first viewport. */}
@@ -1786,7 +1798,7 @@ function ContentCard({
           </div>
           <button
             onClick={onOpen}
-            className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[12px] font-medium hover:opacity-90 transition shrink-0"
+            className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-semibold hover:opacity-95 transition shrink-0"
           >
             {ctaLabel(item.kind, isSavedOnly ? undefined : item.enrollment?.status, percent)}
           </button>
@@ -1798,7 +1810,7 @@ function ContentCard({
             skipped for "Збережено"/"Для вас" cards, same as the ring
             above, since there's no real reading progress to show yet. */}
         {hasSectionProgress && !isSavedOnly && !isRecommended && (
-          <div className="h-1 rounded-full bg-black/10 overflow-hidden">
+          <div className="h-1 rounded-full bg-[#ece9fe] overflow-hidden">
             <div
               className={`h-full rounded-full transition-all ${
                 isGuideFullyProcessed ? "bg-emerald-500" : "bg-teal-500"
@@ -1817,7 +1829,7 @@ function ContentCard({
               could wrap unboundedly and stretch the whole card row
               taller than its siblings; capped the same way the
               description already was. */}
-          <div className="font-semibold text-[16px] mt-0.5 leading-snug line-clamp-2">{info.title}</div>
+          <div className="text-[17px] font-bold mt-0.5 leading-snug line-clamp-2 text-[#12172b]">{info.title}</div>
         </div>
 
         {metaLine && <div className="text-[12px] text-black/60">{metaLine}</div>}
@@ -1959,7 +1971,7 @@ function MeditationLearningCard({
   const [c1, c2, c3] = meditationPalette(item.contentId);
 
   return (
-    <div className="rounded-3xl bg-white border border-black/5 overflow-hidden hover:shadow-lg transition flex flex-col">
+    <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] overflow-hidden hover:ring-[#c9bff7] hover:shadow-[0_16px_40px_-16px_rgba(60,60,140,0.4)] transition flex flex-col">
       {/* Atmospheric visual area — two soft blurred blobs over a diagonal
           wash instead of a flat icon tile; palette is deterministic per
           meditation (meditationPalette above), so the same practice
@@ -2062,7 +2074,7 @@ function MeditationLearningCard({
 
       <div className="p-4 flex flex-col gap-1.5 flex-1">
         <div className="text-[12px] font-medium text-black/60 uppercase tracking-wide">{category}</div>
-        <div className="font-semibold text-[16px] leading-snug line-clamp-2">{info.title}</div>
+        <div className="text-[17px] font-bold leading-snug line-clamp-2 text-[#12172b]">{info.title}</div>
         {info.description && (
           <p className="text-[14px] text-black/60 leading-relaxed line-clamp-1">{info.description}</p>
         )}
@@ -2070,7 +2082,7 @@ function MeditationLearningCard({
 
         <button
           onClick={onOpen}
-          className="min-h-[44px] mt-2.5 self-start px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[12px] font-medium hover:opacity-90 transition"
+          className="min-h-[44px] mt-2.5 self-start px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-semibold hover:opacity-95 transition"
         >
           {/* Real-state CTA (2026-09-23, per Sasha's explicit follow-up)
               — driven by isStoppedMeditation/isCompleted (the same real

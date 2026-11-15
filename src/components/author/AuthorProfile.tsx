@@ -189,13 +189,13 @@ export default function AuthorProfile(_props: Props) {
           <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Профіль</h1>
           <p className="mt-1 text-[15px] text-black/55">Ваша сторінка автора: так вас бачать учасники. Заповнюйте частинами — кожна вкладка зберігається окремо.</p>
         </div>
-        <button type="button" onClick={() => openAuthorProfile(profile.id)} className="inline-flex min-h-[46px] items-center gap-2 rounded-2xl bg-white px-5 text-[14px] font-semibold text-[#4338ca] ring-1 ring-[#d9d4f5] transition hover:bg-[#f6f4ff]">
+        <button type="button" onClick={() => openAuthorProfile(profile.id)} className="inline-flex min-h-[46px] items-center gap-2 whitespace-nowrap rounded-2xl bg-white px-5 text-[14px] font-semibold text-[#4338ca] ring-1 ring-[#d9d4f5] transition hover:bg-[#f6f4ff]">
           <Icon name="idcard" size={18} /> Переглянути мою сторінку ↗
         </button>
       </div>
 
       {/* the same parts as the public page */}
-      <div className="grid gap-1.5 rounded-[20px] bg-white p-1.5 shadow-[0_14px_36px_-30px_rgba(60,50,140,0.55)] ring-1 ring-[#ece8fb] sm:grid-cols-4" role="tablist" aria-label="Частини сторінки">
+      <div className="grid gap-1.5 rounded-[20px] bg-white p-1.5 shadow-[0_14px_36px_-30px_rgba(60,50,140,0.55)] ring-1 ring-[#ece8fb] grid-cols-2 sm:grid-cols-4" role="tablist" aria-label="Частини сторінки">
         {PROFILE_TABS.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} className={`flex min-h-[54px] flex-col items-center justify-center rounded-2xl px-3 text-center transition ${tab === t.id ? "bg-gradient-to-r from-[#eef0fd] to-[#f3eeff] text-[#4338ca] shadow-[inset_0_0_0_1px_rgba(67,56,202,0.25)]" : "text-black/60 hover:bg-[#faf9ff]"}`}>
             <span className="flex items-center gap-2 text-[14px] font-semibold"><Icon name={t.icon} size={16} /> {t.label}</span>
@@ -224,7 +224,7 @@ export default function AuthorProfile(_props: Props) {
             <button
               onClick={() => avatarInputRef.current?.click()}
               disabled={avatarBusy}
-              className="px-4 py-2 rounded-xl bg-black/5 hover:bg-black/10 text-[13px] font-medium transition disabled:opacity-50"
+              className="min-h-[40px] px-4 rounded-xl bg-white ring-1 ring-[#e3def9] hover:ring-[#c9bff7] text-[13px] font-semibold text-[#4338ca] transition disabled:opacity-50"
             >
               {uploadingAvatar ? "Завантажуємо…" : "Змінити фото"}
             </button>
@@ -232,7 +232,7 @@ export default function AuthorProfile(_props: Props) {
               <button
                 onClick={handleRemoveAvatar}
                 disabled={avatarBusy}
-                className="px-4 py-2 rounded-xl bg-black/5 hover:bg-black/10 text-[13px] font-medium text-red-500 transition disabled:opacity-50"
+                className="min-h-[40px] px-3 rounded-xl text-[13px] font-medium text-black/50 hover:text-rose-600 transition disabled:opacity-50"
               >
                 {removingAvatar ? "Видаляємо…" : "Видалити фото"}
               </button>
@@ -306,7 +306,7 @@ export default function AuthorProfile(_props: Props) {
                         )
                       }
                       className={`px-3 py-1.5 rounded-full text-[13px] border transition ${
-                        on ? "bg-[#eef2ff] border-[#4338ca]/30 text-[#4338ca]" : "border-black/10 text-black/55 hover:bg-black/5"
+                        on ? "bg-[#eef0fd] border-[#4338ca]/35 text-[#4338ca] font-semibold" : "border-[#e3def9] bg-white text-black/60 hover:border-[#c9bff7]"
                       }`}
                     >
                       {label}
@@ -393,7 +393,7 @@ export default function AuthorProfile(_props: Props) {
       </div>
 
       <div className={tab === "story" ? "" : "hidden"}>
-      <AuthorStoryEditor authorId={profile.id} name={name || profile.name} initials={initials} avatarUrl={profile.avatarUrl ?? null} role={title} approach={approach} />
+      <AuthorStoryEditor authorId={profile.id} />
       </div>
     </div>
   );

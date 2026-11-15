@@ -221,7 +221,7 @@ export type SectionId = "intro" | "media" | "approach" | "principles" | "limits"
 export function missingParts(s: AuthorStory, hasPhoto = true): Record<SectionId, string[]> {
   const t = (x: string) => x.trim().length;
   const out: Record<SectionId, string[]> = { intro: [], media: [], approach: [], principles: [], limits: [], faq: [] };
-  if (!s.portraitUrl.trim() && !hasPhoto) out.intro.push("додайте фото");
+  if (!s.portraitUrl.trim() && !hasPhoto) out.intro.push("додайте портрет");
   if (t(s.intro) < M.intro) out.intro.push(`текст знайомства: щонайменше ${M.intro} символів (зараз ${t(s.intro)})`);
   const m = s.media;
   // the video is optional; a link that is there must work

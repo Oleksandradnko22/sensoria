@@ -307,22 +307,22 @@ export default function ParticipantReviews({
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-3xl font-bold">Мої відгуки</h1>
-        <p className="text-black/60 mt-1">Відгуки, які ви залишили на програми, гайди, медитації та авторів.</p>
+        <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Мої відгуки</h1>
+        <p className="mt-1 text-[15px] text-black/55">Відгуки, які ви залишили на програми, гайди, медитації та авторів.</p>
       </div>
 
       {loadState === "loading" && (
         <div className="flex flex-col gap-3" aria-busy="true" aria-label="Завантаження відгуків">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-[132px] rounded-2xl bg-white border border-black/[0.06] animate-pulse" />
+            <div key={i} className="h-[132px] rounded-[22px] bg-white ring-1 ring-[#ece8fb] animate-pulse" />
           ))}
         </div>
       )}
 
       {loadState === "error" && (
-        <div role="alert" className="rounded-2xl bg-white border border-black/[0.06] px-6 py-10 text-center">
+        <div role="alert" className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-6 py-10 text-center">
           <div className="text-[16px] font-medium">Не вдалося завантажити відгуки</div>
-          <button onClick={() => load()} className="mt-3 min-h-[44px] px-5 rounded-xl border border-black/[0.12] text-[14px] text-black/75 hover:bg-black/[0.04]">
+          <button onClick={() => load()} className="mt-3 min-h-[44px] px-5 rounded-xl border border-[#e3def9] text-[14px] text-black/75 hover:bg-[#f6f4ff]">
             Спробувати ще раз
           </button>
         </div>
@@ -336,7 +336,7 @@ export default function ParticipantReviews({
           {actionError && <div role="alert" className="text-[14px] text-rose-700">{actionError}</div>}
 
           {reviews.length === 0 ? (
-            <div className="max-w-[560px] rounded-2xl bg-white border border-black/[0.06] px-6 py-10 text-center">
+            <div className="max-w-[560px] rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-6 py-10 text-center">
               <span className="mx-auto w-12 h-12 rounded-full bg-[#eef0fd] text-[#4338ca] flex items-center justify-center">
                 <Icon name="star" size={22} />
               </span>
@@ -355,7 +355,7 @@ export default function ParticipantReviews({
               )}
             </div>
           ) : shown.length === 0 ? (
-            <div className="rounded-2xl bg-white border border-black/[0.06] px-6 py-8 text-center text-[14px] text-black/60">
+            <div className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-6 py-8 text-center text-[14px] text-black/60">
               У цій категорії відгуків немає.
             </div>
           ) : (
@@ -365,7 +365,7 @@ export default function ParticipantReviews({
                 const unavailable = r.kind === "content" && !r.title;
                 const bucket = r.kind === "author" ? "Відгук про автора" : r.contentKind ? KIND_LABEL[r.contentKind] : null;
                 return (
-                  <li key={r.id} className="rounded-2xl bg-white border border-black/[0.06] p-4 sm:p-5 flex gap-4">
+                  <li key={r.id} className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-4 sm:p-5 flex gap-4">
                     <span className="hidden sm:flex shrink-0 w-11 h-11 rounded-xl bg-[#eef0fd] text-[#4338ca] items-center justify-center" aria-hidden="true">
                       <Icon name={r.kind === "author" ? "idcard" : r.contentKind ?? "star"} size={20} />
                     </span>
@@ -425,13 +425,13 @@ export default function ParticipantReviews({
                             onChange={(e) => setDraftText(e.target.value)}
                             rows={3}
                             aria-label="Текст відгуку"
-                            className="w-full px-4 py-3 rounded-xl border border-black/15 text-[16px] sm:text-[14px] focus:outline-none focus:border-black/40 resize-none"
+                            className="w-full px-4 py-3 rounded-xl border border-[#d9d4f5] text-[16px] sm:text-[14px] focus:outline-none focus:border-black/40 resize-none"
                           />
                           <div className="flex items-center gap-2">
                             <button onClick={saveEdit} disabled={saving || !draftText.trim()} className="min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 disabled:opacity-40">
                               {saving ? "Зберігаємо…" : "Зберегти"}
                             </button>
-                            <button onClick={() => setEditingId(null)} disabled={saving} className="min-h-[44px] px-4 rounded-xl text-[14px] text-black/70 hover:bg-black/5">
+                            <button onClick={() => setEditingId(null)} disabled={saving} className="min-h-[44px] px-4 rounded-xl text-[14px] text-black/70 hover:bg-[#f6f4ff]">
                               Скасувати
                             </button>
                           </div>
@@ -465,25 +465,25 @@ export default function ParticipantReviews({
                                 onClick={() => setMenuOpenId(menuOpenId === r.id ? null : r.id)}
                                 aria-label="Дії з відгуком"
                                 aria-expanded={menuOpenId === r.id}
-                                className="w-11 h-11 rounded-full hover:bg-black/5 flex items-center justify-center text-black/60 text-xl"
+                                className="w-11 h-11 rounded-full hover:bg-[#f6f4ff] flex items-center justify-center text-black/60 text-xl"
                               >
                                 ⋯
                               </button>
                               {menuOpenId === r.id && (
-                                <div className="absolute right-0 bottom-full mb-1 w-56 rounded-xl bg-white border border-black/10 shadow-[0_10px_24px_rgba(0,0,0,0.1)] py-1 z-10">
+                                <div className="absolute right-0 bottom-full mb-1 w-56 rounded-xl bg-white border border-[#e3def9] shadow-[0_10px_24px_rgba(0,0,0,0.1)] py-1 z-10">
                                   {canOpenContent(r) && (
                                     <button
                                       onClick={() => {
                                         setMenuOpenId(null);
                                         openContent(r, { scrollToReviews: true });
                                       }}
-                                      className="w-full text-left px-4 py-3 text-[14px] hover:bg-black/5"
+                                      className="w-full text-left px-4 py-3 text-[14px] hover:bg-[#f6f4ff]"
                                     >
                                       Відкрити матеріал
                                     </button>
                                   )}
                                   {isReviewEditable(r.date) ? (
-                                    <button onClick={() => startEdit(r)} className="w-full text-left px-4 py-3 text-[14px] hover:bg-black/5">
+                                    <button onClick={() => startEdit(r)} className="w-full text-left px-4 py-3 text-[14px] hover:bg-[#f6f4ff]">
                                       Редагувати
                                     </button>
                                   ) : (
@@ -581,7 +581,7 @@ function ReviewDialog({ review, onClose, onEdit }: { review: UnifiedReview; onCl
               Редагувати
             </button>
           )}
-          <button data-autofocus onClick={onClose} className="min-h-[44px] px-5 rounded-xl border border-black/[0.12] text-[14px] text-black/70 hover:bg-black/[0.04]">
+          <button data-autofocus onClick={onClose} className="min-h-[44px] px-5 rounded-xl border border-[#e3def9] text-[14px] text-black/70 hover:bg-[#f6f4ff]">
             Закрити
           </button>
         </div>

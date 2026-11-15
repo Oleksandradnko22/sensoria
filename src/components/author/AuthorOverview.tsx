@@ -1,4 +1,5 @@
 import { coverImageStyle, coverUrlForFrame } from "../../utils/coverFocus";
+import { greetingName } from "../../utils/greeting";
 import { isTakenDown, statusRank } from "../../utils/authorContentList";
 import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "../ui/Icon";
@@ -68,16 +69,6 @@ const activityTitle: Record<string, string> = {
   moderation: "Оновлення модерації",
   content: "Новий матеріал",
 };
-
-// "Олександра" -> "Олександро" for the greeting; other endings are left as they are (no guessing)
-function greetingName(full: string | undefined): string {
-  const first = (full ?? "").trim().split(/\s+/)[0];
-  if (!first) return "";
-  if (/ія$/i.test(first)) return first.slice(0, -1) + "є";
-  if (/я$/i.test(first)) return first.slice(0, -1) + "ю";
-  if (/а$/i.test(first)) return first.slice(0, -1) + "о";
-  return first;
-}
 
 // the heading already says what happened, so the line under it drops the repeated words
 function eventDetail(text: string): string {

@@ -126,7 +126,7 @@ function AuthorMark({ name, url, size = 32 }: { name: string; url: string | null
         alt=""
         style={style}
         onError={() => setBroken(true)}
-        className="rounded-full object-cover shrink-0 bg-black/5"
+        className="rounded-full object-cover shrink-0 bg-[#f1eeff]"
       />
     );
   }
@@ -524,7 +524,7 @@ export default function ParticipantMessages({
   const renderBubble = (body: string, mine: boolean, at: string | null, opts: { id?: string; deleted?: boolean } = {}) => (
     <div className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
       {opts.deleted ? (
-        <div className="max-w-[85%] sm:max-w-[70%] rounded-2xl px-3.5 py-2 text-[14px] italic text-black/60 border border-dashed border-black/15">
+        <div className="max-w-[85%] sm:max-w-[70%] rounded-2xl px-3.5 py-2 text-[14px] italic text-black/60 border border-dashed border-[#d9d4f5]">
           Повідомлення видалено
         </div>
       ) : (
@@ -563,13 +563,13 @@ export default function ParticipantMessages({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-3xl font-bold">Повідомлення</h1>
-        <p className="text-black/60 mt-1">Спілкування з авторами програм, гайдів і медитацій.</p>
+        <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Повідомлення</h1>
+        <p className="mt-1 text-[15px] text-black/55">Спілкування з авторами програм, гайдів і медитацій.</p>
       </div>
 
       <div
         ref={panelRef}
-        className="grid grid-rows-[minmax(0,1fr)] lg:grid-cols-[300px_1fr] rounded-2xl bg-white border border-black/5 overflow-hidden h-[calc(100dvh-96px)] min-h-[440px] scroll-mt-3 lg:h-[500px]"
+        className="grid grid-rows-[minmax(0,1fr)] lg:grid-cols-[300px_1fr] rounded-[22px] bg-white ring-1 ring-[#ece8fb] overflow-hidden h-[calc(100dvh-96px)] min-h-[440px] scroll-mt-3 lg:h-[500px]"
       >
         {/* LIST */}
         <div
@@ -615,7 +615,7 @@ export default function ParticipantMessages({
                     onClick={() => selectConversation(c)}
                     aria-current={active ? "true" : undefined}
                     className={`w-full text-left pl-4 pr-4 py-3 border-b border-black/[0.04] border-l-2 transition focus:outline-none focus-visible:bg-black/[0.03] ${
-                      active ? "bg-[#f6f8ff] border-l-[#4338ca]" : "border-l-transparent hover:bg-black/[0.02]"
+                      active ? "bg-[#f6f8ff] border-l-[#4338ca]" : "border-l-transparent hover:bg-[#f6f4ff]"
                     }`}
                   >
                     <div className="flex items-start gap-3">
@@ -661,7 +661,7 @@ export default function ParticipantMessages({
                 <button
                   onClick={() => setThreadOpen(false)}
                   aria-label="Назад до діалогів"
-                  className="lg:hidden -ml-2 w-11 h-11 rounded-full hover:bg-black/5 flex items-center justify-center text-black/60"
+                  className="lg:hidden -ml-2 w-11 h-11 rounded-full hover:bg-[#f6f4ff] flex items-center justify-center text-black/60"
                 >
                   <Icon name="chevron" size={18} className="rotate-90" />
                 </button>
@@ -696,12 +696,12 @@ export default function ParticipantMessages({
                       onClick={() => setMenuOpen((v) => !v)}
                       aria-label="Дії з діалогом"
                       aria-expanded={menuOpen}
-                      className="w-11 h-11 rounded-full hover:bg-black/5 flex items-center justify-center text-black/60 text-xl transition"
+                      className="w-11 h-11 rounded-full hover:bg-[#f6f4ff] flex items-center justify-center text-black/60 text-xl transition"
                     >
                       ⋯
                     </button>
                     {menuOpen && (
-                      <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-white border border-black/10 shadow-[0_10px_24px_rgba(0,0,0,0.1)] py-1 z-10">
+                      <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-white border border-[#e3def9] shadow-[0_10px_24px_rgba(0,0,0,0.1)] py-1 z-10">
                         <button
                           onClick={() => {
                             setMenuOpen(false);
@@ -716,7 +716,7 @@ export default function ParticipantMessages({
                             setMenuOpen(false);
                             setConfirm({ kind: "conversation" });
                           }}
-                          className="w-full text-left px-4 py-3 text-[14px] text-black/75 hover:bg-black/5 transition"
+                          className="w-full text-left px-4 py-3 text-[14px] text-black/75 hover:bg-[#f6f4ff] transition"
                         >
                           Видалити переписку
                         </button>
@@ -763,7 +763,7 @@ export default function ParticipantMessages({
                   form never squeezes the conversation out of view. */}
               <div ref={scrollerRef} className="flex-1 min-h-0 overflow-y-auto">
               {reportOpen && (
-                <div className="mx-4 sm:mx-6 mt-3 p-4 rounded-xl bg-black/[0.02] border border-black/10">
+                <div className="mx-4 sm:mx-6 mt-3 p-4 rounded-xl bg-black/[0.02] border border-[#e3def9]">
                   <div className="text-[14px] font-medium mb-3">На що поскаржитися?</div>
                   <div className="flex flex-col gap-2 mb-3">
                     {REPORT_REASONS.map((r) => (
@@ -783,7 +783,7 @@ export default function ParticipantMessages({
                     onChange={(e) => setReportDetails(e.target.value)}
                     placeholder="Додаткові деталі (необов'язково)"
                     rows={2}
-                    className="w-full px-3 py-2 rounded-lg border border-black/10 text-[14px] focus:outline-none focus:border-black/30 resize-none mb-3"
+                    className="w-full px-3 py-2 rounded-lg border border-[#e3def9] text-[14px] focus:outline-none focus:border-black/30 resize-none mb-3"
                   />
                   {reportError && <div className="text-[12px] text-red-500 mb-2">{reportError}</div>}
                   <div className="flex items-center gap-2">
@@ -796,7 +796,7 @@ export default function ParticipantMessages({
                     </button>
                     <button
                       onClick={() => setReportOpen(false)}
-                      className="px-4 py-2 rounded-lg text-[14px] text-black/60 hover:bg-black/5 transition"
+                      className="px-4 py-2 rounded-lg text-[14px] text-black/60 hover:bg-[#f6f4ff] transition"
                     >
                       Скасувати
                     </button>
@@ -908,7 +908,7 @@ export default function ParticipantMessages({
                         send();
                       }
                     }}
-                    className="flex-1 min-w-0 resize-none px-3.5 py-2.5 rounded-xl border border-black/15 text-[16px] leading-snug min-h-[44px] focus:outline-none focus:border-black/30"
+                    className="flex-1 min-w-0 resize-none px-3.5 py-2.5 rounded-xl border border-[#d9d4f5] text-[16px] leading-snug min-h-[44px] focus:outline-none focus:border-black/30"
                   />
                   <button
                     onClick={send}

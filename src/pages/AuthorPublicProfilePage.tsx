@@ -347,7 +347,7 @@ export default function AuthorPublicProfilePage({
           onClick={toggleFollow}
           disabled={followBusy}
           aria-pressed={false}
-          className={`${pad} rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-medium hover:opacity-90 transition disabled:opacity-60`}
+          className={`${pad} rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white font-medium hover:opacity-90 transition disabled:opacity-60`}
         >
           Підписатися
         </button>

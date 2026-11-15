@@ -76,7 +76,7 @@ const actionRow = "flex flex-wrap items-center justify-end gap-2 mt-4";
 const openBtn =
   "min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30";
 const deleteBtn =
-  "min-h-[44px] px-4 py-2 rounded-xl border border-black/15 bg-white text-[14px] font-medium text-black/65 hover:border-red-300 hover:text-red-600 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30";
+  "min-h-[44px] px-4 py-2 rounded-xl border border-[#d9d4f5] bg-white text-[14px] font-medium text-black/65 hover:border-red-300 hover:text-red-600 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30";
 
 export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem, onOpenMeditation, active = true }: Props) {
   const session = useSession();
@@ -281,7 +281,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
   const noteGroups = useMemo(() => groupByMonth(filteredNotes.slice(0, limit), (n) => n.createdAt), [filteredNotes, limit]);
 
   const emptyState = (title: string, text: string) => (
-    <div className="rounded-2xl bg-white border border-black/5 px-5 py-6">
+    <div className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-5 py-6">
       <div className="text-[14px] font-medium">{title}</div>
       <p className="text-[14px] text-black/60 mt-1">{text}</p>
       {onNavigate && (
@@ -297,7 +297,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
         <button
           type="button"
           onClick={() => setLimit((n) => n + PAGE_SIZE)}
-          className="min-h-[44px] px-4 py-2 rounded-xl border border-black/10 bg-white text-[14px] font-medium text-black/65 hover:border-black/25 transition"
+          className="min-h-[44px] px-4 py-2 rounded-xl border border-[#e3def9] bg-white text-[14px] font-medium text-black/65 hover:border-[#c9bff7] transition"
         >
           Показати ще ({total - limit})
         </button>
@@ -340,7 +340,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                 setDeleteError(false);
               }}
               disabled={deleting}
-              className="px-4 py-2 rounded-lg text-[14px] text-black/60 hover:bg-black/5 transition"
+              className="px-4 py-2 rounded-lg text-[14px] text-black/60 hover:bg-[#f6f4ff] transition"
             >
               Скасувати
             </button>
@@ -375,8 +375,8 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-3xl font-bold">Ваші спостереження</h1>
-        <p className="text-black/60 mt-1">Особистий запис того, що ви помітили в собі: зміни стану, відповіді й нотатки.</p>
+        <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Ваші спостереження</h1>
+        <p className="mt-1 text-[15px] text-black/55">Особистий запис того, що ви помітили в собі: зміни стану, відповіді й нотатки.</p>
       </div>
 
       <div role="status" aria-live="polite" className="sr-only">
@@ -384,7 +384,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
       </div>
 
       {loadError && noData ? (
-        <div className="max-w-xl rounded-2xl bg-white border border-black/5 p-8 sm:p-10 text-center">
+        <div className="max-w-xl rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-8 sm:p-10 text-center">
           <div className="mx-auto mb-3 w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
             <Icon name="warning" size={18} />
           </div>
@@ -438,7 +438,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                   className={`min-h-[44px] px-3.5 py-1.5 rounded-full text-[14px] font-medium border transition ${
                     isActive
                       ? "bg-[#eef0fd] text-[#4338ca] border-[#4338ca]/35"
-                      : "bg-white text-black/60 border-black/10 hover:border-black/25"
+                      : "bg-white text-black/60 border-[#e3def9] hover:border-[#c9bff7]"
                   }`}
                 >
                   {t.label}
@@ -460,7 +460,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Пошук у цьому розділі"
                   aria-label="Пошук у цьому розділі"
-                  className="w-full rounded-xl bg-white border border-black/10 pl-10 pr-20 py-2.5 text-[14px] focus:outline-none focus:border-black/30 transition"
+                  className="w-full rounded-xl bg-white border border-[#e3def9] pl-10 pr-20 py-2.5 text-[14px] focus:outline-none focus:border-black/30 transition"
                 />
                 {searching && (
                   <button
@@ -483,7 +483,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                       className={`min-h-[44px] px-3 py-2 rounded-xl text-[14px] font-medium border transition ${
                         sourceFilter === f
                           ? "bg-[#eef0fd] text-[#4338ca] border-[#4338ca]/35"
-                          : "bg-white text-black/60 border-black/10 hover:border-black/25"
+                          : "bg-white text-black/60 border-[#e3def9] hover:border-[#c9bff7]"
                       }`}
                     >
                       {f === "all" ? "Усі" : f === "practice" ? "Практики" : "Медитації"}
@@ -506,7 +506,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
             {loading ? (
               <div className="flex flex-col gap-3" aria-hidden="true">
                 {[0, 1, 2].map((i) => (
-                  <div key={i} className="rounded-2xl border border-black/5 bg-white p-4 animate-pulse">
+                  <div key={i} className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-4 animate-pulse">
                     <div className="h-2.5 w-24 rounded bg-black/[0.07]" />
                     <div className="h-3.5 w-2/3 rounded bg-black/[0.07] mt-3" />
                     <div className="h-8 w-28 rounded bg-black/[0.05] mt-3" />
@@ -521,7 +521,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                   {/* Overview: a real chart once there are enough complete pairs,
                       an honest early-data note until then. Hidden while searching. */}
                   {!searching && (
-                    <section aria-label="Огляд змін" className="rounded-2xl border border-black/5 bg-white p-4 sm:p-5">
+                    <section aria-label="Огляд змін" className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-4 sm:p-5">
                       {activeSeries ? (
                         <>
                           <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 mb-4">
@@ -545,7 +545,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                                     className={`min-h-[44px] px-3 py-1 rounded-full text-[12px] font-medium border transition ${
                                       sr.source === activeSeries.source
                                         ? "bg-[#eef0fd] text-[#4338ca] border-[#4338ca]/35"
-                                        : "bg-white text-black/60 border-black/10 hover:border-black/25"
+                                        : "bg-white text-black/60 border-[#e3def9] hover:border-[#c9bff7]"
                                     }`}
                                   >
                                     {STATE_SOURCE_LABEL[sr.source]}

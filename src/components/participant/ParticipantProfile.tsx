@@ -109,7 +109,7 @@ function MfaSetupDialog({
         />
         {error && <p role="alert" className="mt-2 text-[14px] text-red-700">{error}</p>}
         <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onCancel} disabled={busy} className="min-h-[44px] px-4 rounded-xl border border-black/[0.12] text-[14px] text-black/70 hover:bg-black/[0.04] disabled:opacity-50">
+          <button onClick={onCancel} disabled={busy} className="min-h-[44px] px-4 rounded-xl border border-[#e3def9] text-[14px] text-black/70 hover:bg-[#f6f4ff] disabled:opacity-50">
             Скасувати
           </button>
           <button onClick={onConfirm} disabled={busy || code.length !== 6} className="min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">
@@ -480,8 +480,8 @@ export default function ParticipantProfile() {
   };
 
   const field =
-    "w-full min-h-[44px] px-4 py-2.5 rounded-xl border border-black/15 bg-white text-[16px] sm:text-[14px] focus:outline-none focus:border-[#4338ca]/60 focus-visible:ring-2 focus-visible:ring-[#4338ca]/20";
-  const card = "rounded-2xl bg-white border border-black/[0.06] p-5 sm:p-6";
+    "w-full min-h-[44px] px-4 py-2.5 rounded-xl border border-[#d9d4f5] bg-white text-[16px] sm:text-[14px] focus:outline-none focus:border-[#4338ca]/60 focus-visible:ring-2 focus-visible:ring-[#4338ca]/20";
+  const card = "rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-5 sm:p-6";
   const primaryBtn =
     "min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed";
   const darkBtn =
@@ -490,8 +490,8 @@ export default function ParticipantProfile() {
   return (
     <div className={`flex flex-col gap-6 ${redirecting ? "page-fade-out" : ""}`}>
       <div>
-        <h1 className="text-3xl font-bold">Профіль</h1>
-        <p className="text-black/60 mt-1">Особисті дані, безпека та сповіщення.</p>
+        <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Профіль</h1>
+        <p className="mt-1 text-[15px] text-black/55">Особисті дані, безпека та сповіщення.</p>
       </div>
 
       {/* PERSONAL DATA + SECURITY */}
@@ -509,7 +509,7 @@ export default function ParticipantProfile() {
               />
               <span
                 aria-hidden="true"
-                className="absolute -right-0.5 -bottom-0.5 w-6 h-6 rounded-full bg-white border border-black/10 shadow-sm flex items-center justify-center text-black/60"
+                className="absolute -right-0.5 -bottom-0.5 w-6 h-6 rounded-full bg-white border border-[#e3def9] shadow-sm flex items-center justify-center text-black/60"
               >
                 <Icon name="image" size={13} />
               </span>

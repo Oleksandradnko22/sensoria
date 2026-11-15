@@ -121,7 +121,7 @@ export default function AuthorAnalytics({ content }: Props) {
             <div className="mt-4 flex flex-col gap-3">
               <SourceRow color="bg-[#7c5cf0]" title="Через Sensoria" hint="Каталог, пошук, рекомендації" views={a.views - a.views_referral} sales={a.sales - a.sales_referral} share={70} />
               <SourceRow color="bg-[#22a35a]" title="За вашим посиланням" hint="Соцмережі, розсилки, консультації" views={a.views_referral} sales={a.sales_referral} share={85} />
-              <p className="text-[12px] leading-snug text-black/50">Посилання для поширення є у вкладці «Фінанси». З продажів за ним ви отримуєте 85% замість 70%.</p>
+              <p className="text-[12px] leading-snug text-black/50">Посилання для поширення є у вкладці «Просування». З продажів за ним ви отримуєте 85% замість 70%.</p>
             </div>
           )}
         </section>

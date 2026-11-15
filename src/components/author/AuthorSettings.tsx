@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { pluralUk } from "../../utils/plural";
 import Switch from "../ui/Switch";
 import { supabase } from "../../lib/supabaseClient";
 import { fetchArchiveBlockers } from "../../lib/content";
@@ -594,7 +595,7 @@ export default function AuthorSettings() {
                 <div>
                   <div className="text-[14px] font-medium">Активні сеанси</div>
                   <div className="text-[12px] text-black/45">
-                    {sessions.length} {sessions.length === 1 ? "пристрій" : "пристроїв"}
+                    {sessions.length} {pluralUk(sessions.length, "пристрій", "пристрої", "пристроїв")}
                   </div>
                 </div>
                 <button

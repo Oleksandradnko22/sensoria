@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { greetingName } from "../../utils/greeting";
+import { Icon, type IconName } from "../ui/Icon";
 import { pluralUk } from "../../utils/plural";
 import {
   enrollments as demoEnrollments,
@@ -160,15 +162,15 @@ function RecommendationTile({
       type="button"
       onClick={onClick}
       disabled={!onClick}
-      className="text-left rounded-xl border border-black/5 p-4 transition hover:border-black/15 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] disabled:cursor-default disabled:hover:border-black/5 disabled:hover:shadow-none"
+      className="text-left rounded-2xl bg-white ring-1 ring-[#ebe8ff] p-4 transition hover:ring-[#c9bff7] hover:shadow-[0_10px_24px_-14px_rgba(60,60,140,0.35)] disabled:cursor-default disabled:hover:border-black/5 disabled:hover:shadow-none"
     >
-      <span className="inline-block px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[12px] font-bold tracking-wide mb-2">
+      <span className="inline-block px-2 py-0.5 rounded-full bg-[#f1eeff] text-[#6d5bd0] text-[11px] font-bold tracking-[0.08em] mb-2">
         РЕКОМЕНДОВАНО
       </span>
-      <div className="mb-2 text-black/60">
+      <div className="mb-2 text-[#6d5bd0]">
         <KindIcon kind={kind} />
       </div>
-      <div className="text-[14px] font-medium leading-snug">{title}</div>
+      <div className="text-[15px] font-semibold leading-snug text-[#12172b]">{title}</div>
       <div className="text-[12px] text-black/60 mt-1">{subtitle}</div>
     </button>
   );
@@ -632,14 +634,59 @@ export default function ParticipantOverview({
   // "недостатньо даних" copy instead of a fake insight.
   const observations = useObservationsSummary(session?.profile.id);
 
+  const hello = greetingName(session?.profile.name);
+  const inProgressCount = combinedEnrollmentsForPriority.filter((e) => e.status === "in-progress").length;
+  const completedCount = combinedEnrollmentsForPriority.filter((e) => e.status === "completed").length;
+  const stats: { label: string; value: string; icon: IconName; pending: boolean }[] = [
+    { label: "У процесі", value: String(inProgressCount), icon: "library", pending: programParticipation.loading },
+    { label: "Завершено", value: String(completedCount), icon: "check", pending: programParticipation.loading },
+    { label: "Спостереження", value: String(observations?.total ?? 0), icon: "note", pending: !observations },
+    { label: "Кроків до балансу", value: String(journeyDoneCount), icon: "heart", pending: assessmentLoading },
+  ];
+  const secondaryBtn =
+    "inline-flex min-h-[52px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-white px-4 text-[15px] xl:text-[14px] min-[1500px]:text-[15px] font-semibold text-[#1d2240] shadow-[0_8px_22px_-12px_rgba(60,60,140,0.35)] ring-1 ring-[#ebe8ff] transition hover:bg-[#faf9ff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0]";
+
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-3xl font-bold">Кабінет учасника</h1>
-        <p className="text-black/60 mt-1">
-          {session?.profile.name} — ваш особистий простір у Sensoria.
-        </p>
-      </div>
+    <div className="flex flex-col gap-7">
+      <header className="min-w-0">
+        <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">{hello ? `Привіт, ${hello}` : "Привіт"}</h1>
+        <p className="mt-1 text-[15px] text-black/55">Тут усе для вашого шляху: навчання, практики й спостереження.</p>
+      </header>
+
+      {/* the numbers, as on the author's «Огляд» */}
+      <dl className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        {stats.map((s) => (
+          <div key={s.label} className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] flex min-w-0 items-center gap-4 px-4 py-5 sm:px-5">
+            <span className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#7a68e0] sm:flex"><Icon name={s.icon} size={24} /></span>
+            <div className="min-w-0">
+              <dt className="text-[14px] font-medium text-black/60">{s.label}</dt>
+              <dd className="mt-0.5 min-h-[34px] whitespace-nowrap text-[20px] font-bold leading-[34px] tracking-tight text-[#12172b] sm:text-[28px]">
+                {s.pending ? <span className="block h-7 w-16 animate-pulse rounded-lg bg-[#e7e3fb]" aria-label="Завантаження" /> : s.value}
+              </dd>
+            </div>
+          </div>
+        ))}
+      </dl>
+
+      <section aria-labelledby="pov-actions">
+        <h2 id="pov-actions" className="text-[17px] font-bold text-[#12172b]">Швидкі дії</h2>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {onBackToSite && (
+            <button type="button" onClick={onBackToSite} className="flex min-h-[52px] w-full items-center justify-center gap-2.5 whitespace-nowrap rounded-2xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[15px] xl:text-[14px] min-[1500px]:text-[15px] font-semibold text-white shadow-[0_10px_24px_-10px_rgba(91,61,245,0.7)] transition hover:opacity-95">
+              <Icon name="search" size={18} /> Відкрити каталог
+            </button>
+          )}
+          <button type="button" onClick={() => onNavigate("learning")} className={secondaryBtn}>
+            <span className="text-[#6d5bd0]"><Icon name="library" size={19} /></span> Моє навчання
+          </button>
+          <button type="button" onClick={() => onNavigate("messages")} className={secondaryBtn}>
+            <span className="text-[#6d5bd0]"><Icon name="mail" size={19} /></span> Повідомлення
+          </button>
+          <button type="button" onClick={() => (stateProfile ? onNavigate("emotionalProfile") : onRetakeAssessment?.())} className={secondaryBtn}>
+            <span className="text-[#6d5bd0]"><Icon name="heart" size={19} /></span> Емоційний профіль
+          </button>
+        </div>
+      </section>
 
       {/* PRIMARY — exactly one action, always present. Everything else
           on this page is secondary/tertiary context, per Sasha's
@@ -660,7 +707,7 @@ export default function ParticipantOverview({
           primaryProgramModules/primaryProgramSummary's own computation
           changed — this only delays which branch of the existing
           ternary below renders. */}
-      <div className="rounded-2xl bg-white border border-black/5 p-6">
+      <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-4 sm:p-6">
         {programParticipation.loading ? (
           <p className="text-[14px] text-black/60">Завантаження…</p>
         ) : primaryEnrollment && primaryInfo ? (
@@ -674,11 +721,11 @@ export default function ParticipantOverview({
               {/* The action verb ("Почати" for a program at a real 0%,
                   otherwise "Продовжити") lives only on the button below —
                   see primaryActionVerb. */}
-              <div className="flex items-center gap-2">
-                <span className="text-black/60 shrink-0">
-                  <KindIcon kind={primaryEnrollment.kind} size={20} />
+              <div className="flex items-center gap-3.5">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#6d5bd0]">
+                  <KindIcon kind={primaryEnrollment.kind} size={22} />
                 </span>
-                <span className="text-[20px] font-semibold min-w-0">{primaryInfo.title}</span>
+                <span className="text-[20px] font-bold text-[#12172b] min-w-0">{primaryInfo.title}</span>
               </div>
               {(primaryMetaLine || primaryItemTitle) && (
                 <div className="text-[14px] text-black/60 mt-1.5">
@@ -688,7 +735,7 @@ export default function ParticipantOverview({
               {primaryPercent !== null && (
                 <div className="h-1.5 rounded-full bg-black/10 overflow-hidden mt-3 max-w-[280px]">
                   <div
-                    className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
+                    className="h-full bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0]"
                     style={{ width: `${primaryPercent}%` }}
                   />
                 </div>
@@ -697,14 +744,14 @@ export default function ParticipantOverview({
             <div className="flex items-center gap-4 flex-wrap">
               <button
                 onClick={continuePrimary}
-                className="min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white text-[14px] font-medium hover:opacity-90 transition"
+                className="min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition"
               >
                 {primaryActionVerb(primaryEnrollment.kind, primaryPercent)} →
               </button>
               {otherUnfinishedCount > 0 && onGoToLearning && (
                 <button
                   onClick={() => onGoToLearning(primaryEnrollment.kind, "in-progress")}
-                  className="inline-flex items-center min-h-[44px] text-[14px] text-blue-600 hover:underline"
+                  className="inline-flex items-center min-h-[44px] text-[14px] font-semibold text-[#4338ca] hover:underline"
                 >
                   Ще {otherUnfinishedCount} {pluralMaterials(otherUnfinishedCount)} · Переглянути →
                 </button>
@@ -730,7 +777,7 @@ export default function ParticipantOverview({
                 </div>
                 <button
                   onClick={() => onOpenMeditation?.(emptyStateMeditation.id)}
-                  className="min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white text-[14px] font-medium hover:opacity-90 transition shrink-0"
+                  className="min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition shrink-0"
                 >
                   Почати →
                 </button>
@@ -748,13 +795,13 @@ export default function ParticipantOverview({
           identical fix on the sidebar/messages grids below. */}
       <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-2 gap-4">
         {/* EMOTIONAL PROFILE */}
-        <div className="rounded-2xl bg-gradient-to-br from-[#eef2ff] to-white border border-black/5 p-6 flex flex-col justify-between">
+        <div className="rounded-[26px] bg-gradient-to-br from-[#eef0fd] via-white to-[#f6f1ff] shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#e4def9] p-4 sm:p-6 flex flex-col justify-between">
           {assessmentLoading ? (
             <p className="text-[14px] text-black/60">Завантаження…</p>
           ) : stateProfile ? (
             <div className="flex flex-col gap-3">
               <div>
-                <h2 className="text-[16px] font-semibold mb-1">Ваш емоційний профіль</h2>
+                <h2 className="text-[20px] font-bold text-[#12172b] mb-1">Ваш емоційний профіль</h2>
                 <div className="text-[16px] font-semibold">{stateProfile.title}</div>
                 <p className="text-[14px] text-black/60 mt-2 leading-relaxed">
                   {stateProfile.focusSupportLine}
@@ -763,7 +810,7 @@ export default function ParticipantOverview({
               <div className="flex flex-col gap-1.5">
                 <button
                   onClick={() => onNavigate("emotionalProfile")}
-                  className="inline-flex items-center min-h-[44px] text-[14px] font-medium text-blue-600 hover:underline self-start"
+                  className="inline-flex items-center min-h-[44px] text-[14px] font-semibold text-[#4338ca] hover:underline self-start"
                 >
                   Переглянути свій профіль →
                 </button>
@@ -777,7 +824,7 @@ export default function ParticipantOverview({
           ) : (
             <div className="flex flex-col gap-3">
               <div>
-                <h2 className="text-[16px] font-semibold mb-1">Ваш емоційний профіль</h2>
+                <h2 className="text-[20px] font-bold text-[#12172b] mb-1">Ваш емоційний профіль</h2>
                 <div className="text-[16px] font-semibold">Ви ще не проходили оцінку стану</div>
                 <p className="text-[14px] text-black/60 mt-2 leading-relaxed">
                   Коротка оцінка допоможе підібрати матеріали, які відповідають саме вашому
@@ -787,7 +834,7 @@ export default function ParticipantOverview({
               {onRetakeAssessment && (
                 <button
                   onClick={onRetakeAssessment}
-                  className="min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition self-start"
+                  className="min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition self-start"
                 >
                   Пройти оцінку →
                 </button>
@@ -798,12 +845,12 @@ export default function ParticipantOverview({
 
         {/* MY LEARNING — compact preview, never the full library
             (2026-09-11, per Sasha's explicit call). */}
-        <div className="rounded-2xl bg-white border border-black/5 p-6">
+        <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[16px] font-semibold">Моє навчання</h2>
+            <h2 className="text-[20px] font-bold text-[#12172b]">Моє навчання</h2>
             <button
               onClick={() => onNavigate("learning")}
-              className="inline-flex items-center min-h-[44px] text-[14px] text-blue-600 hover:underline"
+              className="inline-flex items-center min-h-[44px] text-[14px] font-semibold text-[#4338ca] hover:underline"
             >
               Усі →
             </button>
@@ -814,7 +861,7 @@ export default function ParticipantOverview({
               {onBackToSite && (
                 <button
                   onClick={onBackToSite}
-                  className="min-h-[44px] px-3.5 py-2 rounded-lg border border-black/10 text-[14px] text-black/65 hover:bg-black/[0.03] transition"
+                  className="min-h-[44px] px-3.5 py-2 rounded-lg border border-[#e3def9] text-[14px] text-black/65 hover:bg-[#f6f4ff] transition"
                 >
                   Відкрити каталог
                 </button>
@@ -834,13 +881,13 @@ export default function ParticipantOverview({
                   <button
                     key={e.contentId}
                     onClick={() => openLearningItem(e)}
-                    className="min-h-[44px] flex items-center gap-3 py-2.5 -mx-2 px-2 rounded-lg text-left border-b border-black/5 last:border-0 hover:bg-black/[0.02] transition"
+                    className="min-h-[44px] flex items-center gap-3.5 py-3 -mx-2 px-2 rounded-xl text-left border-b border-black/5 last:border-0 hover:bg-[#faf9ff] transition"
                   >
-                    <div className="w-8 h-8 rounded-full bg-[#eef2ff] flex items-center justify-center text-black/60 shrink-0">
-                      <KindIcon kind={e.kind} size={16} />
+                    <div className="w-12 h-12 rounded-2xl bg-[#f1eeff] flex items-center justify-center text-[#6d5bd0] shrink-0">
+                      <KindIcon kind={e.kind} size={20} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[14px] font-medium truncate">{info.title}</div>
+                      <div className="text-[15px] font-semibold leading-snug text-[#12172b] truncate">{info.title}</div>
                       <div className="text-[12px] text-black/60 mt-0.5">
                         {accessLabel(e, learningGuideSectionCounts, learningGuideSectionCountsLoaded, programSummary)}
                       </div>
@@ -856,13 +903,13 @@ export default function ParticipantOverview({
       {/* RECOMMENDATIONS — max 3, visually marked "РЕКОМЕНДОВАНО" so
           they never read as already-owned content (2026-09-11, per
           Sasha's explicit access/purchase distinction). */}
-      <div className="rounded-2xl bg-white border border-black/5 p-6">
+      <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-4 sm:p-6">
         <div className="flex items-center justify-between gap-3 mb-1">
-          <h2 className="text-[16px] font-semibold">Підібрано для вас</h2>
+          <h2 className="text-[20px] font-bold text-[#12172b]">Підібрано для вас</h2>
           {!programParticipation.loading && featured && onBackToSite && (
             <button
               onClick={onBackToSite}
-              className="inline-flex items-center min-h-[44px] text-[14px] text-blue-600 hover:underline shrink-0 whitespace-nowrap"
+              className="inline-flex items-center min-h-[44px] text-[14px] font-semibold text-[#4338ca] hover:underline shrink-0 whitespace-nowrap"
             >
               Усі рекомендації →
             </button>
@@ -925,7 +972,7 @@ export default function ParticipantOverview({
             {onBackToSite && (
               <button
                 onClick={onBackToSite}
-                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition shrink-0"
+                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition shrink-0"
               >
                 Переглянути каталог →
               </button>
@@ -940,7 +987,7 @@ export default function ParticipantOverview({
             {onRetakeAssessment && (
               <button
                 onClick={onRetakeAssessment}
-                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition shrink-0"
+                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition shrink-0"
               >
                 Пройти оцінку →
               </button>
@@ -957,16 +1004,16 @@ export default function ParticipantOverview({
           once there's a real repeated pattern — see
           utils/behaviorRecommendations.ts. */}
       {behaviorRecommendation && (
-        <div className="w-full max-w-full min-w-0 overflow-hidden box-border rounded-2xl bg-white border border-black/5 p-6">
-          <h2 className="text-[16px] font-semibold mb-4">Може бути корисно</h2>
+        <div className="w-full max-w-full min-w-0 overflow-hidden box-border rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-4 sm:p-6">
+          <h2 className="text-[20px] font-bold text-[#12172b] mb-4">Може бути корисно</h2>
           <div className="grid sm:grid-cols-3 gap-3">
             <button
               type="button"
               onClick={() => onOpenGuide?.(behaviorRecommendation.guide.id)}
               disabled={!onOpenGuide}
-              className="min-w-0 text-left rounded-xl border border-black/5 p-4 transition hover:border-black/15 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] disabled:cursor-default disabled:hover:border-black/5 disabled:hover:shadow-none"
+              className="min-w-0 text-left rounded-2xl bg-white ring-1 ring-[#ebe8ff] p-4 transition hover:ring-[#c9bff7] hover:shadow-[0_10px_24px_-14px_rgba(60,60,140,0.35)] disabled:cursor-default disabled:hover:border-black/5 disabled:hover:shadow-none"
             >
-              <div className="mb-2 text-black/60">
+              <div className="mb-2 text-[#6d5bd0]">
                 <KindIcon kind="guide" />
               </div>
               <div className="text-[14px] font-medium leading-snug truncate">
@@ -990,28 +1037,28 @@ export default function ParticipantOverview({
           than the page instead of wrapping/truncating inside it. */}
       <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-6">
         {/* RECENT MESSAGES */}
-        <div className="rounded-2xl bg-white border border-black/5 p-6">
+        <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[16px] font-semibold">Останні повідомлення</h2>
+            <h2 className="text-[20px] font-bold text-[#12172b]">Останні повідомлення</h2>
             <button
               onClick={() => onNavigate("messages")}
-              className="inline-flex items-center min-h-[44px] text-[14px] text-blue-600 hover:underline"
+              className="inline-flex items-center min-h-[44px] text-[14px] font-semibold text-[#4338ca] hover:underline"
             >
               Усі →
             </button>
           </div>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col">
             {messages.length === 0 && (
               <p className="text-[14px] text-black/60">Немає нових повідомлень</p>
             )}
             {messages.map((m) => (
-              <div key={m.id} className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#eef2ff] flex items-center justify-center text-[14px] font-semibold text-[#4338ca] shrink-0">
+              <div key={m.id} className="flex items-center gap-3.5 border-b border-black/5 py-3 last:border-0">
+                <div className="w-12 h-12 rounded-2xl bg-[#f1eeff] flex items-center justify-center text-[16px] font-semibold text-[#6d5bd0] shrink-0">
                   {m.authorName[0]}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-[14px] font-medium truncate">{m.authorName}</span>
+                    <span className="text-[15px] font-semibold text-[#12172b] truncate">{m.authorName}</span>
                     {m.unread && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
                   </div>
                   {m.contentTitle && (
@@ -1028,16 +1075,16 @@ export default function ParticipantOverview({
         {/* "Ваші спостереження" — compact preview, real counts only,
             never a fabricated pattern (2026-09-11, new per Sasha's
             spec: "Поки недостатньо даних" instead of fake data). */}
-        <div className="rounded-2xl bg-white border border-black/5 p-6">
+        <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[16px] font-semibold">Ваші спостереження</h2>
+            <h2 className="text-[20px] font-bold text-[#12172b]">Ваші спостереження</h2>
             {/* Was routing to "learning" — a copy/paste from the card
                 next to it — so this button opened "Моє навчання"
                 instead of the actual observations page (2026-09-15,
                 found during the Dashboard technical audit). */}
             <button
               onClick={() => onNavigate("reflections")}
-              className="inline-flex items-center min-h-[44px] text-[14px] text-blue-600 hover:underline"
+              className="inline-flex items-center min-h-[44px] text-[14px] font-semibold text-[#4338ca] hover:underline"
             >
               Переглянути всі →
             </button>

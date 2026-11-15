@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { hasPendingChat, takePendingOpen } from "../lib/pendingChat";
 import { Icon, type IconName } from "../components/ui/Icon";
 import { participantMessages, type ContentKind } from "../data/participantDashboard";
@@ -142,6 +142,12 @@ function ParticipantDashboardPageInner({
   // A material opened from an author's profile that the person already has.
   const [pendingOpen] = useState(() => takePendingOpen());
   const [section, setSection] = useState<SectionKey>(() => (hasPendingChat() ? "messages" : "overview"));
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const nav = navRef.current;
+    const el = nav?.querySelector<HTMLElement>("[data-active]");
+    if (nav && el && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = el.offsetLeft - (nav.clientWidth - el.offsetWidth) / 2;
+  }, [section]);
   // Every section tab a person has opened this session — once a
   // section is in this set it stays mounted (just hidden via CSS)
   // instead of unmounting when you switch away, so switching BACK to
@@ -261,20 +267,20 @@ function ParticipantDashboardPageInner({
     <div className="min-h-screen bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6] text-white">
       {/* TOP BAR */}
       <div className="border-b border-white/10">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-4 sm:py-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div className="max-w-[1400px] mx-auto px-3 py-3 sm:px-6 sm:py-5 flex items-center justify-between gap-2">
           <button
             onClick={onBackToSite}
-            className="flex items-center gap-2 text-white/80 hover:text-white transition"
+            className="flex shrink-0 items-center gap-2 whitespace-nowrap text-white/80 hover:text-white transition"
           >
             <span className="text-xl">←</span>
             <span className="font-semibold tracking-wide">SENSORIA</span>
             <span className="hidden sm:inline text-white/40 text-sm ml-1">Кабінет учасника</span>
           </button>
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:gap-4">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
             <button
               onClick={() => setSection("messages")}
-              className="relative w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-lg"
+              className="relative shrink-0 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-lg"
               aria-label="Повідомлення"
             >
               <Icon name="mail" size={18} />
@@ -287,20 +293,21 @@ function ParticipantDashboardPageInner({
 
             <button
               onClick={() => setSection("profile")}
-              className="flex items-center gap-3 pl-1 pr-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition"
+              aria-label="Профіль"
+              className="flex shrink-0 items-center gap-3 p-1 sm:pr-3 rounded-full bg-white/10 hover:bg-white/20 transition"
             >
               <Avatar
                 avatarUrl={profile.avatarUrl}
                 initials={getInitials(profile.name)}
                 className="w-8 h-8 text-[14px]"
               />
-              <span className="text-sm font-medium max-w-[120px] sm:max-w-none truncate">{profile.name}</span>
+              <span className="hidden max-w-[180px] truncate text-sm font-medium sm:inline">{profile.name}</span>
             </button>
 
             {onOpenAdmin && (
               <button
                 onClick={onOpenAdmin}
-                className="text-sm text-white/60 hover:text-white transition"
+                className="shrink-0 whitespace-nowrap text-sm text-white/60 hover:text-white transition"
               >
                 Адмін-панель
               </button>
@@ -308,7 +315,7 @@ function ParticipantDashboardPageInner({
 
             <button
               onClick={onLogout}
-              className="text-sm text-white/60 hover:text-white transition"
+              className="shrink-0 whitespace-nowrap text-sm text-white/60 hover:text-white transition"
             >
               Вийти
             </button>
@@ -323,28 +330,29 @@ function ParticipantDashboardPageInner({
           content panel, wider than the viewport instead of wrapping
           inside it. minmax(0, 1fr) caps it at the available space, same
           fix as the "wide white block" report. */}
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-24 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[260px_minmax(0,1fr)] gap-6 sm:gap-8 items-start">
+      <div className="max-w-[1400px] mx-auto px-3 pt-4 pb-24 sm:px-6 sm:pt-8 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[260px_minmax(0,1fr)] gap-4 lg:gap-8 items-start">
         {/* SIDEBAR */}
-        <div className="rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 p-4">
-          <nav className="flex flex-col gap-1">
+        <div className="min-w-0 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 p-2 lg:p-4">
+          <nav ref={navRef} className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-col lg:overflow-visible">
             {NAV.map((item) => {
               const isActive = section === item.key;
               return (
-                <div key={item.key} className="flex flex-col gap-1">
+                <div key={item.key} className="flex shrink-0 gap-1 lg:flex-col">
                   <button
                     onClick={() => setSection(item.key)}
+                    data-active={isActive || undefined}
                     className={`
-                      flex items-center gap-3 px-4 py-3 rounded-2xl text-left text-[14px] font-medium
+                      flex shrink-0 items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2.5 lg:py-3 rounded-2xl text-left text-[14px] font-medium whitespace-nowrap
                       transition
                       ${
                         isActive
-                          ? "bg-white text-black"
+                          ? "bg-white text-[#12172b]"
                           : "text-white/75 hover:bg-white/10 hover:text-white"
                       }
                     `}
                   >
                     <Icon name={item.icon} size={18} />
-                    <span className="flex-1">{item.label}</span>
+                    <span className="lg:flex-1">{item.label}</span>
                     {item.key === "messages" && unreadMessages > 0 && (
                       <span
                         className={`
@@ -363,7 +371,7 @@ function ParticipantDashboardPageInner({
                       під-навігація в сайдбарі, видима, коли розділ
                       активний. */}
                   {item.key === "learning" && isActive && (
-                    <div className="flex flex-col gap-1 pl-3">
+                    <div className="flex gap-1 lg:flex-col lg:pl-3">
                       {LEARNING_SUBNAV.map((sub) => {
                         const subActive = learningTab === sub.key;
                         return (
@@ -371,7 +379,7 @@ function ParticipantDashboardPageInner({
                             key={sub.key}
                             onClick={() => setLearningTab(sub.key)}
                             className={`
-                              flex items-center gap-2 pl-6 pr-4 py-2 rounded-xl text-left text-[14px] font-medium
+                              flex shrink-0 items-center gap-2 px-3 lg:pl-6 lg:pr-4 py-2 rounded-xl text-left text-[14px] font-medium whitespace-nowrap
                               transition
                               ${
                                 subActive
@@ -395,7 +403,7 @@ function ParticipantDashboardPageInner({
 
         {/* CONTENT — a fixed minimum height (same as the author cabinet): the white panel keeps its size when switching
             tabs instead of shrinking and growing with each tab's content. */}
-        <div className="rounded-3xl bg-[#f6f8ff] text-black min-h-[70vh] p-4 sm:p-8">
+        <div className="min-w-0 rounded-3xl bg-[#f6f8ff] text-black min-h-[70vh] p-4 sm:p-8">
           {/* Every block below is gated on visitedSections (mount once,
               keep alive) instead of `section === key` (mount/unmount
               every switch) — see visitedSections' own comment above.

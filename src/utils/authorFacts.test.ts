@@ -6,13 +6,14 @@ const edu = (title: string, degree: "bachelor" | "master" | null = null) => ({ k
 const cert = (title: string) => ({ kind: "certificate" as const, title, degree: null });
 const course = (title: string) => ({ kind: "training" as const, title, degree: null });
 
-test("always three columns, otherwise the block is not shown", () => {
+test("any one of diploma, course or certificate shows the block; experience alone does not", () => {
   assert.deepEqual(backgroundFacts({ credentials: [], experience: [], year: 2026 }), []);
-  assert.deepEqual(backgroundFacts({ credentials: [edu("Психологія"), cert("A")], experience: [], year: 2026 }), []);
-  assert.deepEqual(backgroundFacts({ credentials: [edu("Психологія")], experience: [{ startYear: 2010 }], year: 2026 }), []);
+  assert.deepEqual(backgroundFacts({ credentials: [], experience: [{ startYear: 2010 }], year: 2026 }), []);
+  assert.deepEqual(backgroundFacts({ credentials: [cert("A")], experience: [], year: 2026 }).map((f) => f.key), ["certificates"]);
+  assert.deepEqual(backgroundFacts({ credentials: [course("B")], experience: [], year: 2026 }).map((f) => [f.value, f.label]), [["1", "Курс"]]);
 });
 
-test("education: highest degree + field; years; certificates only (courses excluded)", () => {
+test("education: highest degree + field; years; certificates; courses", () => {
   const f = backgroundFacts({
     credentials: [edu("Психологія", "bachelor"), edu("[demo] Клінічна психологія", "master"), cert("A"), cert("C"), course("B")],
     experience: [{ startYear: 2021 }, { startYear: 2018 }, { startYear: 2000, isPublic: false }],
@@ -22,6 +23,7 @@ test("education: highest degree + field; years; certificates only (courses exclu
     ["education", "Магістр", "Клінічна психологія"],
     ["years", "8 років", "Професійного досвіду"],
     ["certificates", "2", "Сертифікати"],
+    ["courses", "1", "Курс"],
   ]);
 });
 
@@ -31,6 +33,6 @@ test("plural forms and no named degree", () => {
 });
 
 test("backgroundMissing names what to add", () => {
-  assert.deepEqual(backgroundMissing({ credentials: [edu("П")], experience: [], year: 2026 }), ["досвід із роком початку (щонайменше рік тому)", "сертифікат"]);
-  assert.deepEqual(backgroundMissing({ credentials: [edu("П"), cert("A")], experience: [{ startYear: 2010 }], year: 2026 }), []);
+  assert.deepEqual(backgroundMissing({ credentials: [], experience: [{ startYear: 2010 }], year: 2026 }), ["диплом, курс або сертифікат"]);
+  assert.deepEqual(backgroundMissing({ credentials: [edu("П")], experience: [], year: 2026 }), []);
 });

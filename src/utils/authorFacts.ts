@@ -5,11 +5,13 @@
 //                 the column says «Освіта» + the title
 //   years         earliest start year of the author's PUBLIC experience → this
 //                 year (never guessed from the sign-up date; < 1 year hidden)
-//   certificates  public certificates only (no courses)
+//   certificates  public certificates
+//   courses       public courses / trainings
+// Any one of education, certificates or courses is enough for the block; all of them is ideal.
 import { pluralUk } from "./plural.ts";
 import { DEGREE_LABEL, DEGREE_RANK, plainTitle, type AuthorCredential } from "./authorCredentials.ts";
 
-export type BackgroundFact = { key: "education" | "years" | "certificates"; value: string; label: string };
+export type BackgroundFact = { key: "education" | "years" | "certificates" | "courses"; value: string; label: string };
 
 export function backgroundFacts(input: {
   credentials: Pick<AuthorCredential, "kind" | "title" | "degree">[];
@@ -32,28 +34,16 @@ export function backgroundFacts(input: {
     if (years >= 1) facts.push({ key: "years", value: `${years} ${pluralUk(years, "рік", "роки", "років")}`, label: "Професійного досвіду" });
   }
 
-  // certificates only — courses/trainings are not counted here
   const certs = input.credentials.filter((c) => c.kind === "certificate").length;
   if (certs > 0) facts.push({ key: "certificates", value: String(certs), label: pluralUk(certs, "Сертифікат", "Сертифікати", "Сертифікатів") });
+  const courses = input.credentials.filter((c) => c.kind === "training").length;
+  if (courses > 0) facts.push({ key: "courses", value: String(courses), label: pluralUk(courses, "Курс", "Курси", "Курсів") });
 
-  // The block is always three columns: with fewer real facts it is not shown.
-  return facts.length === 3 ? facts : [];
+  // shown once there is at least one diploma, certificate or course
+  return facts.some((f) => f.key !== "years") ? facts : [];
 }
 
 // What the author still has to add (public records) for the block to appear.
 export function backgroundMissing(input: Parameters<typeof backgroundFacts>[0]): string[] {
-  const have = new Set(backgroundFacts(input).map((f) => f.key));
-  if (have.size === 3) return [];
-  // facts are all-or-nothing, so work out each column separately
-  const solo = (key: BackgroundFact["key"]) => {
-    const edu = input.credentials.some((c) => c.kind === "education");
-    const exp = input.experience.some((e) => e.isPublic !== false && e.startYear && e.startYear >= 1950 && e.startYear < input.year);
-    const cert = input.credentials.some((c) => c.kind === "certificate");
-    return key === "education" ? edu : key === "years" ? exp : cert;
-  };
-  const out: string[] = [];
-  if (!solo("education")) out.push("освіта");
-  if (!solo("years")) out.push("досвід із роком початку (щонайменше рік тому)");
-  if (!solo("certificates")) out.push("сертифікат");
-  return out;
+  return backgroundFacts(input).length ? [] : ["диплом, курс або сертифікат"];
 }

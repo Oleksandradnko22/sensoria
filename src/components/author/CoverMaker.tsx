@@ -125,7 +125,9 @@ export default function CoverMaker({ title: initialTitle, categoryId, categoryId
   const lastEdit = useRef({ key: "", t: 0 });
   const lastTap = useRef({ id: "", t: 0, x: 0, y: 0 });
 
-  const [doc, setDoc] = useState<CoverDoc>(() => starterDoc("waves", paletteFor(categoryId), initialTitle));
+  // the author's cover starts without text: the name already stands right under it, and a 10:1 strip is too low for it
+  const bare = (d: CoverDoc): CoverDoc => (frames ? { ...d, elements: d.elements.filter((e) => e.type !== "text") } : d);
+  const [doc, setDoc] = useState<CoverDoc>(() => bare(starterDoc("waves", paletteFor(categoryId), initialTitle)));
   // The newest document, readable in async callbacks (photo loading) and between two changes in one event.
   const docRef = useRef(doc);
   const setDocNow = (v: CoverDoc | ((d: CoverDoc) => CoverDoc)) => {
@@ -559,7 +561,7 @@ export default function CoverMaker({ title: initialTitle, categoryId, categoryId
             <Section title="Готові основи">
               <div className="grid grid-cols-2 gap-2">
                 {COVER_TEMPLATES.map((t, i) => (
-                  <Thumb key={t.id} label={t.label} doc={thumbDocs[i]} onPick={() => { act(() => starterDoc(t.id, palette, firstText)); setSelectedId(null); }} />
+                  <Thumb key={t.id} label={t.label} doc={thumbDocs[i]} onPick={() => { act(() => bare(starterDoc(t.id, palette, firstText))); setSelectedId(null); }} />
                 ))}
               </div>
               <p className="text-[12px] leading-snug text-black/70">Замінює макет; можна скасувати.</p>
@@ -723,9 +725,9 @@ export default function CoverMaker({ title: initialTitle, categoryId, categoryId
                   ))}
                 </div>
               </div>
-              <div className="flex min-h-0 items-center gap-4 rounded-xl bg-[#f6f4ff] px-3 py-2.5">
+              <div className="flex min-h-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-[#f6f4ff] px-3 py-2.5">
                 <canvas ref={peek} role="img" aria-label={`Так обкладинка виглядатиме: ${FRAMES[frameIdx].where}`} className="h-auto max-h-14 w-auto max-w-[45%] shrink-0 rounded-lg border border-[#e3e6f4] bg-white shadow-sm" />
-                <div role={frameHint && !allConfirmed ? "alert" : undefined} aria-live="polite" className="min-w-0 flex-1 leading-snug">
+                <div role={frameHint && !allConfirmed ? "alert" : undefined} aria-live="polite" className="min-w-[160px] flex-1 basis-[160px] leading-snug">
                   <p className="truncate text-[14px] font-semibold text-[#1d1a3b]">{FRAMES[frameIdx].where} · {FRAMES[frameIdx].label}</p>
                   <p className={`text-[12px] ${frameHint && !allConfirmed ? "font-medium text-rose-700" : "text-black/70"}`}>
                     {allConfirmed ? "Усі кадри перевірено, можна зберігати." : frameHint ? `Підтвердьте решту кадрів: ${confirmedCount} з ${FRAMES.length}.` : `Усе потрібне видно у світлій частині? Перевірено ${confirmedCount} з ${FRAMES.length}.`}

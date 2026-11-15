@@ -113,6 +113,8 @@ const LoginPage = lazy(() => import("./pages/LoginPage"));
 const PreparingPage = lazy(() => import("./pages/PreparingPage"));
 const LibraryHomePage = lazy(() => import("./pages/LibraryHomePage"));
 const AuthorDashboardPage = lazy(() => import("./pages/AuthorDashboardPage"));
+// the address the site was opened with (the app rewrites it at once, before the session is known)
+const BOOT_PATH = typeof window !== "undefined" ? window.location.pathname : "/";
 const ParticipantDashboardPage = lazy(() => import("./pages/ParticipantDashboardPage"));
 const DashboardAuthPage = lazy(() => import("./pages/DashboardAuthPage"));
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
@@ -294,7 +296,8 @@ function AppInner() {
         // Only auto-jump into the dashboard when we just landed back
         // from the Google redirect — a normal boot with an existing
         // session still lands on the public home page, same as before.
-        if (oauthRole) {
+        // …and a refresh inside the cabinet (/account) stays in the cabinet
+        if (oauthRole || BOOT_PATH === "/account") {
           setPage(profile.role === "author" ? "author-dashboard" : "participant-dashboard");
           window.scrollTo(0, 0);
         }

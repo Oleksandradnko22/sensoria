@@ -62,7 +62,7 @@ function ReportDetails({ report, onClose }: { report: MyReport; onClose: () => v
         </p>
         <div className="text-[12px] text-black/60 mt-3">Подано {formatAbsoluteDate(report.createdAt)}</div>
         <div className="mt-5 flex justify-end">
-          <button data-autofocus onClick={onClose} className="min-h-[44px] px-5 rounded-xl border border-black/[0.12] text-[14px] text-black/70 hover:bg-black/[0.04]">
+          <button data-autofocus onClick={onClose} className="min-h-[44px] px-5 rounded-xl border border-[#e3def9] text-[14px] text-black/70 hover:bg-[#f6f4ff]">
             Закрити
           </button>
         </div>
@@ -148,7 +148,7 @@ export default function ParticipantReports({ active = true }: { active?: boolean
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-3xl font-bold">Мої скарги</h1>
+        <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Мої скарги</h1>
         <p className="text-black/60 mt-1 max-w-[640px]">
           Скарги, які ви подали на авторів або контент. Ми розглядаємо їх уважно, щоб підтримувати безпечне та
           комфортне середовище для всіх учасників.
@@ -158,15 +158,15 @@ export default function ParticipantReports({ active = true }: { active?: boolean
       {state === "loading" && (
         <div className="flex flex-col gap-3" aria-busy="true" aria-label="Завантаження скарг">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-[112px] rounded-2xl bg-white border border-black/[0.06] animate-pulse" />
+            <div key={i} className="h-[112px] rounded-[22px] bg-white ring-1 ring-[#ece8fb] animate-pulse" />
           ))}
         </div>
       )}
 
       {state === "error" && all.length === 0 && (
-        <div role="alert" className="rounded-2xl bg-white border border-black/[0.06] px-6 py-10 text-center">
+        <div role="alert" className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-6 py-10 text-center">
           <div className="text-[16px] font-medium">Не вдалося завантажити скарги</div>
-          <button onClick={() => load()} className="mt-3 min-h-[44px] px-5 rounded-xl border border-black/[0.12] text-[14px] text-black/75 hover:bg-black/[0.04]">
+          <button onClick={() => load()} className="mt-3 min-h-[44px] px-5 rounded-xl border border-[#e3def9] text-[14px] text-black/75 hover:bg-[#f6f4ff]">
             Спробувати ще раз
           </button>
         </div>
@@ -195,7 +195,7 @@ export default function ParticipantReports({ active = true }: { active?: boolean
           {deleteError && <div role="alert" className="text-[14px] text-rose-700">{deleteError}</div>}
 
           {all.length === 0 ? (
-            <div className="max-w-[560px] rounded-2xl bg-white border border-black/[0.06] px-6 py-10 text-center">
+            <div className="max-w-[560px] rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-6 py-10 text-center">
               <span className="mx-auto w-12 h-12 rounded-full bg-[#eef0fd] text-[#4338ca] flex items-center justify-center">
                 <Icon name="shield" size={22} />
               </span>
@@ -206,7 +206,7 @@ export default function ParticipantReports({ active = true }: { active?: boolean
               </p>
             </div>
           ) : shown.length === 0 ? (
-            <div className="rounded-2xl bg-white border border-black/[0.06] px-6 py-8 text-center text-[14px] text-black/60">
+            <div className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-6 py-8 text-center text-[14px] text-black/60">
               Немає скарг зі статусом «{REPORT_STATUS_LABEL[filter as "open" | "reviewed"]}».
             </div>
           ) : (
@@ -214,13 +214,13 @@ export default function ParticipantReports({ active = true }: { active?: boolean
               {shown.map((r) => {
                 const { icon, tint } = REASON_ICON[r.reason];
                 return (
-                  <li key={r.id} className="rounded-2xl bg-white border border-black/[0.06] p-4 sm:p-5 flex gap-4">
+                  <li key={r.id} className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-4 sm:p-5 flex gap-4">
                     <span className={`shrink-0 w-11 h-11 rounded-full flex items-center justify-center ${tint}`}>
                       <Icon name={icon} size={20} />
                     </span>
                     <div className="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-start gap-x-4 gap-y-2">
                       <div className="min-w-0 flex-1">
-                        <h2 className="text-[16px] font-semibold text-black/90">{r.reasonLabel ?? REPORT_REASON_LABELS[r.reason]}</h2>
+                        <h2 className="text-[17px] font-bold text-[#12172b]">{r.reasonLabel ?? REPORT_REASON_LABELS[r.reason]}</h2>
                         <div className="text-[14px] text-black/60 break-words">
                           {[r.kind, r.reportedName, r.contentTitle].filter(Boolean).join(" · ")}
                         </div>
@@ -241,12 +241,12 @@ export default function ParticipantReports({ active = true }: { active?: boolean
                                 onClick={() => setMenuId(menuId === r.id ? null : r.id)}
                                 aria-label="Дії зі скаргою"
                                 aria-expanded={menuId === r.id}
-                                className="w-11 h-11 rounded-full hover:bg-black/5 flex items-center justify-center text-black/60 text-xl"
+                                className="w-11 h-11 rounded-full hover:bg-[#f6f4ff] flex items-center justify-center text-black/60 text-xl"
                               >
                                 ⋯
                               </button>
                               {menuId === r.id && (
-                                <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-white border border-black/10 shadow-[0_10px_24px_rgba(0,0,0,0.1)] py-1 z-10">
+                                <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-white border border-[#e3def9] shadow-[0_10px_24px_rgba(0,0,0,0.1)] py-1 z-10">
                                   <button
                                     onClick={() => {
                                       setMenuId(null);

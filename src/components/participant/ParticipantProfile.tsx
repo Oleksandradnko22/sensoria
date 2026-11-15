@@ -81,20 +81,20 @@ function MfaSetupDialog({
   const root = useRef<HTMLDivElement>(null);
   useModal(root, () => !busy && onCancel());
   return createPortal(
-    <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4" onClick={() => !busy && onCancel()}>
+    <div className="fixed inset-0 z-[100] bg-[#12172b]/45 flex items-center justify-center p-4" onClick={() => !busy && onCancel()}>
       <div
         ref={root}
         role="dialog"
         aria-modal="true"
         aria-labelledby="mfa-title"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[420px] max-h-[92dvh] overflow-y-auto rounded-2xl bg-white p-6 shadow-[0_20px_50px_rgba(20,20,60,0.18)]"
+        className="w-full max-w-[420px] max-h-[92dvh] overflow-y-auto rounded-[26px] bg-white p-6 sm:p-7 shadow-[0_30px_80px_-30px_rgba(20,16,60,0.6)]"
       >
-        <h3 id="mfa-title" className="text-[16px] font-semibold text-black/90">Двофакторна автентифікація</h3>
+        <h3 id="mfa-title" className="text-[20px] font-bold text-[#12172b]">Двофакторна автентифікація</h3>
         <p className="text-[14px] text-black/70 mt-1.5 leading-relaxed">
           Відскануйте QR-код застосунком-автентифікатором (Google Authenticator, Authy тощо) або введіть ключ вручну.
         </p>
-        <img src={enrollment.qrCode} alt="QR-код для 2FA" className="w-44 h-44 mx-auto mt-4 rounded-lg" />
+        <img src={enrollment.qrCode} alt="QR-код для 2FA" className="w-44 h-44 mx-auto mt-4 rounded-2xl ring-1 ring-[#ebe8ff] p-2 bg-white" />
         <div className="mt-2 text-[12px] text-black/70 text-center break-all font-mono select-all">{enrollment.secret}</div>
         <input
           value={code}
@@ -107,12 +107,12 @@ function MfaSetupDialog({
           placeholder="6-значний код"
           className={`${inputClass} text-center tracking-[0.3em] mt-4`}
         />
-        {error && <p role="alert" className="mt-2 text-[14px] text-red-700">{error}</p>}
+        {error && <p role="alert" className="mt-2 text-[14px] text-rose-700">{error}</p>}
         <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onCancel} disabled={busy} className="min-h-[44px] px-4 rounded-xl border border-[#e3def9] text-[14px] text-black/70 hover:bg-[#f6f4ff] disabled:opacity-50">
+          <button onClick={onCancel} disabled={busy} className="min-h-[44px] px-4 rounded-xl bg-white ring-1 ring-[#e3def9] text-[14px] font-semibold text-[#4338ca] hover:bg-[#faf9ff] disabled:opacity-50">
             Скасувати
           </button>
-          <button onClick={onConfirm} disabled={busy || code.length !== 6} className="min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">
+          <button onClick={onConfirm} disabled={busy || code.length !== 6} className="min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">
             {busy ? "Перевіряємо…" : "Підтвердити"}
           </button>
         </div>
@@ -480,12 +480,12 @@ export default function ParticipantProfile() {
   };
 
   const field =
-    "w-full min-h-[44px] px-4 py-2.5 rounded-xl border border-[#d9d4f5] bg-white text-[16px] sm:text-[14px] focus:outline-none focus:border-[#4338ca]/60 focus-visible:ring-2 focus-visible:ring-[#4338ca]/20";
-  const card = "rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-5 sm:p-6";
+    "w-full min-h-[46px] px-4 py-3 rounded-xl bg-[#faf9ff] ring-1 ring-[#e3def9] text-[16px] sm:text-[15px] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7c5cf0]";
+  const card = "rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-5 sm:p-6";
   const primaryBtn =
-    "min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed";
+    "min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition disabled:opacity-40 disabled:cursor-not-allowed";
   const darkBtn =
-    "min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed";
+    "min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition disabled:opacity-40 disabled:cursor-not-allowed";
 
   return (
     <div className={`flex flex-col gap-6 ${redirecting ? "page-fade-out" : ""}`}>
@@ -498,18 +498,18 @@ export default function ParticipantProfile() {
       <div className="grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] gap-6 items-stretch">
         {/* PERSONAL DATA */}
         <section className={card} aria-labelledby="profile-personal">
-          <h2 id="profile-personal" className="text-[20px] font-semibold">Особисті дані</h2>
+          <SectionTitle id="profile-personal" icon="idcard" title="Особисті дані" hint="Ім’я, фото й пошта для входу." />
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <div className="relative shrink-0">
               <Avatar
                 avatarUrl={profile?.avatarUrl}
                 initials={getInitials(name || "?")}
-                className="w-16 h-16 text-[20px] text-white"
+                className="w-20 h-20 text-[22px] text-white ring-4 ring-[#f1eeff]"
               />
               <span
                 aria-hidden="true"
-                className="absolute -right-0.5 -bottom-0.5 w-6 h-6 rounded-full bg-white border border-[#e3def9] shadow-sm flex items-center justify-center text-black/60"
+                className="absolute -right-0.5 -bottom-0.5 w-7 h-7 rounded-full bg-white ring-1 ring-[#e3def9] shadow-sm flex items-center justify-center text-[#6d5bd0]"
               >
                 <Icon name="image" size={13} />
               </span>
@@ -520,7 +520,7 @@ export default function ParticipantProfile() {
                 <button
                   onClick={() => avatarInputRef.current?.click()}
                   disabled={avatarBusy}
-                  className="min-h-[44px] px-4 rounded-xl bg-[#eef0fd] text-[#4338ca] hover:bg-[#e3e6fb] text-[14px] font-medium transition disabled:opacity-50"
+                  className="min-h-[44px] px-4 rounded-xl bg-white ring-1 ring-[#e3def9] hover:ring-[#c9bff7] text-[#4338ca] text-[14px] font-semibold transition disabled:opacity-50"
                 >
                   {uploadingAvatar ? "Завантажуємо…" : "Змінити фото"}
                 </button>
@@ -528,7 +528,7 @@ export default function ParticipantProfile() {
                   <button
                     onClick={handleRemoveAvatar}
                     disabled={avatarBusy}
-                    className="min-h-[44px] px-4 rounded-xl text-[14px] font-medium text-red-700 hover:bg-red-50 transition disabled:opacity-50"
+                    className="min-h-[44px] px-3 rounded-xl text-[14px] font-medium text-black/50 hover:text-rose-700 transition disabled:opacity-50"
                   >
                     {removingAvatar ? "Видаляємо…" : "Видалити фото"}
                   </button>
@@ -537,16 +537,16 @@ export default function ParticipantProfile() {
               <p className="text-[12px] text-black/60">JPG, PNG, WebP або GIF до 5 МБ.</p>
             </div>
           </div>
-          {avatarError && <p role="alert" className="text-[14px] text-red-700 mt-2">{avatarError}</p>}
+          {avatarError && <p role="alert" className="text-[14px] text-rose-700 mt-2">{avatarError}</p>}
 
           <div className="flex flex-col gap-4 mt-5">
             <div>
-              <label htmlFor="profile-name" className="block text-[14px] font-medium text-black/70 mb-1.5">Ім'я та прізвище</label>
+              <label htmlFor="profile-name" className="block text-[13px] font-semibold text-[#2d2a5c] mb-2">Ім'я та прізвище</label>
               <input id="profile-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" className={field} />
             </div>
             <div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <label htmlFor="profile-email" className="text-[14px] font-medium text-black/70">Email</label>
+              <div className="flex items-center gap-2 mb-2">
+                <label htmlFor="profile-email" className="text-[13px] font-semibold text-[#2d2a5c]">Email</label>
                 {emailConfirmed !== null && (
                   <span
                     className={`px-2 py-0.5 rounded-full text-[12px] font-medium ${
@@ -564,7 +564,7 @@ export default function ParticipantProfile() {
             </div>
           </div>
 
-          {contactError && <p role="alert" className="mt-3 text-[14px] text-red-700">{contactError}</p>}
+          {contactError && <p role="alert" className="mt-3 text-[14px] text-rose-700">{contactError}</p>}
           {emailConfirmPending && (
             <p role="status" className="mt-3 text-[14px] text-amber-800">
               Перевірте нову пошту — email зміниться після переходу за посиланням.
@@ -581,22 +581,22 @@ export default function ParticipantProfile() {
 
         {/* SECURITY */}
         <section className={card} aria-labelledby="profile-security">
-          <h2 id="profile-security" className="text-[20px] font-semibold">Безпека</h2>
+          <SectionTitle id="profile-security" icon="shield" title="Безпека" hint="Пароль і код при вході." />
 
           {passwordAuth === null ? (
             <div className="mt-4 flex flex-col gap-3 animate-pulse" aria-busy="true" aria-label="Завантаження">
-              <div className="h-11 rounded-xl bg-black/[0.05]" />
-              <div className="h-11 rounded-xl bg-black/[0.05]" />
-              <div className="h-11 w-40 rounded-xl bg-black/[0.05]" />
+              <div className="h-11 rounded-xl bg-[#ece9fe]" />
+              <div className="h-11 rounded-xl bg-[#ece9fe]" />
+              <div className="h-11 w-40 rounded-xl bg-[#ece9fe]" />
             </div>
           ) : passwordAuth ? (
-            <div className="flex flex-col gap-3 mt-4">
+            <div className="flex flex-col gap-3">
               <div>
-                <label htmlFor="pw-current" className="block text-[14px] font-medium text-black/70 mb-1.5">Поточний пароль</label>
+                <label htmlFor="pw-current" className="block text-[13px] font-semibold text-[#2d2a5c] mb-2">Поточний пароль</label>
                 <input id="pw-current" type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className={field} />
               </div>
               <div>
-                <label htmlFor="pw-new" className="block text-[14px] font-medium text-black/70 mb-1.5">Новий пароль</label>
+                <label htmlFor="pw-new" className="block text-[13px] font-semibold text-[#2d2a5c] mb-2">Новий пароль</label>
                 <div className="relative">
                   <input id="pw-new" type={showPassword ? "text" : "password"} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={`${field} pr-24`} />
                   <button
@@ -604,12 +604,12 @@ export default function ParticipantProfile() {
                     onClick={() => setShowPassword((v) => !v)}
                     aria-label={showPassword ? "Сховати пароль" : "Показати пароль"}
                     aria-pressed={showPassword}
-                    className="absolute right-1 top-0 h-11 px-3 flex items-center justify-center rounded-lg text-black/70 hover:text-black/90 text-[14px] font-medium"
+                    className="absolute right-1 top-0 h-[46px] px-3 flex items-center justify-center rounded-lg text-[#4338ca] hover:text-[#3730a3] text-[13px] font-semibold"
                   >
                     {showPassword ? "Сховати" : "Показати"}
                   </button>
                 </div>
-                <p className={`mt-1.5 text-[12px] ${newPassword.length > 0 && !isInitialPasswordValid ? "text-red-700" : "text-black/60"}`}>
+                <p className={`mt-1.5 text-[12px] ${newPassword.length > 0 && !isInitialPasswordValid ? "text-rose-700" : "text-black/60"}`}>
                   {PASSWORD_HINT}
                 </p>
               </div>
@@ -619,16 +619,16 @@ export default function ParticipantProfile() {
                 </button>
                 {passwordSaved && <span role="status" className="text-[14px] text-emerald-700">Пароль оновлено ✓</span>}
               </div>
-              {passwordError && <p role="alert" className="text-[14px] text-red-700">{passwordError}</p>}
+              {passwordError && <p role="alert" className="text-[14px] text-rose-700">{passwordError}</p>}
             </div>
           ) : (
-            <div className="flex flex-col gap-3 mt-4">
+            <div className="flex flex-col gap-3">
               <p className="text-[14px] text-black/70 leading-relaxed">
                 Ви увійшли через Google, тож окремого пароля для Sensoria ще немає. Можна встановити його — після цього
                 вхід за паролем працюватиме поряд із Google.
               </p>
               <div>
-                <label htmlFor="pw-initial" className="block text-[14px] font-medium text-black/70 mb-1.5">Новий пароль</label>
+                <label htmlFor="pw-initial" className="block text-[13px] font-semibold text-[#2d2a5c] mb-2">Новий пароль</label>
                 <div className="relative">
                   <input id="pw-initial" type={showPassword ? "text" : "password"} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={`${field} pr-24`} />
                   <button
@@ -636,12 +636,12 @@ export default function ParticipantProfile() {
                     onClick={() => setShowPassword((v) => !v)}
                     aria-label={showPassword ? "Сховати пароль" : "Показати пароль"}
                     aria-pressed={showPassword}
-                    className="absolute right-1 top-0 h-11 px-3 flex items-center justify-center rounded-lg text-black/70 hover:text-black/90 text-[14px] font-medium"
+                    className="absolute right-1 top-0 h-[46px] px-3 flex items-center justify-center rounded-lg text-[#4338ca] hover:text-[#3730a3] text-[13px] font-semibold"
                   >
                     {showPassword ? "Сховати" : "Показати"}
                   </button>
                 </div>
-                <p className={`mt-1.5 text-[12px] ${newPassword.length > 0 && !isInitialPasswordValid ? "text-red-700" : "text-black/60"}`}>
+                <p className={`mt-1.5 text-[12px] ${newPassword.length > 0 && !isInitialPasswordValid ? "text-rose-700" : "text-black/60"}`}>
                   {PASSWORD_HINT}
                 </p>
               </div>
@@ -651,15 +651,15 @@ export default function ParticipantProfile() {
                 </button>
                 {passwordSaved && <span role="status" className="text-[14px] text-emerald-700">Пароль встановлено ✓</span>}
               </div>
-              {passwordError && <p role="alert" className="text-[14px] text-red-700">{passwordError}</p>}
+              {passwordError && <p role="alert" className="text-[14px] text-rose-700">{passwordError}</p>}
             </div>
           )}
 
           {/* 2FA */}
-          <div className="pt-4 mt-5 border-t border-black/[0.06]">
+          <div className="pt-4 mt-5 border-t border-[#f1eefb]">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-[14px] font-medium">Двофакторна автентифікація</div>
+                <div className="text-[15px] font-semibold text-[#12172b]">Двофакторна автентифікація</div>
                 <div className="text-[12px] text-black/60">Код із застосунку-автентифікатора при вході в акаунт</div>
               </div>
               {mfaLoading ? (
@@ -675,41 +675,41 @@ export default function ParticipantProfile() {
               )}
             </div>
 
-            {mfaError && !mfaEnrollment && <p role="alert" className="mt-2 text-[14px] text-red-700">{mfaError}</p>}
+            {mfaError && !mfaEnrollment && <p role="alert" className="mt-2 text-[14px] text-rose-700">{mfaError}</p>}
           </div>
         </section>
       </div>
 
       {/* NOTIFICATIONS */}
       <section className={card} aria-labelledby="profile-notifications">
-        <h2 id="profile-notifications" className="text-[20px] font-semibold">Сповіщення</h2>
-        <p className="text-[14px] text-black/60 mt-1 max-w-[720px]">
+        <SectionTitle id="profile-notifications" icon="mail" title="Сповіщення" hint="" />
+        <p className="-mt-2 text-[14px] text-black/55 max-w-[720px]">
           Листи надсилаються на пошту, коли автор відповідає на відгук, пише повідомлення або публікує новий матеріал.
         </p>
 
         {prefsState === "loading" && (
           <div className="mt-4 flex flex-col gap-3 animate-pulse" aria-busy="true" aria-label="Завантаження сповіщень">
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="h-12 rounded-xl bg-black/[0.05]" />
+              <div key={i} className="h-12 rounded-xl bg-[#ece9fe]" />
             ))}
           </div>
         )}
         {prefsState === "error" && (
-          <div role="alert" className="mt-4 text-[14px] text-red-700">
+          <div role="alert" className="mt-4 text-[14px] text-rose-700">
             Не вдалося завантажити налаштування сповіщень.{" "}
             <button onClick={loadPrefs} className="underline font-medium">Спробувати ще раз</button>
           </div>
         )}
         {prefsState === "ready" && (
-          <ul className="mt-3 divide-y divide-black/[0.06]">
+          <ul className="mt-3 divide-y divide-[#f1eefb]">
             {notifications.map((n) => (
               <li key={n.id} className="flex items-center gap-3 sm:gap-4 py-3">
-                <span aria-hidden="true" className="hidden sm:flex shrink-0 w-10 h-10 rounded-full bg-[#eef0fd] text-[#4338ca] items-center justify-center">
+                <span aria-hidden="true" className="hidden sm:flex shrink-0 w-11 h-11 rounded-2xl bg-[#f1eeff] text-[#6d5bd0] items-center justify-center">
                   <Icon name={n.icon} size={18} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[14px] font-medium text-black/90">{n.label}</div>
-                  <div className="text-[12px] text-black/60">{n.hint}</div>
+                  <div className="text-[15px] font-semibold text-[#12172b]">{n.label}</div>
+                  <div className="text-[13px] text-black/55">{n.hint}</div>
                 </div>
                 <Switch
                   touch
@@ -722,8 +722,8 @@ export default function ParticipantProfile() {
             ))}
           </ul>
         )}
-        {prefError && <p role="alert" className="mt-2 text-[14px] text-red-700">{prefError}</p>}
-        <p className="text-[12px] text-black/60 mt-3 pt-3 border-t border-black/[0.06]">
+        {prefError && <p role="alert" className="mt-2 text-[14px] text-rose-700">{prefError}</p>}
+        <p className="text-[12px] text-black/60 mt-3 pt-3 border-t border-[#f1eefb]">
           Важливі повідомлення щодо безпеки акаунту, оплат і повернень можуть надсилатися незалежно від цих налаштувань.
         </p>
       </section>
@@ -733,7 +733,7 @@ export default function ParticipantProfile() {
 
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <h2 id="profile-sessions" className="text-[20px] font-semibold">Активні сеанси</h2>
+                <h2 id="profile-sessions" className="text-[18px] font-bold text-[#12172b]">Активні сеанси</h2>
                 <div className="text-[12px] text-black/60">
                   {sessionsState === "loading"
                     ? "Завантажуємо…"
@@ -743,7 +743,7 @@ export default function ParticipantProfile() {
                 </div>
               </div>
               {sessionsState === "error" ? (
-                <button onClick={loadSessions} className="min-h-[44px] px-2 text-[14px] font-medium text-[#4338ca] hover:underline underline-offset-4">
+                <button onClick={loadSessions} className="min-h-[44px] px-2 text-[14px] font-semibold text-[#4338ca] hover:underline underline-offset-4">
                   Повторити
                 </button>
               ) : (
@@ -751,7 +751,7 @@ export default function ParticipantProfile() {
                   onClick={() => setSessionsOpen((v) => !v)}
                   disabled={sessionsState !== "ready"}
                   aria-expanded={sessionsOpen}
-                  className="min-h-[44px] px-2 text-[14px] font-medium text-[#4338ca] hover:underline underline-offset-4 disabled:opacity-40"
+                  className="min-h-[44px] px-2 text-[14px] font-semibold text-[#4338ca] hover:underline underline-offset-4 disabled:opacity-40"
                 >
                   {sessionsOpen ? "Згорнути" : "Переглянути"}
                 </button>
@@ -761,59 +761,65 @@ export default function ParticipantProfile() {
             {sessionsOpen && sessionsState === "ready" && (
               <div className="mt-2 flex flex-col gap-3">
                 {sessions.map((s) => (
-                  <div key={s.id} className="text-[14px]">
-                    <div className="font-medium">
+                  <div key={s.id} className="rounded-2xl bg-[#faf9ff] px-4 py-3 text-[14px] ring-1 ring-[#f1eefb]">
+                    <div className="font-semibold text-[#12172b]">
                       {s.label}
-                      {s.isCurrentDevice && <span className="ml-1.5 text-emerald-700 text-[12px] font-medium">· цей пристрій</span>}
+                      {s.isCurrentDevice && <span className="ml-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700 text-[11px] font-semibold ring-1 ring-emerald-100">цей пристрій</span>}
                     </div>
                     <div className="text-black/60 text-[12px]">{formatRelativeTime(s.lastSeenAt)}</div>
                   </div>
                 ))}
                 {sessions.length > 1 && (
-                  <button onClick={handleSignOutOthers} disabled={signingOutOthers} className="min-h-[44px] text-[14px] text-red-700 hover:underline text-left w-fit disabled:opacity-50">
+                  <button onClick={handleSignOutOthers} disabled={signingOutOthers} className="min-h-[44px] text-[14px] text-rose-700 hover:underline text-left w-fit disabled:opacity-50">
                     {signingOutOthers ? "Виходимо…" : "Вийти з усіх інших пристроїв"}
                   </button>
                 )}
-                {signOutError && <div role="alert" className="text-[14px] text-red-700">{signOutError}</div>}
+                {signOutError && <div role="alert" className="text-[14px] text-rose-700">{signOutError}</div>}
               </div>
             )}
       </section>
 
       {/* DATA + DELETE */}
-      <div className="grid md:grid-cols-2 gap-6 items-stretch">
+      <div className="flex flex-col gap-6">
         <section className={card} aria-labelledby="profile-data">
-          <h2 id="profile-data" className="text-[20px] font-semibold">Дані</h2>
-          <p className="text-[14px] text-black/60 mt-1">Копія даних, які Sensoria зберігає про ваш акаунт.</p>
+          <SectionTitle id="profile-data" icon="note" title="Дані" hint="Копія даних, які Sensoria зберігає про ваш акаунт." />
           <div className="flex flex-wrap items-center gap-3 mt-4">
-            <button onClick={handleExport} disabled={exporting} className="inline-flex items-center gap-2 min-h-[44px] px-5 rounded-xl border border-[#4338ca]/30 bg-[#eef0fd] text-[#4338ca] text-[14px] font-medium hover:bg-[#e3e6fb] transition disabled:opacity-50">
+            <button onClick={handleExport} disabled={exporting} className="inline-flex items-center gap-2 min-h-[44px] px-5 rounded-xl bg-white ring-1 ring-[#e3def9] hover:ring-[#c9bff7] font-semibold text-[#4338ca] text-[14px] font-medium hover:bg-[#e3e6fb] transition disabled:opacity-50">
               <Icon name="clip" size={16} />
               {exporting ? "Формуємо…" : "Завантажити мої дані"}
             </button>
             {exported && !exportError && <span role="status" className="text-[14px] text-emerald-700">Файл завантажено ✓</span>}
           </div>
-          {exportError && <p role="alert" className="mt-2 text-[14px] text-red-700">{exportError}</p>}
+          {exportError && <p role="alert" className="mt-2 text-[14px] text-rose-700">{exportError}</p>}
         </section>
 
-        <section className="rounded-2xl bg-red-50/60 border border-red-100 p-5 sm:p-6" aria-labelledby="profile-delete">
-          <h2 id="profile-delete" className="text-[20px] font-semibold text-red-800">Видалення акаунту</h2>
-          <p className="text-[14px] text-red-900/80 mt-1">
-            Видалення акаунту закриє ваш доступ до Sensoria одразу. Протягом 14 днів після цього акаунт ще можна
-            відновити, увійшовши знову. Запит обробляється протягом 30 календарних днів. Визначені дані акаунта
-            (прогрес, записи, відгуки, повідомлення) видаляються, але відомості про придбані матеріали зберігаються:
-            щоб отримати їх у новому акаунті, напишіть у підтримку, і ми підтвердимо вашу особу. Саме видалення акаунту не дає автоматичного права на повернення коштів; ваші
-            права за законом зберігаються.
-          </p>
+        <section className="rounded-[26px] bg-rose-50/60 ring-1 ring-rose-100 p-5 sm:p-6" aria-labelledby="profile-delete">
+          <h2 id="profile-delete" className="text-[18px] font-bold text-rose-800">Видалення акаунту</h2>
+          <ul className="mt-3 flex flex-col gap-2 text-[14px] leading-relaxed text-rose-900/80">
+            {[
+              "Доступ до Sensoria закривається одразу.",
+              "Протягом 14 днів акаунт ще можна відновити: просто увійдіть знову.",
+              "Запит обробляється протягом 30 календарних днів.",
+              "Ваш прогрес, записи, відгуки й повідомлення видаляються.",
+              "Відомості про придбані матеріали зберігаються: щоб отримати їх у новому акаунті, напишіть у підтримку — ми підтвердимо вашу особу.",
+            ].map((t) => (
+              <li key={t} className="flex gap-2.5">
+                <span aria-hidden="true" className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400" />
+                <span>{t}</span>
+              </li>
+            ))}
+          </ul>
           <button
             onClick={() => {
               setDeleteError(null);
               setConfirmDelete(true);
             }}
             disabled={deleting}
-            className="mt-4 min-h-[44px] px-5 rounded-xl border border-red-400 text-red-800 text-[14px] font-medium hover:bg-red-100/60 transition disabled:opacity-50"
+            className="mt-4 min-h-[44px] px-5 rounded-xl bg-white ring-1 ring-rose-200 text-rose-700 text-[14px] font-semibold hover:bg-rose-50 transition disabled:opacity-50"
           >
             Видалити акаунт
           </button>
-          {deleteError && <p role="alert" className="mt-2 text-[14px] text-red-800">{deleteError}</p>}
+          {deleteError && <p role="alert" className="mt-2 text-[14px] text-rose-800">{deleteError}</p>}
         </section>
       </div>
 
@@ -851,6 +857,19 @@ export default function ParticipantProfile() {
           onCancel={() => !deleting && setConfirmDelete(false)}
         />
       )}
+    </div>
+  );
+}
+
+// a section heading with an icon, the same as in the author's «Налаштування»
+function SectionTitle({ id, icon, title, hint }: { id: string; icon: IconName; title: string; hint: string }) {
+  return (
+    <div className="mb-4 flex items-start gap-3.5">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#5b3df5]"><Icon name={icon} size={20} /></span>
+      <div className="min-w-0">
+        <h2 id={id} className="text-[18px] font-bold text-[#12172b]">{title}</h2>
+        {hint && <p className="text-[14px] text-black/55">{hint}</p>}
+      </div>
     </div>
   );
 }

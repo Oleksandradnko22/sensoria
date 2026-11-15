@@ -42,7 +42,7 @@ const QUICK_SCENARIOS: { label: string; icon: IconName; categoryId: string; ques
 ];
 
 const field =
-  "w-full min-h-[44px] px-3.5 py-2.5 rounded-xl border border-[#d9d4f5] bg-white text-[16px] sm:text-[14px] focus:outline-none focus:border-[#4338ca]/60 focus-visible:ring-2 focus-visible:ring-[#4338ca]/20";
+  "w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[#faf9ff] ring-1 ring-[#e3def9] text-[16px] sm:text-[15px] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7c5cf0] focus-visible:ring-2 focus-visible:ring-[#4338ca]/20";
 
 export default function ParticipantHelp() {
   const session = useSession();
@@ -143,7 +143,7 @@ export default function ParticipantHelp() {
   return (
     <div className="flex flex-col gap-6">
       {/* INTRO + SEARCH + QUICK ACTIONS */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#eef0fd] via-white to-[#f4eefe] border border-black/[0.05] p-5 sm:p-7">
+      <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#eef0fd] via-white to-[#f6f1ff] ring-1 ring-[#e4def9] shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] p-5 sm:p-7">
         <HelpIllustration className="hidden sm:block absolute right-4 top-3 w-[240px] lg:w-[300px] opacity-95 pointer-events-none" />
         <div className="relative max-w-[640px]">
           <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Допомога</h1>
@@ -161,7 +161,7 @@ export default function ParticipantHelp() {
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Пошук відповіді"
               placeholder="Наприклад: «я оплатив(-ла) курс, але не бачу його»"
-              className="w-full min-h-[52px] pl-11 pr-11 rounded-2xl border border-[#e3def9] bg-white text-[16px] sm:text-[14px] focus:outline-none focus:border-[#4338ca]/60 focus-visible:ring-2 focus-visible:ring-[#4338ca]/20 shadow-[0_1px_2px_rgba(0,0,0,0.03)] [&::-webkit-search-cancel-button]:hidden"
+              className="w-full min-h-[52px] pl-11 pr-11 rounded-2xl bg-white ring-1 ring-[#ebe8ff] shadow-[0_14px_36px_-30px_rgba(60,50,140,0.55)] text-[16px] sm:text-[15px] focus:outline-none focus:ring-2 focus:ring-[#7c5cf0] focus-visible:ring-2 focus-visible:ring-[#4338ca]/20 shadow-[0_1px_2px_rgba(0,0,0,0.03)] [&::-webkit-search-cancel-button]:hidden"
             />
             {searching && (
               <button
@@ -202,8 +202,8 @@ export default function ParticipantHelp() {
         {/* FAQ */}
         <div className="flex flex-col gap-3">
           {searching && found.total === 0 && (
-            <div className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-6 py-8 text-center">
-              <div className="text-[16px] font-medium">Нічого не знайдено</div>
+            <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] px-6 py-8 text-center">
+              <div className="text-[16px] font-bold text-[#12172b]">Нічого не знайдено</div>
               <p className="text-[14px] text-black/60 mt-1">Спробуйте інші слова або напишіть у підтримку.</p>
               <button onClick={openSupportForm} className="mt-3 min-h-[44px] px-5 rounded-xl border border-[#e3def9] text-[14px] font-medium hover:bg-[#f6f4ff]">
                 Написати в підтримку
@@ -215,15 +215,15 @@ export default function ParticipantHelp() {
             const open = catOpen(cat.id);
             const panelId = `faq-panel-${cat.id}`;
             return (
-              <section key={cat.id} className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] overflow-hidden">
+              <section key={cat.id} className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] overflow-hidden">
                 <h2>
                   <button
                     onClick={() => !searching && toggleCat(cat.id)}
                     aria-expanded={open}
                     aria-controls={panelId}
-                    className="w-full flex items-center gap-4 p-4 sm:p-5 text-left hover:bg-black/[0.015] focus-visible:outline-2 focus-visible:outline-[#4338ca] focus-visible:-outline-offset-2"
+                    className="w-full flex items-center gap-4 p-4 sm:p-5 text-left hover:bg-[#faf9ff] focus-visible:outline-2 focus-visible:outline-[#4338ca] focus-visible:-outline-offset-2"
                   >
-                    <span aria-hidden="true" className="shrink-0 w-11 h-11 rounded-xl bg-[#eef0fd] text-[#4338ca] flex items-center justify-center">
+                    <span aria-hidden="true" className="shrink-0 w-12 h-12 rounded-2xl bg-[#f1eeff] text-[#6d5bd0] flex items-center justify-center">
                       <Icon name={CATEGORY_ICON[cat.id] ?? "help"} size={20} />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -241,7 +241,7 @@ export default function ParticipantHelp() {
                   </button>
                 </h2>
                 {open && (
-                  <ul id={panelId} className="border-t border-black/[0.06] divide-y divide-black/[0.06]">
+                  <ul id={panelId} className="border-t border-[#f1eefb] divide-y divide-[#f1eefb]">
                     {cat.items.map((item) => {
                       const isOpen = openKey === item.key || (searching && found.total === 1);
                       return (
@@ -251,15 +251,18 @@ export default function ParticipantHelp() {
                               onClick={() => setOpenKey(openKey === item.key ? null : item.key)}
                               aria-expanded={isOpen}
                               aria-controls={`${item.key}-answer`}
-                              className="w-full flex items-center justify-between gap-4 min-h-[52px] px-4 sm:px-5 py-3 text-left hover:bg-[#f6f4ff] focus-visible:outline-2 focus-visible:outline-[#4338ca] focus-visible:-outline-offset-2"
+                              className="w-full flex items-center justify-between gap-4 min-h-[52px] px-4 sm:px-5 py-3 text-left hover:bg-[#faf9ff] focus-visible:outline-2 focus-visible:outline-[#4338ca] focus-visible:-outline-offset-2"
                             >
                               <span className={`text-[14px] ${isOpen ? "font-semibold text-black/90" : "font-medium text-black/85"}`}>{item.q}</span>
                               <span aria-hidden="true" className={`shrink-0 text-xl leading-none text-black/60 transition-transform ${isOpen ? "rotate-45" : ""}`}>+</span>
                             </button>
                           </h3>
                           {isOpen && (
-                            <div id={`${item.key}-answer`} className="px-4 sm:px-5 pb-4 text-[14px] text-black/70 leading-relaxed">
-                              {item.a}
+                            <div id={`${item.key}-answer`} className="px-4 sm:px-5 pb-4 text-[14px] text-[#2d2a5c] leading-relaxed flex flex-col gap-1.5">
+                              {/* every sentence on its own line */}
+                              {typeof item.a === "string"
+                                ? item.a.split(/(?<=[.!?…])\s+(?=[A-ZА-ЯІЇЄҐ«"(])/u).map((t, i) => <p key={i}>{t}</p>)
+                                : item.a}
                             </div>
                           )}
                         </li>
@@ -273,16 +276,16 @@ export default function ParticipantHelp() {
         </div>
 
         {/* SIDE: support, form, tickets, reassurance */}
-        <aside className="flex flex-col gap-4 lg:sticky lg:top-4">
+        <aside className="flex flex-col gap-4">
           <section className="rounded-2xl bg-gradient-to-br from-[#eef0fd] to-[#f6f0ff] border border-[#4338ca]/10 p-5 sm:p-6">
-            <span aria-hidden="true" className="w-11 h-11 rounded-full bg-white text-[#4338ca] flex items-center justify-center shadow-sm">
+            <span aria-hidden="true" className="w-12 h-12 rounded-2xl bg-white text-[#6d5bd0] flex items-center justify-center shadow-[0_8px_20px_-12px_rgba(91,61,245,0.6)]">
               <Icon name="lifebuoy" size={22} />
             </span>
             <h2 className="text-[20px] font-bold text-[#12172b] mt-3">Не знайшли того, що шукали?</h2>
             <p className="text-[14px] text-black/65 mt-1 leading-relaxed">Розкажіть, що сталося — ми підкажемо, що робити далі.</p>
             <button
               onClick={openSupportForm}
-              className="mt-4 w-full inline-flex items-center justify-center gap-2 min-h-[48px] rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-[14px] font-medium hover:opacity-90 transition"
+              className="mt-4 w-full inline-flex items-center justify-center gap-2 min-h-[48px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition"
             >
               <Icon name="mail" size={18} />
               Написати в підтримку
@@ -291,9 +294,9 @@ export default function ParticipantHelp() {
           </section>
 
           {reportOpen && (
-            <section id="support-form" aria-labelledby="support-form-title" className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-5 sm:p-6 scroll-mt-4">
+            <section id="support-form" aria-labelledby="support-form-title" className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-5 sm:p-6 scroll-mt-4">
               <div className="flex items-center justify-between">
-                <h2 id="support-form-title" className="text-[16px] font-semibold">Розкажіть, що сталося</h2>
+                <h2 id="support-form-title" className="text-[17px] font-bold text-[#12172b]">Розкажіть, що сталося</h2>
                 <button
                   onClick={() => !reportSubmitting && setReportOpen(false)}
                   aria-label="Закрити форму"
@@ -316,7 +319,7 @@ export default function ParticipantHelp() {
                   }}
                 >
                   <div>
-                    <label htmlFor="ticket-category" className="block text-[14px] font-medium text-black/70 mb-1.5">Тема</label>
+                    <label htmlFor="ticket-category" className="block text-[13px] font-semibold text-[#2d2a5c] mb-2">Тема</label>
                     <BrandSelect id="ticket-category" value={reportCategory} onChange={(e) => setReportCategory(e.target.value as TicketCategory)} className={field}>
                       {TICKET_CATEGORIES.map((c) => (
                         <option key={c} value={c}>
@@ -326,7 +329,7 @@ export default function ParticipantHelp() {
                     </BrandSelect>
                   </div>
                   <div>
-                    <label htmlFor="ticket-text" className="block text-[14px] font-medium text-black/70 mb-1.5">
+                    <label htmlFor="ticket-text" className="block text-[13px] font-semibold text-[#2d2a5c] mb-2">
                       Опис <span className="text-rose-700" aria-hidden="true">*</span>
                       <span className="sr-only">(обов'язково)</span>
                     </label>
@@ -342,11 +345,11 @@ export default function ParticipantHelp() {
                     />
                     <div className="text-[12px] text-black/60 text-right mt-1">{reportDescription.length}/{TICKET_MAX}</div>
                   </div>
-                  {reportError && <div role="alert" className="text-[14px] text-red-700">{reportError}</div>}
+                  {reportError && <div role="alert" className="text-[14px] text-rose-700">{reportError}</div>}
                   <button
                     type="submit"
                     disabled={reportSubmitting || !reportDescription.trim()}
-                    className="min-h-[44px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="min-h-[44px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {reportSubmitting ? "Надсилаємо…" : "Надіслати"}
                   </button>
@@ -356,10 +359,10 @@ export default function ParticipantHelp() {
           )}
 
           {(ticketsState === "error" || tickets.length > 0) && (
-            <section className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-5 sm:p-6" aria-labelledby="tickets-title">
-              <h2 id="tickets-title" className="text-[16px] font-semibold mb-3">Ваші звернення</h2>
+            <section className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-5 sm:p-6" aria-labelledby="tickets-title">
+              <h2 id="tickets-title" className="text-[18px] font-bold text-[#12172b] mb-3">Ваші звернення</h2>
               {ticketsState === "error" ? (
-                <div role="alert" className="text-[14px] text-red-700">
+                <div role="alert" className="text-[14px] text-rose-700">
                   Не вдалося завантажити звернення.{" "}
                   <button onClick={loadTickets} className="underline font-medium">Спробувати ще раз</button>
                 </div>
@@ -374,7 +377,7 @@ export default function ParticipantHelp() {
                         </span>
                       </div>
                       <div className="text-black/60 text-[12px] mt-0.5">{formatAbsoluteDate(t.createdAt)}</div>
-                      {t.adminResponse && <div className="mt-1.5 text-black/70 bg-black/[0.03] rounded-lg px-3 py-2 break-words">{t.adminResponse}</div>}
+                      {t.adminResponse && <div className="mt-1.5 text-[#2d2a5c] bg-[#faf9ff] ring-1 ring-[#f1eefb] rounded-xl px-3 py-2 break-words">{t.adminResponse}</div>}
                     </li>
                   ))}
                 </ul>
@@ -384,7 +387,7 @@ export default function ParticipantHelp() {
 
           <div className="flex items-start gap-3 rounded-2xl bg-gradient-to-br from-[#fff7ea] to-[#fffdf8] border border-amber-200/50 p-4 sm:p-5">
             <span aria-hidden="true" className="shrink-0 text-amber-600 mt-0.5"><Icon name="bulb" size={20} /></span>
-            <p className="text-[14px] text-black/70 leading-relaxed">
+            <p className="text-[14px] text-[#2d2a5c] leading-relaxed">
               Ми читаємо кожне звернення особисто — Sensoria завжди поруч, якщо щось піде не так.
             </p>
           </div>

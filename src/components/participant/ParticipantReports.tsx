@@ -3,7 +3,6 @@
 // itself stays team-internal, so none is shown. A report can be withdrawn
 // only while it is still open (RLS enforces it too).
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Icon, type IconName } from "../ui/Icon";
 import { useSession } from "../../context/SessionContext";
 import { myReportsDemo } from "../../data/participantDashboard";
@@ -18,7 +17,6 @@ import {
 } from "../../utils/myActivityView";
 import FilterPills from "./FilterPills";
 import ConfirmDialog from "../author/public/ConfirmDialog";
-import { useModal } from "../author/public/useModal";
 
 const REASON_ICON: Record<ReportReason, { icon: IconName; tint: string }> = {
   requests_contact_info: { icon: "mail", tint: "bg-amber-50 text-amber-700" },
@@ -33,45 +31,6 @@ const STATUS_STYLE = {
   reviewed: "bg-emerald-50 text-emerald-800",
 } as const;
 
-function ReportDetails({ report, onClose }: { report: MyReport; onClose: () => void }) {
-  const root = useRef<HTMLDivElement>(null);
-  useModal(root, onClose);
-  return createPortal(
-    <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
-      <div
-        ref={root}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="report-title"
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[480px] max-h-[90dvh] overflow-y-auto rounded-2xl bg-white p-6 shadow-[0_20px_50px_rgba(20,20,60,0.18)]"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h3 id="report-title" className="text-[16px] font-semibold text-black/90">{report.reasonLabel ?? REPORT_REASON_LABELS[report.reason]}</h3>
-            <div className="text-[14px] text-black/60 mt-0.5">
-              {[report.reportedName, report.contentTitle].filter(Boolean).join(" · ")}
-            </div>
-          </div>
-          <span className={`shrink-0 px-2.5 py-1 rounded-full text-[12px] font-medium ${STATUS_STYLE[report.status]}`}>
-            {REPORT_STATUS_LABEL[report.status]}
-          </span>
-        </div>
-        <p className="text-[14px] leading-relaxed text-black/75 mt-4 whitespace-pre-wrap break-words">
-          {report.details || "Без додаткових деталей."}
-        </p>
-        <div className="text-[12px] text-black/60 mt-3">Подано {formatAbsoluteDate(report.createdAt)}</div>
-        <div className="mt-5 flex justify-end">
-          <button data-autofocus onClick={onClose} className="min-h-[44px] px-5 rounded-xl border border-[#e3def9] text-[14px] text-black/70 hover:bg-[#f6f4ff]">
-            Закрити
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
 export default function ParticipantReports({ active = true }: { active?: boolean }) {
   const session = useSession();
   const myId = session?.profile.id;
@@ -79,7 +38,6 @@ export default function ParticipantReports({ active = true }: { active?: boolean
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [filter, setFilter] = useState<ReportFilter>("all");
   const [hiddenDemo, setHiddenDemo] = useState<Set<string>>(new Set());
-  const [details, setDetails] = useState<MyReport | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -224,7 +182,7 @@ export default function ParticipantReports({ active = true }: { active?: boolean
                         <div className="text-[14px] text-black/60 break-words">
                           {[r.kind, r.reportedName, r.contentTitle].filter(Boolean).join(" · ")}
                         </div>
-                        {r.details && <p className="text-[14px] text-black/75 mt-1.5 line-clamp-2 break-words">{r.details}</p>}
+                        {r.details && <p className="text-[14px] text-[#2d2a5c] mt-1.5 whitespace-pre-wrap break-words">{r.details}</p>}
                         <div className="text-[12px] text-black/60 mt-1.5">{formatAbsoluteDate(r.createdAt)}</div>
                       </div>
                       <div className="flex sm:flex-col sm:items-end items-center gap-2 sm:gap-1 shrink-0">
@@ -232,9 +190,6 @@ export default function ParticipantReports({ active = true }: { active?: boolean
                           {REPORT_STATUS_LABEL[r.status]}
                         </span>
                         <div className="flex items-center gap-1 sm:mt-1 ml-auto sm:ml-0">
-                          <button onClick={() => setDetails(r)} className="min-h-[44px] px-2 text-[14px] font-medium text-[#4338ca] hover:underline underline-offset-4">
-                            Деталі
-                          </button>
                           {r.status === "open" && r.deletable !== false && (
                             <div className="relative" data-report-menu>
                               <button
@@ -272,7 +227,6 @@ export default function ParticipantReports({ active = true }: { active?: boolean
         </>
       )}
 
-      {details && <ReportDetails report={details} onClose={() => setDetails(null)} />}
       {confirming && (
         <ConfirmDialog
           title="Відкликати скаргу?"

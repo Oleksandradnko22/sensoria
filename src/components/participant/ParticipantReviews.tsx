@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Icon } from "../ui/Icon";
 import FilterPills from "./FilterPills";
 import ConfirmDialog from "../author/public/ConfirmDialog";
-import { useModal } from "../author/public/useModal";
 import { filterReviews, reviewCounts, sortNewest, REVIEW_FILTER_LABEL, type ReviewFilter } from "../../utils/myActivityView";
 import { REVIEW_EDIT_WINDOW_DAYS, isReviewEditable } from "../../utils/reviewEditWindow";
 import {
@@ -113,7 +111,6 @@ export default function ParticipantReviews({
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [viewingId, setViewingId] = useState<string | null>(null);
 
   const load = (quiet = false) => {
     if (!session) return;
@@ -189,7 +186,6 @@ export default function ParticipantReviews({
     // nothing can slip through.
     if (!isReviewEditable(review.date)) return;
     setMenuOpenId(null);
-    setViewingId(null);
     setActionError(null);
     setEditingId(review.id);
     setDraftText(review.text);
@@ -278,7 +274,6 @@ export default function ParticipantReviews({
   };
 
   const confirmingReview = reviews.find((r) => r.id === confirmDeleteId) ?? null;
-  const viewingReview = reviews.find((r) => r.id === viewingId) ?? null;
   const counts = reviewCounts(reviews);
   // a filter whose last review was deleted must not stay selected with no pill
   useEffect(() => {
@@ -305,24 +300,24 @@ export default function ParticipantReviews({
     .map((k) => ({ key: k, label: REVIEW_FILTER_LABEL[k], count: counts[k] }));
 
   return (
-    <div className="flex flex-col gap-5">
-      <div>
+    <div className="flex flex-col gap-6">
+      <header className="min-w-0">
         <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Мої відгуки</h1>
         <p className="mt-1 text-[15px] text-black/55">Відгуки, які ви залишили на програми, гайди, медитації та авторів.</p>
-      </div>
+      </header>
 
       {loadState === "loading" && (
         <div className="flex flex-col gap-3" aria-busy="true" aria-label="Завантаження відгуків">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-[132px] rounded-[22px] bg-white ring-1 ring-[#ece8fb] animate-pulse" />
+            <div key={i} className="h-[132px] rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] animate-pulse" />
           ))}
         </div>
       )}
 
       {loadState === "error" && (
-        <div role="alert" className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-6 py-10 text-center">
-          <div className="text-[16px] font-medium">Не вдалося завантажити відгуки</div>
-          <button onClick={() => load()} className="mt-3 min-h-[44px] px-5 rounded-xl border border-[#e3def9] text-[14px] text-black/75 hover:bg-[#f6f4ff]">
+        <div role="alert" className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] px-6 py-10 text-center">
+          <div className="text-[18px] font-bold text-[#12172b]">Не вдалося завантажити відгуки</div>
+          <button onClick={() => load()} className="mt-3 min-h-[44px] px-5 rounded-xl bg-white ring-1 ring-[#e3def9] text-[14px] font-semibold text-[#4338ca] hover:ring-[#c9bff7] hover:bg-[#faf9ff]">
             Спробувати ще раз
           </button>
         </div>
@@ -336,11 +331,11 @@ export default function ParticipantReviews({
           {actionError && <div role="alert" className="text-[14px] text-rose-700">{actionError}</div>}
 
           {reviews.length === 0 ? (
-            <div className="max-w-[560px] rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-6 py-10 text-center">
-              <span className="mx-auto w-12 h-12 rounded-full bg-[#eef0fd] text-[#4338ca] flex items-center justify-center">
+            <div className="max-w-[560px] rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] px-6 py-10 text-center">
+              <span className="mx-auto w-14 h-14 rounded-2xl bg-[#f1eeff] text-[#7a68e0] flex items-center justify-center">
                 <Icon name="star" size={22} />
               </span>
-              <div className="text-[16px] font-medium mt-4">Відгуків поки немає</div>
+              <div className="text-[18px] font-bold text-[#12172b] mt-4">Відгуків поки немає</div>
               <p className="text-[14px] text-black/60 mt-1 max-w-[400px] mx-auto leading-relaxed">
                 Після роботи з матеріалами ви зможете поділитися своїм досвідом. Ваші відгуки допоможуть іншим
                 учасникам обирати корисний контент.
@@ -348,14 +343,14 @@ export default function ParticipantReviews({
               {onNavigate && (
                 <button
                   onClick={() => onNavigate("learning")}
-                  className="mt-4 min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90"
+                  className="mt-4 min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95"
                 >
                   Перейти до навчання
                 </button>
               )}
             </div>
           ) : shown.length === 0 ? (
-            <div className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] px-6 py-8 text-center text-[14px] text-black/60">
+            <div className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] px-6 py-8 text-center text-[14px] text-black/60">
               У цій категорії відгуків немає.
             </div>
           ) : (
@@ -365,30 +360,30 @@ export default function ParticipantReviews({
                 const unavailable = r.kind === "content" && !r.title;
                 const bucket = r.kind === "author" ? "Відгук про автора" : r.contentKind ? KIND_LABEL[r.contentKind] : null;
                 return (
-                  <li key={r.id} className="rounded-[22px] bg-white ring-1 ring-[#ece8fb] p-4 sm:p-5 flex gap-4">
-                    <span className="hidden sm:flex shrink-0 w-11 h-11 rounded-xl bg-[#eef0fd] text-[#4338ca] items-center justify-center" aria-hidden="true">
+                  <li key={r.id} className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-5 sm:p-6 flex gap-4">
+                    <span className="hidden sm:flex shrink-0 w-12 h-12 rounded-2xl bg-[#f1eeff] text-[#6d5bd0] items-center justify-center" aria-hidden="true">
                       <Icon name={r.kind === "author" ? "idcard" : r.contentKind ?? "star"} size={20} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           {canOpenContent(r) ? (
-                            <button onClick={() => openContent(r)} className="text-left text-[16px] font-semibold text-black/90 hover:underline underline-offset-4 break-words py-2.5 -my-2.5">
+                            <button onClick={() => openContent(r)} className="text-left text-[17px] font-bold text-[#12172b] hover:text-[#4338ca] break-words py-2.5 -my-2.5">
                               {r.title}
                             </button>
                           ) : (
-                            <h2 className={`text-[16px] font-semibold break-words ${unavailable ? "text-black/60" : "text-black/90"}`}>
+                            <h2 className={`text-[17px] font-bold break-words ${unavailable ? "text-black/50" : "text-[#12172b]"}`}>
                               {unavailable ? "Матеріал більше недоступний" : r.title}
                             </h2>
                           )}
-                          <div className="text-[14px] text-black/60 break-words">
+                          <div className="mt-0.5 text-[13px] text-black/55 break-words">
                             {r.kind === "author" ? (
                               <>
                                 Відгук про автора
                                 {r.authorId && (
                                   <>
                                     {" · "}
-                                    <button onClick={() => openAuthorProfile(r.authorId!)} className="text-[#4338ca] hover:underline py-3 -my-3">
+                                    <button onClick={() => openAuthorProfile(r.authorId!)} className="font-medium text-[#4338ca] hover:underline py-3 -my-3">
                                       Переглянути профіль
                                     </button>
                                   </>
@@ -399,7 +394,7 @@ export default function ParticipantReviews({
                             )}
                           </div>
                         </div>
-                        <span className="shrink-0 px-2.5 py-1 rounded-full text-[12px] font-medium bg-emerald-50 text-emerald-800">
+                        <span className="shrink-0 px-2.5 py-1 rounded-full text-[12px] font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
                           Опубліковано
                         </span>
                       </div>
@@ -414,7 +409,7 @@ export default function ParticipantReviews({
                                 aria-checked={n === draftRating}
                                 aria-label={`${n} з 5`}
                                 onClick={() => setDraftRating(n)}
-                                className={`w-11 h-11 text-[24px] leading-none ${n <= draftRating ? "text-amber-600" : "text-black/20"}`}
+                                className={`w-11 h-11 text-[24px] leading-none ${n <= draftRating ? "text-amber-500" : "text-[#e3def9]"}`}
                               >
                                 ★
                               </button>
@@ -425,69 +420,60 @@ export default function ParticipantReviews({
                             onChange={(e) => setDraftText(e.target.value)}
                             rows={3}
                             aria-label="Текст відгуку"
-                            className="w-full px-4 py-3 rounded-xl border border-[#d9d4f5] text-[16px] sm:text-[14px] focus:outline-none focus:border-black/40 resize-none"
+                            className="w-full px-4 py-3 rounded-xl bg-[#faf9ff] ring-1 ring-[#e3def9] text-[16px] sm:text-[15px] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7c5cf0] resize-none"
                           />
                           <div className="flex items-center gap-2">
-                            <button onClick={saveEdit} disabled={saving || !draftText.trim()} className="min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90 disabled:opacity-40">
+                            <button onClick={saveEdit} disabled={saving || !draftText.trim()} className="min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 disabled:opacity-40">
                               {saving ? "Зберігаємо…" : "Зберегти"}
                             </button>
-                            <button onClick={() => setEditingId(null)} disabled={saving} className="min-h-[44px] px-4 rounded-xl text-[14px] text-black/70 hover:bg-[#f6f4ff]">
+                            <button onClick={() => setEditingId(null)} disabled={saving} className="min-h-[44px] px-4 rounded-xl text-[14px] font-medium text-black/60 hover:bg-[#f6f4ff]">
                               Скасувати
                             </button>
                           </div>
                         </div>
                       ) : (
                         <>
-                          <div className="text-amber-600 text-[16px] mt-2 leading-none" role="img" aria-label={`Оцінка ${r.rating} з 5`}>
+                          <div className="text-amber-500 text-[18px] mt-2.5 leading-none tracking-[0.08em]" role="img" aria-label={`Оцінка ${r.rating} з 5`}>
                             {"★".repeat(r.rating)}
-                            <span className="text-black/20">{"★".repeat(5 - r.rating)}</span>
+                            <span className="text-[#e3def9]">{"★".repeat(5 - r.rating)}</span>
                           </div>
-                          <p className="text-[14px] text-black/75 leading-relaxed mt-2 line-clamp-3 break-words">{r.text}</p>
-                          <div className="text-[12px] text-black/60 mt-1.5">{formatAbsoluteDate(r.date)}</div>
+                          <p className="text-[15px] text-[#2d2a5c] leading-relaxed mt-2.5 whitespace-pre-wrap break-words">{r.text}</p>
+                          <div className="text-[12px] font-medium text-black/45 mt-2">{formatAbsoluteDate(r.date)}</div>
                           {r.authorReply && (
-                            <div className="mt-2 pl-3 border-l-2 border-[#4338ca]/25">
-                              <div className="text-[12px] font-medium text-black/60">Відповідь автора</div>
-                              <p className="text-[14px] text-black/70 leading-relaxed line-clamp-2 break-words">{r.authorReply}</p>
+                            <div className="mt-3 rounded-2xl bg-[#faf9ff] px-4 py-3 ring-1 ring-[#f1eefb]">
+                              <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#6d5bd0]">Відповідь автора</div>
+                              <p className="mt-1 text-[14px] text-[#2d2a5c] leading-relaxed whitespace-pre-wrap break-words">{r.authorReply}</p>
                             </div>
                           )}
-                          <div className="flex items-center justify-between mt-1">
-                            <button
-                              onClick={() => {
-                                setMenuOpenId(null);
-                                setViewingId(r.id);
-                              }}
-                              className="min-h-[44px] text-[14px] font-medium text-[#4338ca] hover:underline underline-offset-4"
-                            >
-                              Читати повністю
-                            </button>
+                          <div className="flex items-center justify-end mt-1">
                             <div className="relative" data-review-menu>
                               <button
                                 onClick={() => setMenuOpenId(menuOpenId === r.id ? null : r.id)}
                                 aria-label="Дії з відгуком"
                                 aria-expanded={menuOpenId === r.id}
-                                className="w-11 h-11 rounded-full hover:bg-[#f6f4ff] flex items-center justify-center text-black/60 text-xl"
+                                className="w-11 h-11 rounded-full hover:bg-[#f1eeff] flex items-center justify-center text-black/60 text-xl transition"
                               >
                                 ⋯
                               </button>
                               {menuOpenId === r.id && (
-                                <div className="absolute right-0 bottom-full mb-1 w-56 rounded-xl bg-white border border-[#e3def9] shadow-[0_10px_24px_rgba(0,0,0,0.1)] py-1 z-10">
+                                <div className="absolute right-0 bottom-full mb-1 w-60 rounded-2xl bg-white p-1.5 ring-1 ring-[#ebe8ff] shadow-[0_18px_40px_-12px_rgba(30,41,90,0.35)] z-10">
                                   {canOpenContent(r) && (
                                     <button
                                       onClick={() => {
                                         setMenuOpenId(null);
                                         openContent(r, { scrollToReviews: true });
                                       }}
-                                      className="w-full text-left px-4 py-3 text-[14px] hover:bg-[#f6f4ff]"
+                                      className="w-full text-left rounded-xl px-3 py-2.5 text-[14px] font-medium text-[#12172b] hover:bg-[#f1eeff]"
                                     >
                                       Відкрити матеріал
                                     </button>
                                   )}
                                   {isReviewEditable(r.date) ? (
-                                    <button onClick={() => startEdit(r)} className="w-full text-left px-4 py-3 text-[14px] hover:bg-[#f6f4ff]">
+                                    <button onClick={() => startEdit(r)} className="w-full text-left rounded-xl px-3 py-2.5 text-[14px] font-medium text-[#12172b] hover:bg-[#f1eeff]">
                                       Редагувати
                                     </button>
                                   ) : (
-                                    <div className="px-4 py-3 text-[14px] text-black/60" title={`Редагування доступне протягом ${REVIEW_EDIT_WINDOW_DAYS} днів після публікації`}>
+                                    <div className="px-3 py-2.5 text-[14px] text-black/50" title={`Редагування доступне протягом ${REVIEW_EDIT_WINDOW_DAYS} днів після публікації`}>
                                       Редагувати
                                       <div className="text-[12px] mt-0.5">Минуло {REVIEW_EDIT_WINDOW_DAYS} днів</div>
                                     </div>
@@ -498,7 +484,7 @@ export default function ParticipantReviews({
                                       setActionError(null);
                                       setConfirmDeleteId(r.id);
                                     }}
-                                    className="w-full text-left px-4 py-3 text-[14px] text-red-700 hover:bg-red-50"
+                                    className="w-full text-left rounded-xl px-3 py-2.5 text-[14px] font-medium text-rose-700 hover:bg-rose-50"
                                   >
                                     Видалити
                                   </button>
@@ -528,65 +514,6 @@ export default function ParticipantReviews({
         />
       )}
 
-      {viewingReview && (
-        <ReviewDialog
-          review={viewingReview}
-          onClose={() => setViewingId(null)}
-          onEdit={isReviewEditable(viewingReview.date) ? () => startEdit(viewingReview) : undefined}
-        />
-      )}
     </div>
-  );
-}
-
-// Full text of one review (read-only); editing stays in the card within the 14-day window.
-function ReviewDialog({ review, onClose, onEdit }: { review: UnifiedReview; onClose: () => void; onEdit?: () => void }) {
-  const root = useRef<HTMLDivElement>(null);
-  useModal(root, onClose);
-  const meta = review.kind === "author" ? "Відгук про автора" : [review.contentKind ? KIND_LABEL[review.contentKind] : null, review.authorName].filter(Boolean).join(" · ");
-  return createPortal(
-    <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
-      <div
-        ref={root}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="review-dialog-title"
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[520px] max-h-[90dvh] overflow-y-auto rounded-2xl bg-white p-6 shadow-[0_20px_50px_rgba(20,20,60,0.18)]"
-      >
-        <h3 id="review-dialog-title" className="text-[16px] font-semibold text-black/90 break-words">
-          {review.kind === "content" && !review.title ? "Матеріал більше недоступний" : review.title}
-        </h3>
-        {meta && <div className="text-[14px] text-black/60 mt-0.5">{meta}</div>}
-        <div className="text-amber-600 text-[18px] mt-3 leading-none" role="img" aria-label={`Оцінка ${review.rating} з 5`}>
-          {"★".repeat(review.rating)}
-          <span className="text-black/20">{"★".repeat(5 - review.rating)}</span>
-        </div>
-        <p className="text-[14px] text-black/75 leading-relaxed mt-3 whitespace-pre-wrap break-words">{review.text}</p>
-        <div className="text-[12px] text-black/60 mt-3">{formatAbsoluteDate(review.date)}</div>
-        {review.authorReply && (
-          <div className="mt-4 pl-3 border-l-2 border-[#4338ca]/25">
-            <div className="text-[12px] font-medium text-black/60">Відповідь автора</div>
-            <p className="text-[14px] text-black/70 leading-relaxed whitespace-pre-wrap break-words">{review.authorReply}</p>
-          </div>
-        )}
-        {!onEdit && (
-          <div className="text-[12px] text-black/60 mt-3">
-            Редагування доступне протягом {REVIEW_EDIT_WINDOW_DAYS} днів після публікації.
-          </div>
-        )}
-        <div className="mt-5 flex justify-end gap-2">
-          {onEdit && (
-            <button onClick={onEdit} className="min-h-[44px] px-5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium hover:opacity-90">
-              Редагувати
-            </button>
-          )}
-          <button data-autofocus onClick={onClose} className="min-h-[44px] px-5 rounded-xl border border-[#e3def9] text-[14px] text-black/70 hover:bg-[#f6f4ff]">
-            Закрити
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
   );
 }

@@ -407,7 +407,7 @@ export default function AuthorMessages({ content = [], onUnreadCountChange, read
                 const unread = isUnread(m.id, m.unread);
                 const active = selectedId === m.id;
                 return (
-                  <button key={m.id} type="button" onClick={() => selectConversation(m)} aria-current={active ? "true" : undefined} className={`flex min-h-[104px] w-full flex-1 items-center gap-3 border-b border-[#f3f1fb] px-4 py-3.5 text-left transition focus:outline-none focus-visible:bg-[#f6f4ff] ${active ? "bg-[#eef0fd]" : "hover:bg-[#faf9ff]"}`}>
+                  <button key={m.id} type="button" onClick={() => selectConversation(m)} aria-current={active ? "true" : undefined} className={`flex min-h-[104px] w-full flex-[0_0_25%] items-center gap-3 border-b border-[#f3f1fb] px-4 py-3.5 text-left transition focus:outline-none focus-visible:bg-[#f6f4ff] ${active ? "bg-[#eef0fd]" : "hover:bg-[#faf9ff]"}`}>
                     <Avatar name={m.from} url={m.avatarUrl} />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">

@@ -408,9 +408,22 @@ export type ParticipantMessage = {
   preview: string;
   date: string;
   unread: boolean;
+  // a demo conversation with a real Sensoria author: «Переглянути профіль» opens their real page
+  authorId?: string;
 };
 
 export const participantMessages: ParticipantMessage[] = [
+  {
+    id: "pm0",
+    authorName: "Маша Лопотова",
+    authorId: "88aafc4a-39fc-4b5c-8a42-487d486cd58f",
+    contentTitle: "Спокій у темпі життя",
+    contentId: "768c0c38-b814-40f7-81aa-baf9d342c7bc",
+    contentKind: "program",
+    preview: "Рада, що перший модуль відгукнувся! Наступну практику можна робити зранку, до 10 хвилин.",
+    date: "2026-11-12",
+    unread: true,
+  },
   {
     id: "pm1",
     authorName: "Андрій Коваленко",
@@ -430,6 +443,26 @@ export const participantMessages: ParticipantMessage[] = [
     contentKind: "guide",
     preview: "Дякуємо за відгук! Раді, що гайд був корисним саме тоді, коли треба.",
     date: "2026-07-29",
+    unread: false,
+  },
+  {
+    id: "pm3",
+    authorName: "Ігор Петренко",
+    contentTitle: "Усвідомленість у житті",
+    contentId: "mindfulness-course",
+    contentKind: "program",
+    preview: "Так, практику уваги до тіла можна робити й увечері — просто скоротіть її до 5 хвилин.",
+    date: "2026-07-21",
+    unread: true,
+  },
+  {
+    id: "pm4",
+    authorName: "Анна Кравчук",
+    contentTitle: "Здорові стосунки",
+    contentId: "relationships-course",
+    contentKind: "program",
+    preview: "Дякую за запитання! Вправу про кордони з модуля 3 краще пройти двічі, з перервою в кілька днів.",
+    date: "2026-07-12",
     unread: false,
   },
 ];

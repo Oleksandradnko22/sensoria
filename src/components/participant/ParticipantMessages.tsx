@@ -77,6 +77,7 @@ type ConversationItem = {
   date: string;
   unread: boolean;
   real?: { otherId: string; contentId: string | null };
+  profileId?: string; // the author's page (a demo conversation with a real author)
 };
 
 function toConversationItem(c: RealConversation): ConversationItem {
@@ -116,7 +117,7 @@ function useMediaQuery(query: string): boolean {
 }
 
 // Real uploaded photo if there is one; otherwise a quiet monogram.
-function AuthorMark({ name, url, size = 32 }: { name: string; url: string | null; size?: number }) {
+function AuthorMark({ name, url, size = 44 }: { name: string; url: string | null; size?: number }) {
   const [broken, setBroken] = useState(false);
   const style = { width: size, height: size };
   if (url && !broken && ownImage(url)) {
@@ -126,7 +127,7 @@ function AuthorMark({ name, url, size = 32 }: { name: string; url: string | null
         alt=""
         style={style}
         onError={() => setBroken(true)}
-        className="rounded-full object-cover shrink-0 bg-[#f1eeff]"
+        className="rounded-full object-cover shrink-0 bg-[#f1eeff] ring-1 ring-[#ebe8ff]"
       />
     );
   }
@@ -134,9 +135,9 @@ function AuthorMark({ name, url, size = 32 }: { name: string; url: string | null
     <span
       aria-hidden="true"
       style={style}
-      className="rounded-full shrink-0 bg-black/[0.05] text-black/60 text-[12px] font-medium flex items-center justify-center"
+      className="rounded-full shrink-0 bg-gradient-to-br from-[#e2dbff] to-[#cfc3ff] text-[#4a2fd0] text-[14px] font-bold flex items-center justify-center"
     >
-      {name.trim().charAt(0).toUpperCase() || "S"}
+      {name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("") || "S"}
     </span>
   );
 }
@@ -169,6 +170,11 @@ export default function ParticipantMessages({
 
   // ---- list data ----
   const [realConversations, setRealConversations] = useState<ConversationItem[]>([]);
+  // the list, as in the author cabinet: search, «Усі / Непрочитані / Архів», 4 conversations at a time
+  const [listQuery, setListQuery] = useState("");
+  const [listFilter, setListFilter] = useState<"all" | "unread" | "archive">("all");
+  const [listShown, setListShown] = useState(4);
+  useEffect(() => setListShown(4), [listFilter, listQuery]);
   const [listState, setListState] = useState<"loading" | "ready" | "error">("loading");
   const loadList = useCallback(() => {
     if (!myId) return;
@@ -195,6 +201,7 @@ export default function ParticipantMessages({
         preview: m.preview,
         date: m.date,
         unread: m.unread,
+        profileId: m.authorId,
       })),
     []
   );
@@ -220,11 +227,12 @@ export default function ParticipantMessages({
         }
       : null
   );
+  const [hiddenDemo, setHiddenDemo] = useState<Record<string, boolean>>({});
   const conversations = useMemo(() => {
     const base = [...realConversations];
     if (draftChat && !base.some((c) => c.id === draftChat.id)) base.unshift(draftChat);
-    return [...base, ...demoConversations];
-  }, [realConversations, demoConversations, draftChat]);
+    return [...base, ...demoConversations.filter((c) => !hiddenDemo[c.id])];
+  }, [realConversations, demoConversations, draftChat, hiddenDemo]);
 
   // ---- read state ----
   const [localReadIds, setLocalReadIds] = useState<Record<string, boolean>>({});
@@ -496,6 +504,13 @@ export default function ParticipantMessages({
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const runDelete = async () => {
+    if (confirm?.kind === "conversation" && selected && !selected.real) {
+      setHiddenDemo((h) => ({ ...h, [selected.id]: true }));
+      setSelectedId(null);
+      setThreadOpen(false);
+      setConfirm(null);
+      return;
+    }
     if (!confirm || !selected?.real || !myId) return;
     setDeleteBusy(true);
     setDeleteError(null);
@@ -524,25 +539,25 @@ export default function ParticipantMessages({
   const renderBubble = (body: string, mine: boolean, at: string | null, opts: { id?: string; deleted?: boolean } = {}) => (
     <div className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
       {opts.deleted ? (
-        <div className="max-w-[85%] sm:max-w-[70%] rounded-2xl px-3.5 py-2 text-[14px] italic text-black/60 border border-dashed border-[#d9d4f5]">
+        <div className="max-w-[85%] sm:max-w-[72%] rounded-2xl border border-dashed border-black/20 px-4 py-2.5 text-[14px] italic text-black/50">
           Повідомлення видалено
         </div>
       ) : (
         <div
-          className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-3.5 py-2 text-[14px] leading-relaxed whitespace-pre-wrap break-words ${
-            mine ? "bg-[#eef0fb] text-[#1f2347] rounded-br-md" : "bg-black/[0.04] text-black/80 rounded-bl-md"
+          className={`max-w-[85%] sm:max-w-[72%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap break-words ${
+            mine ? "rounded-br-md bg-gradient-to-br from-[#5b6ff2] to-[#7c5cf0] text-white" : "rounded-bl-md bg-white text-[#1d2240] ring-1 ring-[#ebe8ff]"
           }`}
         >
           {body}
         </div>
       )}
-      <div className="flex items-center gap-3 px-1">
-        {at && <span className="text-[12px] text-black/60 mt-1">{formatClock(at)}</span>}
+      <div className="mt-1 flex items-center gap-3 px-1 text-[11px] text-black/45">
+        {at && <span>{formatClock(at)}</span>}
         {mine && opts.id && !opts.deleted && (
           <button
             onClick={() => setConfirm({ kind: "message", id: opts.id! })}
             aria-label="Видалити повідомлення"
-            className="mt-1 py-3.5 -my-3.5 text-[12px] text-black/60 hover:text-rose-600 focus-visible:text-rose-600"
+            className="py-3.5 -my-3.5 hover:text-rose-700 focus-visible:text-rose-700"
           >
             Видалити
           </button>
@@ -560,30 +575,79 @@ export default function ParticipantMessages({
       ]
     : [];
 
+  const authorPageId = selected ? selected.real?.otherId ?? selected.profileId ?? null : null;
+  const ARCHIVE_AFTER_MS = 183 * 24 * 60 * 60 * 1000; // no new messages for about 6 months
+  const isArchived = (c: { date: string }) => {
+    const t = new Date(c.date).getTime();
+    return Number.isFinite(t) && Date.now() - t > ARCHIVE_AFTER_MS;
+  };
+  const q = listQuery.trim().toLowerCase();
+  const visibleConversations = conversations
+    .filter((c) => (listFilter === "archive" ? isArchived(c) : !isArchived(c)))
+    .filter((c) => listFilter !== "unread" || isUnread(c.id, c.unread))
+    .filter((c) => !q || `${c.authorName} ${c.contentTitle ?? ""} ${c.preview}`.toLowerCase().includes(q));
+  const unreadTotal = conversations.filter((c) => !isArchived(c) && isUnread(c.id, c.unread)).length;
+  const archivedTotal = conversations.filter(isArchived).length;
+  const hiddenCount = visibleConversations.length - listShown;
+
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Повідомлення</h1>
-        <p className="mt-1 text-[15px] text-black/55">Спілкування з авторами програм, гайдів і медитацій.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Повідомлення</h1>
+          <p className="mt-1 text-[15px] text-black/55">Спілкування з авторами програм, гайдів і медитацій.</p>
+        </div>
+        <details className="group relative">
+          <summary className="flex min-h-[40px] cursor-pointer list-none items-center gap-2 rounded-2xl bg-[#eef0fd] px-3.5 text-[13px] font-semibold text-[#4338ca] ring-1 ring-[#4338ca]/20">
+            <Icon name="shield" size={15} /> Правила спілкування
+          </summary>
+          <div className="absolute right-0 z-20 mt-2 w-[min(90vw,380px)] rounded-2xl bg-white p-4 text-[13px] leading-relaxed text-[#2d2a5c] shadow-[0_18px_40px_-16px_rgba(70,40,170,0.45)] ring-1 ring-[#ebe8ff]">
+            Sensoria лишається посередником у спілкуванні. Обмінюватися телефоном, месенджерами, e-mail чи посиланнями, а також пропонувати оплату чи записи в обхід платформи заборонено для обох сторін: такі повідомлення не надсилаються. Не передавайте особисті чи платіжні дані.
+          </div>
+        </details>
       </div>
 
       <div
         ref={panelRef}
-        className="grid grid-rows-[minmax(0,1fr)] lg:grid-cols-[300px_1fr] rounded-[22px] bg-white ring-1 ring-[#ece8fb] overflow-hidden h-[calc(100dvh-96px)] min-h-[440px] scroll-mt-3 lg:h-[500px]"
+        className="grid grid-rows-[minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)] rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] overflow-hidden h-[calc(100dvh-170px)] min-h-[480px] scroll-mt-3 lg:h-[700px]"
       >
         {/* LIST */}
-        <div
-          className={`min-h-0 overflow-y-auto lg:border-r border-black/5 ${
-            threadOpen ? "hidden lg:block" : "block"
-          }`}
-        >
+        <div className={`min-h-0 flex-col lg:border-r border-[#efeafd] ${threadOpen ? "hidden lg:flex" : "flex"}`}>
+          <div className="flex flex-col gap-2.5 border-b border-[#efeafd] p-4">
+            <label className="relative block">
+              <span className="sr-only">Пошук у повідомленнях</span>
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40"><Icon name="search" size={16} /></span>
+              <input
+                value={listQuery}
+                onChange={(e) => setListQuery(e.target.value)}
+                placeholder="Пошук за ім’ям чи текстом"
+                className="min-h-[42px] w-full rounded-2xl bg-[#faf9ff] pl-10 pr-4 text-[14px] ring-1 ring-[#ebe8ff] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7c5cf0]"
+              />
+            </label>
+            <div className="flex gap-2" role="group" aria-label="Які діалоги показати">
+              {(["all", "unread", "archive"] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setListFilter(f)}
+                  aria-pressed={listFilter === f}
+                  className={`inline-flex min-h-[34px] items-center rounded-full px-3.5 text-[13px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${listFilter === f ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35" : "bg-white text-[#1d2240] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}
+                >
+                  {f === "all" ? "Усі" : f === "unread" ? "Непрочитані" : "Архів"}
+                  {f === "unread" && unreadTotal > 0 && <span className="ml-1.5 rounded-full bg-[#4338ca] px-1.5 text-[11px] text-white">{unreadTotal}</span>}
+                  {f === "archive" && archivedTotal > 0 && <span className="ml-1.5 text-[11px] text-black/45">{archivedTotal}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="sensoria-scroll flex min-h-0 flex-1 flex-col overflow-y-auto">
           {listState === "loading" && conversations.length === 0 && (
             <div className="p-4 flex flex-col gap-4" aria-busy="true" aria-label="Завантаження діалогів">
               {[0, 1, 2].map((i) => (
                 <div key={i} className="animate-pulse">
-                  <div className="h-3 w-1/2 rounded bg-black/[0.06]" />
-                  <div className="h-2.5 w-1/3 rounded bg-black/[0.04] mt-2" />
-                  <div className="h-2.5 w-4/5 rounded bg-black/[0.04] mt-2" />
+                  <div className="h-3 w-1/2 rounded bg-[#e7e3fb]" />
+                  <div className="h-2.5 w-1/3 rounded bg-[#efecfc] mt-2" />
+                  <div className="h-2.5 w-4/5 rounded bg-[#efecfc] mt-2" />
                 </div>
               ))}
             </div>
@@ -596,68 +660,72 @@ export default function ParticipantMessages({
               </button>
             </div>
           )}
+          {listState !== "loading" && conversations.length > 0 && visibleConversations.length === 0 && (
+            <p className="px-6 py-12 text-center text-[14px] text-black/55">
+              {q ? "Нічого не знайдено." : listFilter === "archive" ? "В архіві порожньо. Сюди потрапляють переписки, у яких 6 місяців не було нових повідомлень." : listFilter === "unread" ? "Непрочитаних повідомлень немає." : "Тут поки порожньо."}
+            </p>
+          )}
           {listState !== "loading" && conversations.length === 0 && (
             <div className="h-full flex flex-col items-center justify-center text-center px-6 py-12">
-              <Icon name="mail" size={22} className="text-black/25" />
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#7a68e0]"><Icon name="mail" size={24} /></span>
               <div className="text-[14px] font-medium mt-3">Повідомлень поки немає</div>
               <p className="text-[12px] text-black/60 mt-1 leading-relaxed max-w-[220px]">
                 Ви можете звернутися до авторів щодо їхніх програм, гайдів і медитацій.
               </p>
             </div>
           )}
-          <ul>
-            {conversations.map((c) => {
+            {visibleConversations.slice(0, listShown).map((c) => {
               const unread = isUnread(c.id, c.unread);
               const active = selectedId === c.id;
               return (
-                <li key={c.id}>
                   <button
+                    key={c.id}
                     onClick={() => selectConversation(c)}
                     aria-current={active ? "true" : undefined}
-                    className={`w-full text-left pl-4 pr-4 py-3 border-b border-black/[0.04] border-l-2 transition focus:outline-none focus-visible:bg-black/[0.03] ${
-                      active ? "bg-[#f6f8ff] border-l-[#4338ca]" : "border-l-transparent hover:bg-[#f6f4ff]"
+                    className={`flex min-h-[104px] w-full flex-[0_0_25%] items-center gap-3 px-4 py-3.5 text-left border-b border-[#f3f1fb] transition focus:outline-none focus-visible:bg-[#f6f4ff] ${
+                      active ? "bg-[#eef0fd]" : "hover:bg-[#faf9ff]"
                     }`}
                   >
-                    <div className="flex items-start gap-3">
-                    <AuthorMark name={c.authorName} url={c.authorAvatarUrl} size={36} />
-                    <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className={`text-[14px] truncate ${unread ? "font-semibold" : "font-medium"}`}>
-                        {c.authorName}
+                    <AuthorMark name={c.authorName} url={c.authorAvatarUrl} />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center justify-between gap-2">
+                        <span className={`flex min-w-0 items-center gap-1.5 truncate text-[14px] ${unread ? "font-bold text-[#12172b]" : "font-semibold text-[#1d2240]"}`}>
+                          <span className="truncate">{c.authorName}</span>
+                          {!c.real && <span className="shrink-0 rounded-full bg-[#f6f4ff] px-1.5 text-[10px] font-semibold text-[#6d5bd0]">демо</span>}
+                        </span>
+                        <span className="shrink-0 text-[11px] text-black/45">{formatListDate(c.date)}</span>
                       </span>
-                      <span className="text-[12px] text-black/60 shrink-0">{formatListDate(c.date)}</span>
-                    </div>
-                    {(c.contentTitle || c.contentUnavailable) && (
-                      <div className="text-[12px] text-black/60 truncate mt-0.5">
-                        {c.contentTitle ?? "Матеріал більше недоступний"}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-[12px] truncate flex-1 ${unread ? "text-black/70" : "text-black/60"}`}>
-                        {singleLine(c.preview)}
-                      </span>
-                      {unread && (
-                        <span
-                          className="w-2 h-2 rounded-full bg-[#4338ca] shrink-0"
-                          role="img"
-                          aria-label="Непрочитане"
-                        />
+                      {(c.contentTitle || c.contentUnavailable) && (
+                        <span className="mt-0.5 block truncate text-[12px] font-medium text-[#6d5bd0]">{c.contentTitle ?? "Матеріал більше недоступний"}</span>
                       )}
-                    </div>
-                    </div>
-                    </div>
+                      <span className="mt-0.5 flex items-center gap-2">
+                        <span className={`min-w-0 flex-1 truncate text-[13px] ${unread ? "text-[#2d2a5c]" : "text-black/55"}`}>{singleLine(c.preview)}</span>
+                        {unread && <span role="img" aria-label="Непрочитане" className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#4338ca]" />}
+                      </span>
+                    </span>
                   </button>
-                </li>
               );
             })}
-          </ul>
+          </div>
+          {hiddenCount > 0 && (
+            <div className="border-t border-[#efeafd] px-4 py-3 sm:px-5">
+              <button
+                type="button"
+                onClick={() => setListShown((n) => n + 4)}
+                className="flex h-[56px] w-full items-center justify-center gap-2 rounded-2xl bg-[#f1eeff] text-[13px] font-semibold text-[#5b4bd0] hover:bg-[#e7e1ff]"
+              >
+                Показати ще ({Math.min(4, hiddenCount)}) <span aria-hidden="true">↓</span>
+              </button>
+              <div aria-hidden="true" className="mt-1.5 h-[16px]" />
+            </div>
+          )}
         </div>
 
         {/* CONVERSATION */}
         <div className={`min-h-0 min-w-0 flex-col ${threadOpen ? "flex" : "hidden lg:flex"}`}>
           {selected ? (
             <>
-              <div className="flex items-center gap-3 px-4 sm:px-6 py-3 border-b border-black/5">
+              <div className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-[#efeafd]">
                 <button
                   onClick={() => setThreadOpen(false)}
                   aria-label="Назад до діалогів"
@@ -665,31 +733,47 @@ export default function ParticipantMessages({
                 >
                   <Icon name="chevron" size={18} className="rotate-90" />
                 </button>
-                <AuthorMark name={selected.authorName} url={selected.authorAvatarUrl} />
+                {/* avatar, name and «Переглянути профіль» open the author's page */}
+                {authorPageId ? (
+                  <button type="button" onClick={() => openAuthorProfile(authorPageId)} aria-label={`Сторінка автора ${selected.authorName}`} className="shrink-0 rounded-full transition hover:opacity-85 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0]">
+                    <AuthorMark name={selected.authorName} url={selected.authorAvatarUrl} />
+                  </button>
+                ) : (
+                  <AuthorMark name={selected.authorName} url={selected.authorAvatarUrl} />
+                )}
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-[16px] flex items-center gap-1.5">
-                    <span className="truncate">{selected.authorName}</span>
-                    {selected.real && authorDetails?.verified && (
-                      <span title="Верифікований автор" className="text-[#4338ca] text-[12px] shrink-0">
-                        ✓
-                      </span>
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    {authorPageId ? (
+                      <button type="button" onClick={() => openAuthorProfile(authorPageId)} className="truncate text-left text-[16px] font-semibold text-[#12172b] hover:text-[#4338ca]">{selected.authorName}</button>
+                    ) : (
+                      <span className="truncate text-[16px] font-semibold text-[#12172b]">{selected.authorName}</span>
                     )}
+                    {selected.real && authorDetails?.verified && (
+                      <span title="Верифікований автор" className="shrink-0 text-[12px] text-[#4338ca]">✓</span>
+                    )}
+                    <span className="shrink-0 rounded-full bg-[#f1eeff] px-2 py-0.5 text-[11px] font-semibold text-[#6d5bd0]">Автор</span>
                   </div>
-                  <div className="text-[12px] text-black/60 truncate">
-                    Автор{selected.real && authorDetails?.title ? ` · ${authorDetails.title}` : ""}
-                    {selected.real && (
+                  <div className="flex min-w-0 items-center gap-1.5 text-[12px]">
+                    {selected.contentTitle && <span className="truncate font-medium text-[#6d5bd0]">{selected.contentTitle}</span>}
+                    {authorPageId && (
                       <>
-                        {" · "}
-                        <button
-                          onClick={() => openAuthorProfile(selected.real!.otherId)}
-                          className="text-[#4338ca] hover:underline py-3.5 -my-3.5"
-                        >
+                        {selected.contentTitle && <span aria-hidden="true" className="text-black/30">·</span>}
+                        <button type="button" onClick={() => openAuthorProfile(authorPageId)} className="shrink-0 font-medium text-[#4338ca] hover:underline">
                           Переглянути профіль
                         </button>
                       </>
                     )}
                   </div>
                 </div>
+                {(
+                  <button
+                    type="button"
+                    onClick={() => setConfirm({ kind: "conversation" })}
+                    className="shrink-0 rounded-xl px-3 py-2 text-[13px] font-medium text-black/55 transition hover:bg-rose-50 hover:text-rose-700"
+                  >
+                    Видалити переписку
+                  </button>
+                )}
                 {selected.real && (
                   <div className="relative shrink-0" data-msg-menu>
                     <button
@@ -701,24 +785,15 @@ export default function ParticipantMessages({
                       ⋯
                     </button>
                     {menuOpen && (
-                      <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-white border border-[#e3def9] shadow-[0_10px_24px_rgba(0,0,0,0.1)] py-1 z-10">
+                      <div className="absolute right-0 top-full mt-1 w-52 rounded-2xl bg-white p-1.5 ring-1 ring-[#ebe8ff] shadow-[0_18px_40px_-12px_rgba(30,41,90,0.35)] z-10">
                         <button
                           onClick={() => {
                             setMenuOpen(false);
                             setReportOpen(true);
                           }}
-                          className="w-full text-left px-4 py-3 text-[14px] text-red-700 hover:bg-red-50 transition"
+                          className="w-full text-left rounded-xl px-3 py-2.5 text-[14px] font-medium text-rose-700 hover:bg-rose-50 transition"
                         >
                           Поскаржитися
-                        </button>
-                        <button
-                          onClick={() => {
-                            setMenuOpen(false);
-                            setConfirm({ kind: "conversation" });
-                          }}
-                          className="w-full text-left px-4 py-3 text-[14px] text-black/75 hover:bg-[#f6f4ff] transition"
-                        >
-                          Видалити переписку
                         </button>
                       </div>
                     )}
@@ -728,7 +803,7 @@ export default function ParticipantMessages({
 
               {/* Content context: quiet reference row, not a card. */}
               {(selected.contentTitle || selected.contentUnavailable) && (
-                <div className="flex items-center gap-3 px-4 sm:px-6 py-2.5 bg-black/[0.015] border-b border-black/5">
+                <div className="flex items-center gap-3 px-4 sm:px-5 py-2.5 bg-[#faf9ff] border-b border-[#efeafd]">
                   <Icon
                     name={selected.contentKind ?? "program"}
                     size={16}
@@ -761,9 +836,9 @@ export default function ParticipantMessages({
 
               {/* Report form and messages share one scroll area, so opening the
                   form never squeezes the conversation out of view. */}
-              <div ref={scrollerRef} className="flex-1 min-h-0 overflow-y-auto">
+              <div ref={scrollerRef} className="sensoria-scroll flex-1 min-h-0 overflow-y-auto bg-[#fbfaff]">
               {reportOpen && (
-                <div className="mx-4 sm:mx-6 mt-3 p-4 rounded-xl bg-black/[0.02] border border-[#e3def9]">
+                <div className="mx-4 sm:mx-6 mt-3 p-4 rounded-2xl bg-white ring-1 ring-[#ebe8ff]">
                   <div className="text-[14px] font-medium mb-3">На що поскаржитися?</div>
                   <div className="flex flex-col gap-2 mb-3">
                     {REPORT_REASONS.map((r) => (
@@ -790,7 +865,7 @@ export default function ParticipantMessages({
                     <button
                       onClick={submitReportClick}
                       disabled={reportSubmitting}
-                      className="px-4 py-2 rounded-lg bg-red-600 text-white text-[14px] font-medium hover:opacity-90 transition disabled:opacity-50"
+                      className="min-h-[40px] px-4 rounded-xl bg-rose-600 text-white text-[14px] font-semibold hover:bg-rose-700 transition disabled:opacity-50"
                     >
                       {reportSubmitting ? "Надсилаємо…" : "Надіслати скаргу"}
                     </button>
@@ -813,9 +888,9 @@ export default function ParticipantMessages({
               <div className="px-4 sm:px-6 py-5 flex flex-col gap-2" aria-live="polite">
                 {threadState === "loading" && (
                   <div className="flex flex-col gap-3 animate-pulse" aria-busy="true">
-                    <div className="h-9 w-1/2 rounded-2xl bg-black/[0.05]" />
-                    <div className="h-9 w-2/5 rounded-2xl bg-black/[0.05] self-end" />
-                    <div className="h-9 w-3/5 rounded-2xl bg-black/[0.05]" />
+                    <div className="h-9 w-1/2 rounded-2xl bg-[#ece9fe]" />
+                    <div className="h-9 w-2/5 rounded-2xl bg-[#ece9fe] self-end" />
+                    <div className="h-9 w-3/5 rounded-2xl bg-[#ece9fe]" />
                   </div>
                 )}
                 {threadState === "error" && (
@@ -838,7 +913,7 @@ export default function ParticipantMessages({
                     return (
                       <div key={m.id} className="flex flex-col gap-2">
                         {showDay && m.at && (
-                          <div className="text-center text-[12px] text-black/60 py-2">{formatDayLabel(m.at)}</div>
+                          <div className="mx-auto my-1 w-fit rounded-full bg-white px-3 py-1 text-[11px] font-medium text-black/50 ring-1 ring-[#efeafd]">{formatDayLabel(m.at)}</div>
                         )}
                         {renderBubble(m.body, m.mine, m.at, { id: m.real && isUuid(m.id) ? m.id : undefined, deleted: m.deleted })}
                       </div>
@@ -868,7 +943,7 @@ export default function ParticipantMessages({
               )}
 
               {/* Composer */}
-              <div className="px-4 sm:px-6 pt-2 pb-3 border-t border-black/5">
+              <div className="px-4 sm:px-5 py-3 border-t border-[#efeafd]">
                 <ChatBanNotice ban={chatBan.ban} onExpire={chatBan.clear} className="mb-2" />
                 {notice && (
                   <div
@@ -880,7 +955,7 @@ export default function ParticipantMessages({
                     {notice.message}
                   </div>
                 )}
-                <div className="flex items-end gap-2">
+                <div className="flex items-end gap-2 rounded-2xl bg-[#faf9ff] p-1.5 ring-1 ring-[#ebe8ff] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#7c5cf0]">
                   <textarea
                     ref={inputRef}
                     value={draft}
@@ -908,17 +983,17 @@ export default function ParticipantMessages({
                         send();
                       }
                     }}
-                    className="flex-1 min-w-0 resize-none px-3.5 py-2.5 rounded-xl border border-[#d9d4f5] text-[16px] leading-snug min-h-[44px] focus:outline-none focus:border-black/30"
+                    className="max-h-32 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent px-3 py-2.5 text-[16px] leading-snug focus:outline-none disabled:opacity-50 sm:text-[15px]"
                   />
                   <button
                     onClick={send}
                     disabled={chatBanActive || !canSend(draft, sending)}
-                    className="h-11 px-4 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-medium transition hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                    className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[14px] font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {sending ? "Надсилаємо…" : "Надіслати"}
                   </button>
                 </div>
-                <div className="text-[12px] text-black/60 mt-2 leading-snug">
+                <div className="mt-1.5 px-1 text-[11px] text-black/45 leading-snug">
                   Спілкування залишається в Sensoria. Не передавайте особисті або платіжні дані.{" "}
                   <button
                     onClick={() => setNoticeExpanded((v) => !v)}
@@ -938,7 +1013,7 @@ export default function ParticipantMessages({
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
-              <Icon name="mail" size={24} className="text-black/20" />
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#7a68e0]"><Icon name="mail" size={24} /></span>
               <div className="text-[16px] font-medium mt-3">
                 {conversations.length ? "Оберіть діалог" : "Тут з'являться ваші розмови"}
               </div>

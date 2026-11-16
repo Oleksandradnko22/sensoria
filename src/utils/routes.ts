@@ -30,6 +30,8 @@ export type Page =
   | "privacy"
   | "refunds"
   | "author-agreement"
+  | "participant-agreement"
+  | "crisis-help"
   | "payment-result";
 
 const FUNNEL: Page[] = ["state-selection", "test", "result", "registration", "login", "preparing", "recommendation", "program"];
@@ -49,6 +51,8 @@ export function pathForPage(page: Page, entityId?: string | null): string {
   if (page === "privacy") return "/privacy";
   if (page === "refunds") return "/refunds";
   if (page === "author-agreement") return "/author-agreement";
+  if (page === "participant-agreement") return "/participant-agreement";
+  if (page === "crisis-help") return "/crisis-help";
   if (page === "payment-result") return "/payment-result";
   if (page === "author-profile") return authorId ? `/authors/${encodeURIComponent(authorId)}` : "/";
   if (FUNNEL.includes(page)) return "/start";
@@ -80,6 +84,8 @@ function pageForPathBase(pathname: string): { page: Page; authorId: string | nul
   if (path === "/privacy") return { page: "privacy", authorId: null };
   if (path === "/refunds") return { page: "refunds", authorId: null };
   if (path === "/author-agreement") return { page: "author-agreement", authorId: null };
+  if (path === "/participant-agreement") return { page: "participant-agreement", authorId: null };
+  if (path === "/crisis-help") return { page: "crisis-help", authorId: null };
   if (path === "/payment-result") return { page: "payment-result", authorId: null };
   if (path === "/start") return { page: "state-selection", authorId: null };
   const m = /^\/authors\/([^/]+)$/.exec(path);

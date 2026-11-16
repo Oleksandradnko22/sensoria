@@ -5,7 +5,7 @@ type Props = {
   onOpenPrivacy?: () => void;
   onOpenRefunds?: () => void;
   onOpenAuthorAgreement?: () => void;
-  current: "terms" | "privacy" | "refunds" | "author";
+  current: "terms" | "privacy" | "refunds" | "author" | "participant";
 };
 
 const btn =
@@ -26,9 +26,13 @@ export default function RelatedDocs({ onOpenTerms, onOpenPrivacy, onOpenRefunds,
         {current !== "refunds" && (
           <li><button type="button" onClick={onOpenRefunds} className={btn}>Політика повернення коштів</button></li>
         )}
+        {current !== "participant" && (
+          <li><a href="/participant-agreement" className={btn}>Угода учасника</a></li>
+        )}
         {current !== "author" && onOpenAuthorAgreement && (
           <li><button type="button" onClick={onOpenAuthorAgreement} className={btn}>Договір з автором</button></li>
         )}
+        <li><a href="/crisis-help" className={btn}>Допомога в кризі</a></li>
         <li className="t-body text-gray-700">
           Питання щодо цього документа:{" "}
           <a href={`mailto:${CONTACT_EMAIL}`} className={`${btn} break-all`}>{CONTACT_EMAIL}</a>

@@ -108,6 +108,8 @@ const TermsPage = lazy(() => import("./pages/TermsPage"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const RefundsPage = lazy(() => import("./pages/RefundsPage"));
 const AuthorAgreementPage = lazy(() => import("./pages/AuthorAgreementPage"));
+const ParticipantAgreementPage = lazy(() => import("./pages/ParticipantAgreementPage"));
+const CrisisHelpPage = lazy(() => import("./pages/CrisisHelpPage"));
 const PaymentResultPage = lazy(() => import("./pages/PaymentResultPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const PreparingPage = lazy(() => import("./pages/PreparingPage"));
@@ -1036,6 +1038,72 @@ if (page === "author-agreement") {
           session={session}
         />
         <AuthorAgreementPage onOpenTerms={openTerms} onOpenPrivacy={openPrivacy} onOpenRefunds={openRefunds} />
+        <Footer
+          onOpenTest={openTest}
+          onGoHome={goHome}
+          onOpenCatalog={openCatalog}
+          onOpenGuides={openGuides}
+          onOpenMeditations={openMeditations}
+          onOpenContacts={openContacts} onOpenTerms={openTerms} onOpenPrivacy={openPrivacy} onOpenRefunds={openRefunds}
+          compact
+        />
+      </div>
+    </div>
+  );
+}
+
+if (page === "participant-agreement") {
+  return (
+    <div key={page} className="page-transition">
+      <div className="relative min-h-screen overflow-x-hidden bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6] text-white">
+        <Header
+          onGoHome={goHome}
+          onOpenTest={openTest}
+          onOpenCatalog={openCatalog}
+          onOpenGuides={openGuides}
+          onOpenMeditations={openMeditations}
+          onSelectProgram={selectProgramById}
+          onSelectGuide={selectGuideById}
+          onSelectMeditation={selectMeditationById}
+          onOpenAuthorDashboard={openAuthorDashboard}
+          onOpenParticipantDashboard={openParticipantDashboard}
+          programs={allPrograms}
+          session={session}
+        />
+        <ParticipantAgreementPage onOpenTerms={openTerms} onOpenPrivacy={openPrivacy} onOpenRefunds={openRefunds} />
+        <Footer
+          onOpenTest={openTest}
+          onGoHome={goHome}
+          onOpenCatalog={openCatalog}
+          onOpenGuides={openGuides}
+          onOpenMeditations={openMeditations}
+          onOpenContacts={openContacts} onOpenTerms={openTerms} onOpenPrivacy={openPrivacy} onOpenRefunds={openRefunds}
+          compact
+        />
+      </div>
+    </div>
+  );
+}
+
+if (page === "crisis-help") {
+  return (
+    <div key={page} className="page-transition">
+      <div className="relative min-h-screen overflow-x-hidden bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6] text-white">
+        <Header
+          onGoHome={goHome}
+          onOpenTest={openTest}
+          onOpenCatalog={openCatalog}
+          onOpenGuides={openGuides}
+          onOpenMeditations={openMeditations}
+          onSelectProgram={selectProgramById}
+          onSelectGuide={selectGuideById}
+          onSelectMeditation={selectMeditationById}
+          onOpenAuthorDashboard={openAuthorDashboard}
+          onOpenParticipantDashboard={openParticipantDashboard}
+          programs={allPrograms}
+          session={session}
+        />
+        <CrisisHelpPage />
         <Footer
           onOpenTest={openTest}
           onGoHome={goHome}

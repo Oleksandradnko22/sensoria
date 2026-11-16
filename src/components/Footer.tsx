@@ -75,6 +75,8 @@ export default function Footer({
               <li><button type="button" onClick={onOpenTerms} className="inline-flex items-center min-h-[32px] cursor-pointer hover:text-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">Умови використання</button></li>
               <li><button type="button" onClick={onOpenPrivacy} className="inline-flex items-center min-h-[32px] cursor-pointer hover:text-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">Політика конфіденційності</button></li>
               <li><button type="button" onClick={onOpenRefunds} className="inline-flex items-center min-h-[32px] cursor-pointer hover:text-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">Політика повернення коштів</button></li>
+              <li><a href="/participant-agreement" className="inline-flex items-center min-h-[32px] cursor-pointer hover:text-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">Угода учасника</a></li>
+              <li><a href="/crisis-help" className="inline-flex items-center min-h-[32px] cursor-pointer hover:text-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">Допомога в кризі</a></li>
             </ul>
           </div>
 

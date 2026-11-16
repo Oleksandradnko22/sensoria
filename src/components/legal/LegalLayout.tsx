@@ -44,11 +44,13 @@ type Props = {
   metaDescription: string;
   /** This document's own date when it is final before the others (otherwise LEGAL.effectiveDate). */
   effectiveDate?: string;
+  /** This document's own edition number (otherwise LEGAL.edition). */
+  edition?: string;
   sections: LegalSection[];
   footer?: ReactNode;
 };
 
-export default function LegalLayout({ title, lead, metaTitle, metaDescription, sections, footer, effectiveDate }: Props) {
+export default function LegalLayout({ title, lead, metaTitle, metaDescription, sections, footer, effectiveDate, edition }: Props) {
   const h1Ref = useRef<HTMLHeadingElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
@@ -80,7 +82,7 @@ export default function LegalLayout({ title, lead, metaTitle, metaDescription, s
         <h1 ref={h1Ref} tabIndex={-1} className="fluid-h2 font-bold mb-3 outline-none">{title}</h1>
         <p className="text-white fluid-lead">{lead}</p>
         <p className="mt-3 t-small text-white">
-          Редакція: {inline("{{edition}}")} · Набирає чинності: {effectiveDate ?? inline("{{effectiveDate}}")}
+          Редакція: {edition ?? inline("{{edition}}")} · Набирає чинності: {effectiveDate ?? inline("{{effectiveDate}}")}
         </p>
       </div>
 

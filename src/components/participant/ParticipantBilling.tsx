@@ -5,7 +5,7 @@
 // оплатою?», shown only while some purchase is still inside the window: no reminders elsewhere.
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Icon, type IconName } from "../ui/Icon";
+import { Icon } from "../ui/Icon";
 import FilterPills from "./FilterPills";
 import { SHOW_DEMO } from "../../utils/demoMode";
 import { useSession } from "../../context/SessionContext";
@@ -131,9 +131,6 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
   };
 
   const title = (p: PurchaseView) => p.title ?? "Матеріал більше недоступний";
-  const paidSum = all.filter((p) => p.status === "paid").reduce((s, p) => s + p.amount, 0);
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-  const monthSum = all.filter((p) => p.status === "paid" && p.date >= monthStart).reduce((s, p) => s + p.amount, 0);
   const ready = (state === "ready" || demo) && all.length > 0;
   const count = (f: Filter) => all.filter((p) => f === "all" || p.status === f).length;
 
@@ -229,23 +226,6 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
         </section>
       )}
 
-      {ready && (
-        <dl className="grid grid-cols-3 gap-2 sm:gap-4">
-          {[
-            { icon: "card" as IconName, label: "Покупок", value: String(all.length) },
-            { icon: "chart" as IconName, label: "Сплачено", value: formatAmount(paidSum) },
-            { icon: "clock" as IconName, label: "Цього місяця", value: formatAmount(monthSum) },
-          ].map((s) => (
-            <div key={s.label} className={`${CARD} flex min-w-0 items-center gap-4 px-3 py-4 sm:px-5 sm:py-5`}>
-              <span className="hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#7a68e0]"><Icon name={s.icon} size={22} /></span>
-              <div className="min-w-0">
-                <dt className="text-[12px] sm:text-[14px] font-medium text-black/60">{s.label}</dt>
-                <dd className="mt-0.5 whitespace-nowrap text-[18px] sm:text-[24px] font-bold leading-tight tracking-tight text-[#12172b]">{s.value}</dd>
-              </div>
-            </div>
-          ))}
-        </dl>
-      )}
 
       {ready && (
         <FilterPills

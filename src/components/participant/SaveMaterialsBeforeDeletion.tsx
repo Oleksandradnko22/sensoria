@@ -58,24 +58,26 @@ export default function SaveMaterialsBeforeDeletion({ userId, onOpen }: { userId
     }
   };
 
-  if (items === null) return <p className="mt-3 text-[13px] text-black/50">Завантажуємо ваші матеріали…</p>;
+  if (items === null) return <p className="text-[13px] text-black/50">Завантажуємо ваші матеріали…</p>;
   if (items.length === 0) return null;
 
   return (
-    <div className="mt-4 rounded-2xl bg-white p-4 ring-1 ring-rose-100">
-      <div className="text-[15px] font-bold text-[#12172b]">Перш ніж видалити — збережіть свої матеріали</div>
-      <p className="mt-0.5 text-[13px] text-black/55">Гайди й медитації можна завантажити на їхній сторінці. Решту ми можемо попросити в автора.</p>
-      <ul className="mt-3 flex flex-col gap-2">
+    <div>
+      <div className="text-[13px] font-semibold uppercase tracking-wide text-[#6d5bd0]">Збережіть свої матеріали</div>
+      <p className="mt-1 text-[13px] text-black/55">Гайди й медитації можна завантажити на їхній сторінці. Решту ми можемо попросити в автора.</p>
+      <ul className="mt-2.5 flex flex-col gap-2">
         {items.map((i) => (
           <li key={`${i.kind}:${i.id}`} className="flex flex-wrap items-center gap-3 rounded-xl bg-[#faf9ff] px-3.5 py-2.5 ring-1 ring-[#f1eefb]">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f1eeff] text-[#6d5bd0]"><Icon name={i.kind} size={17} /></span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[14px] font-semibold text-[#12172b]">{i.title}</span>
-              <span className="block text-[12px] text-black/50">{KIND[i.kind]}{i.downloadable ? "" : " · завантаження немає — можна попросити в автора"}</span>
+            <span className="flex min-w-[200px] flex-1 items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f1eeff] text-[#6d5bd0]"><Icon name={i.kind} size={17} /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-semibold leading-snug text-[#12172b]">{i.title}</span>
+                <span className="block text-[12px] text-black/50">{KIND[i.kind]}{i.downloadable ? "" : " · попросимо в автора"}</span>
+              </span>
             </span>
             {i.downloadable && onOpen && (
               <button type="button" onClick={() => onOpen(i.kind, i.id)} className="min-h-[36px] shrink-0 rounded-lg bg-white px-3 text-[13px] font-semibold text-[#4338ca] ring-1 ring-[#e3def9] hover:ring-[#c9bff7]">
-                Відкрити й завантажити
+                Завантажити
               </button>
             )}
           </li>

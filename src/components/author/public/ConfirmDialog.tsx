@@ -1,12 +1,12 @@
 // Small confirmation dialog in the site's own style (instead of the browser's window.confirm):
 // focus trap, Esc / backdrop cancel, focus returns to the button that opened it.
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useModal } from "./useModal";
 
 type Props = {
   title: string;
-  text?: string;
+  text?: ReactNode; // a string, or e.g. a list of points
   confirmLabel: string;
   busy?: boolean;
   danger?: boolean;
@@ -32,7 +32,7 @@ export default function ConfirmDialog({ title, text, confirmLabel, busy = false,
         className="w-full max-w-[400px] rounded-2xl bg-white p-6 shadow-[0_20px_50px_rgba(20,20,60,0.18)]"
       >
         <h3 id="confirm-title" className="text-[16px] font-semibold text-black/90">{title}</h3>
-        {text && <p id="confirm-text" className="mt-1.5 text-[14px] leading-relaxed text-black/60">{text}</p>}
+        {text && <div id="confirm-text" className="mt-1.5 text-[14px] leading-relaxed text-black/60">{text}</div>}
         {askReason && (
           <label className="mt-4 block text-[13px] text-black/70">
             Причина (потрапить у журнал дій)

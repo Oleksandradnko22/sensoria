@@ -125,6 +125,7 @@ function MfaSetupDialog({
 
 export default function ParticipantProfile({ onOpenMaterial }: { onOpenMaterial?: (kind: "program" | "guide" | "meditation", id: string) => void } = {}) {
   const [deleteConsent, setDeleteConsent] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const session = useSession();
   const profile = session?.profile;
 
@@ -516,7 +517,7 @@ export default function ParticipantProfile({ onOpenMaterial }: { onOpenMaterial?
                 <Icon name="image" size={13} />
               </span>
             </div>
-            <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handleAvatarChange} />
+            <input ref={avatarInputRef} type="file" accept="image/*,.heic,.heif" className="hidden" onChange={handleAvatarChange} />
             <div className="flex flex-col gap-1">
               <div className="flex flex-wrap items-center gap-2">
                 <button
@@ -686,7 +687,7 @@ export default function ParticipantProfile({ onOpenMaterial }: { onOpenMaterial?
       <section className={card} aria-labelledby="profile-notifications">
         <SectionTitle id="profile-notifications" icon="mail" title="Сповіщення" hint="" />
         <p className="-mt-2 text-[14px] text-black/55 max-w-[720px]">
-          Листи надсилаються на пошту, коли автор відповідає на відгук, пише повідомлення або публікує новий матеріал.
+          Оберіть, про що писати вам на пошту.
         </p>
 
         {prefsState === "loading" && (
@@ -722,12 +723,20 @@ export default function ParticipantProfile({ onOpenMaterial }: { onOpenMaterial?
                 />
               </li>
             ))}
+            {/* always sent: they answer something the person asked for or protect the account */}
+            <li className="flex items-center gap-3 sm:gap-4 py-3">
+              <span aria-hidden="true" className="hidden sm:flex shrink-0 w-11 h-11 rounded-2xl bg-[#f1eeff] text-[#6d5bd0] items-center justify-center">
+                <Icon name="shield" size={18} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[15px] font-semibold text-[#12172b]">Підтримка й безпека акаунта</div>
+                <div className="text-[13px] text-black/55">Відповіді на ваші звернення, підтвердження пошти, вхід і видалення акаунта.</div>
+              </div>
+              <span className="shrink-0 rounded-full bg-[#eef0fd] px-3 py-1 text-[12px] font-semibold text-[#4338ca]">Завжди</span>
+            </li>
           </ul>
         )}
         {prefError && <p role="alert" className="mt-2 text-[14px] text-rose-700">{prefError}</p>}
-        <p className="text-[12px] text-black/60 mt-3 pt-3 border-t border-[#f1eefb]">
-          Важливі повідомлення щодо безпеки акаунту, оплат і повернень можуть надсилатися незалежно від цих налаштувань.
-        </p>
       </section>
 
       {/* SESSIONS */}
@@ -795,39 +804,74 @@ export default function ParticipantProfile({ onOpenMaterial }: { onOpenMaterial?
           {exportError && <p role="alert" className="mt-2 text-[14px] text-rose-700">{exportError}</p>}
         </section>
 
-        <section className="rounded-[26px] bg-rose-50/60 ring-1 ring-rose-100 p-5 sm:p-6" aria-labelledby="profile-delete">
-          <h2 id="profile-delete" className="text-[18px] font-bold text-rose-800">Видалення акаунту</h2>
-          <ul className="mt-3 flex flex-col gap-2 text-[14px] leading-relaxed text-rose-900/80">
-            {[
-              "Доступ до Sensoria закривається одразу.",
-              "Протягом 14 днів акаунт ще можна відновити: просто увійдіть знову.",
-              "Запит обробляється протягом 30 календарних днів.",
-              "Ваш прогрес, записи, відгуки й повідомлення видаляються.",
-              "Відомості про придбані матеріали зберігаються: щоб отримати їх у новому акаунті, напишіть у підтримку — ми підтвердимо вашу особу.",
-            ].map((t) => (
-              <li key={t} className="flex gap-2.5">
-                <span aria-hidden="true" className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400" />
-                <span>{t}</span>
-              </li>
-            ))}
-          </ul>
-          {profile?.id && <SaveMaterialsBeforeDeletion userId={profile.id} onOpen={onOpenMaterial} />}
-          {/* consent before deletion (the same terms as in «Умови використання» and «Правила повернення коштів») */}
-          <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-[13px] leading-relaxed text-rose-900/80">
-            <input type="checkbox" checked={deleteConsent} onChange={(e) => setDeleteConsent(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-rose-600" />
-            <span>Я розумію, що після видалення акаунта можу втратити доступ до придбаних матеріалів, не маю щодо цього претензій і не претендую на повернення коштів, якщо від покупки минуло понад 14 днів.</span>
-          </label>
-          <button
-            onClick={() => {
-              setDeleteError(null);
-              setConfirmDelete(true);
-            }}
-            disabled={deleting || !deleteConsent}
-            className="mt-4 min-h-[44px] px-5 rounded-xl bg-white ring-1 ring-rose-200 text-rose-700 text-[14px] font-semibold hover:bg-rose-50 transition disabled:opacity-50"
-          >
-            Видалити акаунт
-          </button>
-          {deleteError && <p role="alert" className="mt-2 text-[14px] text-rose-800">{deleteError}</p>}
+        <section className={card} aria-labelledby="profile-delete">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex min-w-0 flex-1 items-start gap-3.5">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#5b3df5]"><Icon name="lock" size={20} /></span>
+              <div className="min-w-0">
+                <h2 id="profile-delete" className="text-[18px] font-bold text-[#12172b]">Видалення акаунту</h2>
+                <p className="text-[14px] text-black/55">Протягом 14 днів після видалення акаунт можна відновити.</p>
+              </div>
+            </div>
+            {!deleteOpen && (
+              <button type="button" onClick={() => setDeleteOpen(true)} className="min-h-[44px] shrink-0 rounded-xl bg-white px-5 text-[14px] font-semibold text-rose-700 ring-1 ring-rose-200 transition hover:bg-rose-50">
+                Видалити акаунт
+              </button>
+            )}
+          </div>
+
+          {deleteOpen && (
+            <div className="mt-5 flex flex-col gap-5">
+              {/* 1. what happens */}
+              <div>
+                <div className="text-[13px] font-semibold uppercase tracking-wide text-[#6d5bd0]">Що відбудеться</div>
+                <ul className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+                  {([
+                    ["lock", "Одразу", "Доступ до Sensoria закривається, усі сеанси завершуються."],
+                    ["refresh", "14 днів на відновлення", "Просто увійдіть знову. Запит повністю обробляємо до 30 днів."],
+                    ["note", "Що видаляється", "Прогрес навчання, записи, відгуки й повідомлення."],
+                    ["shield", "Що зберігається", "Відомості про придбане: доступ у новому акаунті повернемо через підтримку."],
+                  ] as [IconName, string, string][]).map(([icon, t, d]) => (
+                    <li key={t} className="flex items-start gap-3 rounded-2xl bg-[#faf9ff] px-3.5 py-3 ring-1 ring-[#f1eefb]">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f1eeff] text-[#6d5bd0]"><Icon name={icon} size={16} /></span>
+                      <span className="min-w-0">
+                        <span className="block text-[14px] font-semibold text-[#12172b]">{t}</span>
+                        <span className="block text-[13px] leading-snug text-black/55">{d}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* 2. keep the materials */}
+              {profile?.id && <SaveMaterialsBeforeDeletion userId={profile.id} onOpen={onOpenMaterial} />}
+
+              {/* 3. confirm (the same terms as in «Умови використання» and «Правила повернення коштів») */}
+              <div className="border-t border-[#f1eefb] pt-4">
+                <div className="text-[13px] font-semibold uppercase tracking-wide text-[#6d5bd0]">Підтвердження</div>
+                <label className="mt-2.5 flex cursor-pointer items-start gap-2.5 text-[13px] leading-relaxed text-black/65">
+                  <input type="checkbox" checked={deleteConsent} onChange={(e) => setDeleteConsent(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#6d5bd0]" />
+                  <span>Я розумію, що після видалення акаунта можу втратити доступ до придбаних матеріалів, не маю щодо цього претензій і не претендую на повернення коштів, якщо від покупки минуло понад 14 днів.</span>
+                </label>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      setDeleteError(null);
+                      setConfirmDelete(true);
+                    }}
+                    disabled={deleting || !deleteConsent}
+                    className="min-h-[44px] rounded-xl bg-white px-5 text-[14px] font-semibold text-rose-700 ring-1 ring-rose-200 transition hover:bg-rose-50 disabled:opacity-50"
+                  >
+                    Видалити акаунт
+                  </button>
+                  <button type="button" onClick={() => { setDeleteOpen(false); setDeleteConsent(false); }} className="min-h-[44px] rounded-xl px-4 text-[14px] font-semibold text-black/55 hover:text-black">
+                    Скасувати
+                  </button>
+                </div>
+                {deleteError && <p role="alert" className="mt-2 text-[14px] text-rose-700">{deleteError}</p>}
+              </div>
+            </div>
+          )}
         </section>
       </div>
 
@@ -858,7 +902,21 @@ export default function ParticipantProfile({ onOpenMaterial }: { onOpenMaterial?
       {confirmDelete && (
         <ConfirmDialog
           title="Видалити акаунт?"
-          text="Доступ закриється одразу, а всі сеанси завершаться. Протягом 14 днів ви можете відновити акаунт, увійшовши знову. Після цього прогрес навчання, відгуки, записи й повідомлення буде видалено. Відомості про придбане збережуться, і доступ можна буде повернути через підтримку."
+          text={
+            <ul className="flex flex-col gap-1.5">
+              {[
+                "Доступ закриється одразу, усі сеанси завершаться.",
+                "Протягом 14 днів акаунт можна відновити: просто увійдіть знову.",
+                "Після цього прогрес навчання, відгуки, записи й повідомлення буде видалено.",
+                "Відомості про придбане збережуться: доступ можна повернути через підтримку.",
+              ].map((t) => (
+                <li key={t} className="flex gap-2.5">
+                  <span aria-hidden="true" className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#7c5cf0]" />
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ul>
+          }
           confirmLabel="Так, видалити"
           busy={deleting}
           onConfirm={handleDelete}

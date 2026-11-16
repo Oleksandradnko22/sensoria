@@ -199,6 +199,23 @@ export default function ParticipantHelp() {
       </section>
 
       <div className="flex flex-col gap-6">
+        {/* not found what you were looking for: above the FAQ */}
+        <section className="flex flex-col gap-4 rounded-[26px] bg-gradient-to-br from-[#eef0fd] via-white to-[#f6f1ff] p-5 ring-1 ring-[#e4def9] shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] sm:flex-row sm:items-center sm:gap-5 sm:p-6">
+          <span aria-hidden="true" className="w-12 h-12 shrink-0 rounded-2xl bg-white text-[#6d5bd0] flex items-center justify-center shadow-[0_8px_20px_-12px_rgba(91,61,245,0.6)]">
+            <Icon name="lifebuoy" size={22} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[20px] font-bold text-[#12172b]">Не знайшли того, що шукали?</h2>
+            <p className="text-[14px] text-black/60 mt-1 leading-relaxed">Розкажіть, що сталося — ми підкажемо, що робити далі. Зазвичай відповідаємо протягом 1 робочого дня.</p>
+          </div>
+          <button
+            onClick={openSupportForm}
+            className="w-full sm:w-auto shrink-0 px-6 inline-flex items-center justify-center gap-2 min-h-[48px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition"
+          >
+            <Icon name="mail" size={18} />
+            Написати в підтримку
+          </button>
+        </section>
         {/* FAQ */}
         <div className="flex flex-col gap-3">
           {searching && found.total === 0 && (
@@ -275,24 +292,8 @@ export default function ParticipantHelp() {
           })}
         </div>
 
-        {/* SIDE: support, form, tickets, reassurance */}
+        {/* SIDE: form, tickets */}
         <aside className="flex flex-col gap-4">
-          <section className="flex flex-col gap-4 rounded-[26px] bg-gradient-to-br from-[#eef0fd] via-white to-[#f6f1ff] p-5 ring-1 ring-[#e4def9] shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] sm:flex-row sm:items-center sm:gap-5 sm:p-6">
-            <span aria-hidden="true" className="w-12 h-12 shrink-0 rounded-2xl bg-white text-[#6d5bd0] flex items-center justify-center shadow-[0_8px_20px_-12px_rgba(91,61,245,0.6)]">
-              <Icon name="lifebuoy" size={22} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-[20px] font-bold text-[#12172b]">Не знайшли того, що шукали?</h2>
-              <p className="text-[14px] text-black/60 mt-1 leading-relaxed">Розкажіть, що сталося — ми підкажемо, що робити далі. Зазвичай відповідаємо протягом 1 робочого дня.</p>
-            </div>
-            <button
-              onClick={openSupportForm}
-              className="w-full sm:w-auto shrink-0 px-6 inline-flex items-center justify-center gap-2 min-h-[48px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[14px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition"
-            >
-              <Icon name="mail" size={18} />
-              Написати в підтримку
-            </button>
-          </section>
 
           {reportOpen && (
             <section id="support-form" aria-labelledby="support-form-title" className="rounded-[26px] bg-white shadow-[0_10px_30px_-14px_rgba(60,60,140,0.28)] ring-1 ring-[#ebe8ff] p-5 sm:p-6 scroll-mt-4">

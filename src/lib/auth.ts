@@ -497,16 +497,36 @@ const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 // works unchanged for both participants and authors. Overwrites the
 // previous photo on re-upload (same `{uid}/avatar` path each time) rather
 // than accumulating orphaned files.
+/** Redraws any image the browser can open as a JPEG of at most 1024 px on the longer side. */
+async function shrinkToJpeg(file: File): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 1024 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.88));
+    return blob ? new File([blob], "avatar.jpg", { type: "image/jpeg" }) : file;
+  } catch {
+    return file; // the browser cannot decode it: the caller explains
+  }
+}
+
 export async function updateAvatar(file: File): Promise<Profile | null> {
   // Allowlist (no SVG: it can carry scripts) and the extension comes from the
   // verified type, never from the user-supplied file name.
   const AVATAR_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
+  // Phone photos are often HEIC or bigger than 5 MB: the browser redraws them as a small JPEG instead of refusing.
+  if (!AVATAR_EXT[file.type] || file.size > MAX_AVATAR_BYTES) file = await shrinkToJpeg(file);
   const ext = AVATAR_EXT[file.type];
-  if (!ext) {
-    throw new Error("Підтримуються лише зображення JPG, PNG, WebP або GIF.");
-  }
-  if (file.size > MAX_AVATAR_BYTES) {
-    throw new Error("Файл завеликий — максимум 5 МБ.");
+  if (!ext || file.size > MAX_AVATAR_BYTES) {
+    throw new Error("Не вдалося відкрити це фото. Спробуйте інше або збережіть його як JPG чи PNG.");
   }
   const client = requireSupabase();
   const {

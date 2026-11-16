@@ -31,6 +31,11 @@ const CORE: { key: string; table: string; column: string; select?: string }[] = 
 ];
 
 const EXTRA: { table: string; column: string }[] = [
+  { table: "acquired_content", column: "user_id" }, // free materials added to the cabinet
+  { table: "legal_consents", column: "user_id" }, // which terms / privacy versions were accepted and when
+  { table: "post_saves", column: "user_id" },
+  { table: "post_poll_votes", column: "user_id" },
+  { table: "entity_reports", column: "reporter_id" },
   { table: "support_tickets", column: "user_id" },
   { table: "assessment_history", column: "profile_id" },
   { table: "content_reports", column: "reporter_id" },
@@ -112,8 +117,38 @@ export async function exportMyData(profileId: string): Promise<Record<string, un
     else if ((extraRes[i].data ?? []).length) activity[c.table] = extraRes[i].data ?? [];
   });
   out.activity = activity;
+  out.myMaterials = await materialsSummary(client, (out.purchases as Row[]) ?? [], (activity.acquired_content as Row[]) ?? []);
   if (unavailable.length) out.unavailable = unavailable;
   return out;
+}
+
+type Row = Record<string, unknown>;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PURCHASE_STATUS: Record<string, string> = { completed: "Оплачено", refunded: "Повернено" };
+
+/** The part a person actually reads: every material they have, with its title, type, date and payment status. */
+async function materialsSummary(client: NonNullable<typeof supabase>, purchases: Row[], acquired: Row[]) {
+  const ids = [...new Set([...purchases.map((p) => String(p.content_id)), ...acquired.map((a) => String(a.content_id))].filter((id) => UUID.test(id)))];
+  const titles = new Map<string, { title: string; kind: string }>();
+  if (ids.length) {
+    const { data } = await client.from("content").select("id, title, kind").in("id", ids);
+    for (const c of (data ?? []) as Row[]) titles.set(String(c.id), { title: String(c.title), kind: String(c.kind) });
+  }
+  const KIND: Record<string, string> = { program: "Програма", guide: "Гайд", meditation: "Медитація" };
+  const named = (id: string, kind?: unknown) => {
+    const c = titles.get(id);
+    return { title: c?.title ?? "Матеріал більше недоступний", type: KIND[c?.kind ?? String(kind ?? "")] ?? null };
+  };
+  return [
+    ...purchases.map((p) => ({
+      ...named(String(p.content_id)),
+      date: p.purchased_at ?? null,
+      payment: Number(p.amount) > 0 ? `${p.amount} грн` : "Безкоштовно",
+      status: PURCHASE_STATUS[String(p.status)] ?? p.status,
+      purchaseId: p.id,
+    })),
+    ...acquired.map((a) => ({ ...named(String(a.content_id), a.kind), date: a.acquired_at ?? null, payment: "Безкоштовно", status: "Додано" })),
+  ];
 }
 
 // Plain client-side Blob download — no server round trip needed once

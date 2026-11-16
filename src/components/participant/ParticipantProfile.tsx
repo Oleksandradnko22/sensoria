@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import SaveMaterialsBeforeDeletion from "./SaveMaterialsBeforeDeletion";
 import { createPortal } from "react-dom";
 import { useModal } from "../author/public/useModal";
 import Switch from "../ui/Switch";
@@ -122,7 +123,8 @@ function MfaSetupDialog({
   );
 }
 
-export default function ParticipantProfile() {
+export default function ParticipantProfile({ onOpenMaterial }: { onOpenMaterial?: (kind: "program" | "guide" | "meditation", id: string) => void } = {}) {
+  const [deleteConsent, setDeleteConsent] = useState(false);
   const session = useSession();
   const profile = session?.profile;
 
@@ -809,12 +811,18 @@ export default function ParticipantProfile() {
               </li>
             ))}
           </ul>
+          {profile?.id && <SaveMaterialsBeforeDeletion userId={profile.id} onOpen={onOpenMaterial} />}
+          {/* consent before deletion (the same terms as in «Умови використання» and «Правила повернення коштів») */}
+          <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-[13px] leading-relaxed text-rose-900/80">
+            <input type="checkbox" checked={deleteConsent} onChange={(e) => setDeleteConsent(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-rose-600" />
+            <span>Я розумію, що після видалення акаунта можу втратити доступ до придбаних матеріалів, не маю щодо цього претензій і не претендую на повернення коштів, якщо від покупки минуло понад 14 днів.</span>
+          </label>
           <button
             onClick={() => {
               setDeleteError(null);
               setConfirmDelete(true);
             }}
-            disabled={deleting}
+            disabled={deleting || !deleteConsent}
             className="mt-4 min-h-[44px] px-5 rounded-xl bg-white ring-1 ring-rose-200 text-rose-700 text-[14px] font-semibold hover:bg-rose-50 transition disabled:opacity-50"
           >
             Видалити акаунт

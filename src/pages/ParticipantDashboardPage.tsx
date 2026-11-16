@@ -532,7 +532,13 @@ function ParticipantDashboardPageInner({
           )}
           {visitedSections.has("profile") && (
             <div className={section === "profile" ? "" : "hidden"}>
-              <ParticipantProfile />
+              <ParticipantProfile
+                onOpenMaterial={(kind, id) => {
+                  if (kind === "program") setContinuingProgramId(id);
+                  else if (kind === "meditation") setContinuingMeditationId(id);
+                  else setContinuingGuideId(id);
+                }}
+              />
             </div>
           )}
           {visitedSections.has("help") && (

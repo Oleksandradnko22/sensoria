@@ -1,4 +1,5 @@
 import { Icon, type IconName } from "../ui/Icon";
+import { fetchOwnedKeys, ownedKey, type Access, type OwnedKind } from "../../lib/ownedContent";
 import { useEffect, useMemo, useState } from "react";
 import { guideSizeLabel, type Guide } from "../../data/guides";
 import { useSession } from "../../context/SessionContext";
@@ -124,37 +125,49 @@ type HistoryPoint = { score: number; intensity: IntensityKey; dateLabel: string 
 // clinical chart), just enough structure to see "did this go up or
 // down." Kept local to this file since it's a one-off, page-specific
 // visual, not a shared chart component.
-function HistorySparkline({ points, accent }: { points: HistoryPoint[]; accent: StateAccent }) {
-  const width = Math.max(240, (points.length - 1) * 140 + 80);
-  const height = 96;
-  const padX = 40;
-  const padY = 20;
-  const xFor = (i: number) =>
-    points.length <= 1 ? width / 2 : padX + (i * (width - padX * 2)) / (points.length - 1);
-  const yFor = (score: number) => padY + (1 - Math.max(0, Math.min(100, score)) / 100) * (height - padY * 2);
-
+function HistorySparkline({ points: newestFirst, accent }: { points: HistoryPoint[]; accent: StateAccent }) {
+  // time runs left → right (oldest first); the list beside it keeps «newest first»
+  const points = [...newestFirst].reverse();
+  const width = Math.max(320, (points.length - 1) * 170 + 150);
+  const height = 170;
+  const padL = 60;
+  const padR = 60;
+  const top = 34;
+  const bottom = 30;
+  const plotH = height - top - bottom;
+  const xFor = (i: number) => (points.length <= 1 ? (padL + width - padR) / 2 : padL + (i * (width - padL - padR)) / (points.length - 1));
+  const yFor = (score: number) => top + (1 - Math.max(0, Math.min(100, score)) / 100) * plotH;
+  const xy = points.map((p, i) => [xFor(i), yFor(p.score)] as const);
+  // a soft curve through the points
+  const curve = xy.reduce((d, [x, y], i) => {
+    if (i === 0) return `M${x},${y}`;
+    const [px, py] = xy[i - 1];
+    const mx = (px + x) / 2;
+    return `${d} C${mx},${py} ${mx},${y} ${x},${y}`;
+  }, "");
+  const area = xy.length > 1 ? `${curve} L${xy[xy.length - 1][0]},${top + plotH} L${xy[0][0]},${top + plotH} Z` : "";
+  const gid = `hs-${accent.hex.replace("#", "")}`;
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ maxWidth: width }} height={height}>
-      {points.length > 1 && (
-        <polyline
-          fill="none"
-          stroke={accent.hex}
-          strokeWidth={1.5}
-          strokeOpacity={0.5}
-          points={points.map((p, i) => `${xFor(i)},${yFor(p.score)}`).join(" ")}
-        />
-      )}
-      {points.map((p, i) => (
-        <g key={i}>
-          <circle cx={xFor(i)} cy={yFor(p.score)} r={5} fill={accent.hex} />
-          <text x={xFor(i)} y={yFor(p.score) - 12} textAnchor="middle" fontSize={11} fill="rgba(0,0,0,0.55)">
-            {p.score}
-          </text>
-          <text x={xFor(i)} y={height - 2} textAnchor="middle" fontSize={10} fill="rgba(0,0,0,0.35)">
-            {p.dateLabel}
-          </text>
-        </g>
-      ))}
+    <svg viewBox={`0 0 ${width} ${height}`} className="mx-auto block w-full" style={{ maxWidth: width }} height={height} role="img" aria-label={`Динаміка: ${points.map((p) => p.score).join(" → ")}`}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={accent.hex} stopOpacity={0.18} />
+          <stop offset="100%" stopColor={accent.hex} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      {area && <path d={area} fill={`url(#${gid})`} />}
+      {xy.length > 1 && <path d={curve} fill="none" stroke={accent.hex} strokeWidth={2.5} strokeLinecap="round" />}
+      {points.map((p, i) => {
+        const [x, y] = xy[i];
+        const last = i === points.length - 1;
+        return (
+          <g key={i}>
+            <circle cx={x} cy={y} r={last ? 6.5 : 5} fill={accent.hex} stroke="#fff" strokeWidth={2.5} />
+            <text x={x} y={y - 14} textAnchor="middle" fontSize={13} fontWeight={700} fill={last ? accent.hex : "#12172b"}>{p.score}</text>
+            <text x={x} y={height - 6} textAnchor="middle" fontSize={11} fill="rgba(0,0,0,0.45)">{p.dateLabel}</text>
+          </g>
+        );
+      })}
     </svg>
   );
 }
@@ -249,13 +262,26 @@ export default function ParticipantEmotionalProfile({
   }, [session?.profile.id]);
 
   const [explainerExpanded, setExplainerExpanded] = useState(false);
+  const [recFilter, setRecFilter] = useState<string>("all");
 
   const stateProfile = insight ? getStateProfile(insight.primaryState, insight.intensity) : null;
   const accent = insight ? stateAccentColors[insight.primaryState] : null;
   const manifestations = insight ? getManifestations(insight.primaryState) : [];
   const influencingFactors = insight ? getInfluencingFactors(insight.supportingPatterns) : [];
 
-  const startedPractice = hasStartedFirstPractice(programParticipation.enrollments.length > 0);
+  // what this person really has (added from the cart, bought, started) — never recommended back to them
+  const [ownedKeys, setOwnedKeys] = useState<Map<string, Access> | null>(null);
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    fetchOwnedKeys(session.profile.id, { demoEnrollments: false }).then((m) => !cancelled && setOwnedKeys(m)).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.profile.id]);
+
+  const startedPractice =
+    hasStartedFirstPractice(programParticipation.enrollments.length > 0) || [...(ownedKeys?.values() ?? [])].includes("started");
 
   // "Ваш шлях" — 3 fixed, real steps (2026-09-16, per Sasha's follow-up
   // spec: same 3 signals as before, exact copy she gave, compacted into
@@ -276,19 +302,16 @@ export default function ParticipantEmotionalProfile({
   // (2026-09-21 MVP "owned" decision) — programParticipation.enrollments
   // only ever contains activity-derived programs, never saved-only, so
   // this excludes exactly "programs with real activity," nothing more.
-  const recommendations = useMemo(
-    () =>
-      insight
-        ? pickTopMatchesExcludingOwned(
-            insight.primaryState,
-            insight.secondaryState,
-            3,
-            undefined,
-            programParticipation.enrollments.map((e) => e.contentId)
-          )
-        : null,
-    [insight?.primaryState, insight?.secondaryState, programParticipation.enrollments]
-  );
+
+  // Picked by the chosen state (strongest), the second chosen state, then the topics the assessment found elevated;
+  // owned / started materials are dropped; at most 3 of each kind, different authors first.
+  const recommendations = useMemo(() => {
+    if (!insight) return null;
+    const extra = (insight.supportingPatterns ?? []).map((p) => p.category);
+    const top = pickTopMatchesExcludingOwned(insight.primaryState, insight.secondaryState, 6, undefined, programParticipation.enrollments.map((e) => e.contentId), extra);
+    const notOwned = <T extends { id: string }>(kind: OwnedKind, list: T[]) => list.filter((x) => !ownedKeys?.has(ownedKey(kind, x.id))).slice(0, 3);
+    return { courses: notOwned("program", top.courses), meditations: notOwned("meditation", top.meditations), guides: notOwned("guide", top.guides) };
+  }, [insight?.primaryState, insight?.secondaryState, insight?.supportingPatterns, programParticipation.enrollments, ownedKeys]);
 
   // Real ★ average · N оцінок per recommended item, when it exists
   // (2026-09-16, per Sasha's explicit "тільки якщо дані реально є"
@@ -528,14 +551,35 @@ export default function ParticipantEmotionalProfile({
               <p className="text-[14px] text-black/60">Завантаження…</p>
             ) : (() => {
               // one grid of everything that fits, each card marked with its type — not three half-empty rows
-              const cards = RECOMMENDATION_SECTIONS.flatMap((section) =>
+              const allCards = RECOMMENDATION_SECTIONS.flatMap((section) =>
                 (recommendations ? recommendations[section.key] : []).map((item) => ({ section, item }))
               );
+              const cards = recFilter === "all" ? allCards : allCards.filter((c) => c.section.key === recFilter);
+              const tabs = [{ key: "all", title: "Усі", count: allCards.length }, ...RECOMMENDATION_SECTIONS.map((sec) => ({ key: sec.key, title: sec.title, count: allCards.filter((c) => c.section.key === sec.key).length }))];
               return (
                 <>
+                  {/* the same tab bar as in «Моє навчання» */}
+                  <div role="tablist" aria-label="Тип матеріалу" className="mb-4 grid grid-cols-2 gap-1.5 rounded-[20px] bg-white p-1.5 shadow-[0_14px_36px_-30px_rgba(60,50,140,0.55)] ring-1 ring-[#ece8fb] sm:grid-cols-4">
+                    {tabs.map((t) => {
+                      const on = recFilter === t.key;
+                      return (
+                        <button
+                          key={t.key}
+                          type="button"
+                          role="tab"
+                          aria-selected={on}
+                          onClick={() => setRecFilter(t.key)}
+                          className={`flex min-h-[46px] min-w-0 items-center justify-center gap-2 rounded-2xl px-3 text-[14px] font-semibold transition ${on ? "bg-gradient-to-r from-[#eef0fd] to-[#f3eeff] text-[#4338ca] shadow-[inset_0_0_0_1px_rgba(67,56,202,0.25)]" : "text-black/60 hover:bg-[#faf9ff] hover:text-[#3b3f66]"}`}
+                        >
+                          <span className="truncate">{t.title}</span>
+                          <span className={`flex h-6 min-w-[24px] shrink-0 items-center justify-center rounded-lg px-1.5 text-[12px] font-bold tabular-nums ${on ? "bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white" : "bg-[#f1eeff] text-[#6d5bd0]"}`}>{t.count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                   {cards.length === 0 ? (
                     <p className="rounded-2xl bg-[#faf9ff] px-4 py-6 text-center text-[14px] text-black/55 ring-1 ring-[#f1eefb]">
-                      Усе, що зараз підходить під ваш стан, ви вже маєте або проходите.
+                      {recFilter === "all" ? "Усе, що зараз підходить під ваш стан, ви вже маєте або проходите." : "У цьому розділі все, що підходить під ваш стан, ви вже маєте або проходите."}
                     </p>
                   ) : (
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -570,7 +614,7 @@ export default function ParticipantEmotionalProfile({
                     </div>
                   )}
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {RECOMMENDATION_SECTIONS.map((section) => (
+                    {RECOMMENDATION_SECTIONS.filter((section) => recFilter === "all" || section.key === recFilter).map((section) => (
                       <button
                         key={section.key}
                         type="button"
@@ -603,12 +647,28 @@ export default function ParticipantEmotionalProfile({
 
             {historyPoints.length >= 2 ? (
               <>
-                <p className="text-[12px] text-black/60 mb-4">Останні 3 проходження оцінки · найновіше зверху</p>
-                <HistorySparkline points={historyPoints} accent={accent} />
-                <p className="text-[12px] text-black/60 leading-relaxed mt-4">
-                  Показуються останні 3 проходження оцінки, найновіше — зверху. Коли з'явиться 4-те,
-                  найстаріше проходження автоматично зникне зі списку.
-                </p>
+                <p className="text-[13px] text-black/55 mb-4">Останні {historyPoints.length} проходження оцінки · найновіше першим. Коли з'явиться наступне, найстаріше зникне зі списку.</p>
+                {/* the chart and, beside it, the same attempts as a list */}
+                <div className="grid items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                  <div className="flex items-center rounded-2xl bg-gradient-to-b from-[#faf9ff] to-white px-3 py-4 ring-1 ring-[#f1eefb]">
+                    <HistorySparkline points={historyPoints} accent={accent} />
+                  </div>
+                  <ol className="flex flex-col gap-2">
+                    {assessmentHistory.map((h, i) => {
+                      const prof = getStateProfile(h.primaryState, h.intensity);
+                      return (
+                        <li key={h.completedAt + i} className="flex items-center gap-3 rounded-2xl bg-[#faf9ff] px-4 py-3 ring-1 ring-[#f1eefb]">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[13px] font-bold tabular-nums text-[#12172b] ring-1 ring-[#e3def9]">{h.primaryScore}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[14px] font-semibold text-[#12172b]">{prof.title}</span>
+                            <span className="block text-[12px] text-black/50">{formatAbsoluteDate(h.completedAt)}{i === 0 ? " · остання" : ""}</span>
+                          </span>
+                          <span className="shrink-0 text-[12px] font-medium text-black/45">{getIntensityLabel(h.intensity)}</span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
               </>
             ) : historyPoints.length === 1 ? (
               <p className="text-[14px] text-black/60 leading-relaxed">

@@ -1887,7 +1887,8 @@ export default function ProgramExperience({
                   breakout math on top of it. Kept intentionally at this
                   width, not pushed any wider, per Sasha's explicit call
                   that the current video size is already sufficient. */}
-              {(currentItem.isRequired || currentItem.videoUrl) && (
+              {/* an audio lesson has its own player below: no empty «video» box above it */}
+              {(currentItem.videoUrl || (currentItem.isRequired && currentItem.type !== "audio")) && (
               <div className="relative mb-6">
                 <div
                   className="pointer-events-none absolute -inset-5 rounded-[32px] blur-2xl -z-10"

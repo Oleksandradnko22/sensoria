@@ -225,12 +225,14 @@ export function pickTopMatchesExcludingOwned(
   secondaryState: PrimaryStateId | null,
   limitPerType = 3,
   source: Enrollment[] = enrollments,
-  programActivityIds?: Iterable<string>
+  programActivityIds?: Iterable<string>,
+  // topics the assessment found elevated (supporting patterns): a weaker match, after the chosen states
+  extraTags: readonly string[] = []
 ): TopMatches {
   const ownedByKind = buildOwnedByKind(source, programActivityIds);
-  const courses = getAllRelevantCourses(primaryState, secondaryState);
-  const meds = getAllRelevantMeditations(primaryState, secondaryState);
-  const gds = getAllRelevantGuides(primaryState, secondaryState);
+  const courses = getAllRelevantCourses(primaryState, secondaryState, extraTags);
+  const meds = getAllRelevantMeditations(primaryState, secondaryState, extraTags);
+  const gds = getAllRelevantGuides(primaryState, secondaryState, extraTags);
   // Exclude-owned + diversify + cap is now one shared, independently
   // tested pipeline (2026-09-16 audit) — see contentDiversity.ts's
   // excludeOwnedAndDiversify for why this was extracted.

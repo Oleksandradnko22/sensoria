@@ -71,16 +71,20 @@ export function getRelevantGuides(
 // to the back" — that padding is right for the Library home page (an
 // empty section reads as broken there), but wrong here: a "matches your
 // state" list that quietly includes non-matches would be dishonest.
+// Relevance: the chosen state (3) > the second chosen state (2) > a topic the assessment found elevated (1).
 function filterToRealMatches<T extends { tags: string[] }>(
   items: T[],
   primaryState: PrimaryStateId,
-  secondaryState: PrimaryStateId | null
+  secondaryState: PrimaryStateId | null,
+  extraTags: readonly string[] = []
 ): T[] {
   return items
     .map((item, index) => {
       const score = item.tags.includes(primaryState)
-        ? 2
+        ? 3
         : secondaryState && item.tags.includes(secondaryState)
+        ? 2
+        : extraTags.some((t) => item.tags.includes(t))
         ? 1
         : 0;
       return { item, score, index };
@@ -92,23 +96,26 @@ function filterToRealMatches<T extends { tags: string[] }>(
 
 export function getAllRelevantCourses(
   primaryState: PrimaryStateId,
-  secondaryState: PrimaryStateId | null
+  secondaryState: PrimaryStateId | null,
+  extraTags: readonly string[] = []
 ) {
-  return filterToRealMatches(programs, primaryState, secondaryState);
+  return filterToRealMatches(programs, primaryState, secondaryState, extraTags);
 }
 
 export function getAllRelevantMeditations(
   primaryState: PrimaryStateId,
-  secondaryState: PrimaryStateId | null
+  secondaryState: PrimaryStateId | null,
+  extraTags: readonly string[] = []
 ) {
-  return filterToRealMatches(meditations, primaryState, secondaryState);
+  return filterToRealMatches(meditations, primaryState, secondaryState, extraTags);
 }
 
 export function getAllRelevantGuides(
   primaryState: PrimaryStateId,
-  secondaryState: PrimaryStateId | null
+  secondaryState: PrimaryStateId | null,
+  extraTags: readonly string[] = []
 ) {
-  return filterToRealMatches(guides, primaryState, secondaryState);
+  return filterToRealMatches(guides, primaryState, secondaryState, extraTags);
 }
 
 // "Рекомендуємо почати з цього" — one of each content type, each the

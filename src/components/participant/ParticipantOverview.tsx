@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { fetchOwnedKeys } from "../../lib/ownedContent";
 import { greetingName } from "../../utils/greeting";
 import { Icon, type IconName } from "../ui/Icon";
 import { pluralUk } from "../../utils/plural";
@@ -620,8 +621,18 @@ export default function ParticipantOverview({
   // "недостатньо даних" copy instead of a fake insight.
   const observations = useObservationsSummary(session?.profile.id);
   // the same 3 steps as «Ваш шлях» on the emotional profile: assessed, noticed changes, tried a practice
+  // «Спробували практику» also counts any material this account really started (not only on this device)
+  const [startedAnything, setStartedAnything] = useState(false);
+  useEffect(() => {
+    if (!session?.profile.id) return;
+    let cancelled = false;
+    fetchOwnedKeys(session.profile.id, { demoEnrollments: false }).then((m) => !cancelled && setStartedAnything([...m.values()].includes("started"))).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.profile.id]);
   const journeyDoneCount = insight
-    ? [true, (observations?.total ?? 0) > 0, hasStartedFirstPractice(programParticipation.enrollments.length > 0)].filter(Boolean).length
+    ? [true, (observations?.total ?? 0) > 0, startedAnything || hasStartedFirstPractice(programParticipation.enrollments.length > 0)].filter(Boolean).length
     : 0;
 
   const hello = greetingName(session?.profile.name);

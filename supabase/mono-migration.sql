@@ -81,5 +81,8 @@ alter table public.mono_invoices add column if not exists updated_at timestamptz
 alter table public.mono_invoices
   add column if not exists card_origin text check (card_origin in ('ua', 'foreign', 'unknown')),
   add column if not exists bank_fee_kop bigint check (bank_fee_kop >= 0);
+-- the author sees which card paid (Ukrainian: bank fee 1.3 %, foreign: 2 %) on their own sale
+alter table public.finance_payments
+  add column if not exists card_origin text check (card_origin in ('ua', 'foreign', 'unknown'));
 create index if not exists mono_invoices_buyer_idx on public.mono_invoices (buyer_id, content_id, created_at desc);
 alter table public.mono_invoices enable row level security;

@@ -87,6 +87,7 @@ export function demoWorld(now: Date = new Date()): DemoWorld {
         disputed: false,
         source: referral ? "referral" : "catalog",
         commissionBps: bps,
+        cardOrigin: (n + k) % 6 === 4 ? "foreign" : "ua",
       });
     }
     n += count;

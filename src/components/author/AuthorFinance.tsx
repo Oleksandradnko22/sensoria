@@ -2,10 +2,10 @@
 // the buyer came through Sensoria, 85 % through the author's own link), income by month and by material, every sale
 // with its source and status, and the connection of the author's FOP/TOV to monobank's split (the bank sends the
 // author's share straight to the author's account; Sensoria's commission comes as agentFeePercent).
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSession } from "../../context/SessionContext";
 import { fetchMonoConnection, fetchMyFinance, markFinanceNotificationsRead, requestMonoConnection, touchFinanceActivity, type FinanceSale, type MonoConnection, type MyFinance } from "../../lib/finance";
-import { STATUS_LABEL, financeTotals, historyRows, incomeByMaterial, isFullyRefunded, monthlyIncome, netAuthorKop, statusExplanation, uahFromKop } from "../../utils/financeView";
+import { STATUS_LABEL, type HistoryRow, authorBankFeeKop, financeTotals, historyRows, incomeByMaterial, isFullyRefunded, monthReportCsv, monthlyIncome, priceBreakdown, statusExplanation, toAccountKop, uahFromKop } from "../../utils/financeView";
 import { buildReferralLink } from "../../utils/referral";
 import { SHOW_AUTHOR_DEMO } from "../../utils/demoMode";
 import { demoWorld } from "../../data/demoWorld";
@@ -18,6 +18,15 @@ const PAGE = 8;
 const TONE = { info: "bg-sky-50 text-sky-900 ring-sky-100", warn: "bg-amber-50 text-amber-900 ring-amber-100", danger: "bg-rose-50 text-rose-900 ring-rose-100" };
 
 type SaleFilter = "all" | "catalog" | "referral" | "refunds";
+type FinTab = "overview" | "sales" | "calc" | "refunds" | "tax" | "history";
+const TABS: { key: FinTab; label: string; icon: IconName }[] = [
+  { key: "overview", label: "Огляд", icon: "chart" },
+  { key: "sales", label: "Продажі", icon: "graduation" },
+  { key: "calc", label: "Розрахунки", icon: "card" },
+  { key: "refunds", label: "Повернення", icon: "refresh" },
+  { key: "tax", label: "Податки й документи", icon: "note" },
+  { key: "history", label: "Історія", icon: "clock" },
+];
 
 export default function AuthorFinance() {
   const session = useSession();
@@ -59,23 +68,46 @@ export default function AuthorFinance() {
   const referralPct = terms ? (10000 - terms.referralCommissionBps) / 100 : 85;
   const acc = data?.account;
   const banner = acc ? statusExplanation(acc.status, acc.debtKop) : null;
-  // Unpaid balance: what Sensoria owes the author and has not paid out yet. Refunds are taken from HERE (never from the
-  // author's FOP account); when it is not enough the balance goes below zero and the next income covers it.
-  const demoPending = demo ? sales.reduce((n, s) => n + s.pendingKop, 0) : 0;
-  const bal = demo
-    ? { pending: demoPending, available: Math.max(0, totals.monthKop - demoPending), reserved: 0, debt: 0 }
-    : { pending: acc?.pendingKop ?? 0, available: acc?.availableKop ?? 0, reserved: acc?.reservedKop ?? 0, debt: acc?.debtKop ?? 0 };
-  const balanceKop = bal.pending + bal.available + bal.reserved - bal.debt;
-  // the worked example uses the real rate: a 1000 ₴ program bought through the catalog
-  const exampleAuthor = Math.round(1000 * catalogPct) / 100;
+  // this month, as it reaches the account (the bank keeps its fee from the author's share before crediting it)
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-  const thisMonth = sales.filter((s) => !isFullyRefunded(s) && new Date(s.confirmedAt).getTime() >= monthStart);
+  const inMonth = sales.filter((s) => new Date(s.confirmedAt).getTime() >= monthStart);
+  const thisMonth = inMonth.filter((s) => !isFullyRefunded(s));
   const monthCount = thisMonth.length;
-  const monthRefundKop = sales.filter((s) => new Date(s.confirmedAt).getTime() >= monthStart).reduce((n, s) => n + s.authorRefundedKop, 0);
   const monthRef = thisMonth.filter((s) => s.source === "referral").length;
-  const lastSale = sales.find((s) => !isFullyRefunded(s)) ?? null;
+  const monthShareKop = inMonth.reduce((n, s) => n + s.authorKop, 0);
+  const monthFeeKop = inMonth.reduce((n, s) => n + authorBankFeeKop(s), 0);
+  const monthRefundKop = inMonth.reduce((n, s) => n + s.authorRefundedKop, 0);
+  const monthToAccountKop = inMonth.reduce((n, s) => n + toAccountKop(s), 0);
   const live = sales.filter((s) => !isFullyRefunded(s));
   const avgKop = live.length ? Math.round(live.reduce((n, s) => n + s.priceKop, 0) / live.length) : 0;
+  const lastSale = live[0] ?? null;
+  // paid in the last day: the bank credits it the next working day
+  const dayAgo = Date.now() - 24 * 3600 * 1000;
+  const comingKop = live.filter((s) => new Date(s.confirmedAt).getTime() > dayAgo).reduce((n, s) => n + toAccountKop(s), 0);
+  const catalogEx = priceBreakdown(100000, terms?.commissionBps ?? 3000);
+  // «Як ділиться оплата»: the author tries their own price and the buyer's card
+  const [calcPrice, setCalcPrice] = useState("1000");
+  const [calcCard, setCalcCard] = useState<"ua" | "foreign">("ua");
+  const calcKop = (Number(calcPrice) || 0) * 100;
+  const calcCatalog = priceBreakdown(calcKop, terms?.commissionBps ?? 3000, calcCard);
+  const calcReferral = priceBreakdown(calcKop, terms?.referralCommissionBps ?? 1500, calcCard);
+
+  // monthly report (CSV for Excel)
+  const reportMonths = useMemo(() => [...new Set(sales.map((s) => s.confirmedAt.slice(0, 7)))].sort().reverse(), [sales]);
+  const [reportMonth, setReportMonth] = useState("");
+  const month = reportMonth || reportMonths[0] || "";
+  const downloadReport = () => {
+    if (!month) return;
+    const url = URL.createObjectURL(new Blob([monthReportCsv(sales, month)], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sensoria-zvit-${month}${demo ? "-demo" : ""}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+  const monthName = (m: string) => new Date(`${m}-01T12:00:00`).toLocaleDateString("uk-UA", { month: "long", year: "numeric" });
 
   // referral link
   const link = authorId && typeof window !== "undefined" ? buildReferralLink(window.location.origin, authorId) : "";
@@ -90,6 +122,42 @@ export default function AuthorFinance() {
     }
   };
 
+  // tabs
+  const [tab, setTab] = useState<FinTab>("overview");
+  // demo: operations made from the demo sales (each sale credited, refunds taken back)
+  const histRows: HistoryRow[] = useMemo(() => {
+    if (!demo) {
+      // split: the bank credits the share at once, so «earning» and its «payout» are one event for the author
+      const real = (data ? historyRows(data.ledger) : [])
+        .filter((h) => !(split && h.key.endsWith("|AUTHOR_PAYOUT")))
+        .map((h) => {
+          if (!split || !h.key.endsWith("|AUTHOR_EARNING") || h.amountKop == null) return h;
+          // as it reaches the account: the share minus the bank's fee (the sale's card, else the Ukrainian rate)
+          const sale = sales.find((s) => s.purchaseId && h.key.startsWith(`payment:${s.purchaseId}|`));
+          return { ...h, label: "Надходження з продажу", amountKop: h.amountKop - authorBankFeeKop({ authorKop: h.amountKop, cardOrigin: sale?.cardOrigin }) };
+        });
+      // localhost only: with too few real operations, add examples to see the list, «Переглянути далі» and the calendar
+      if (!import.meta.env.DEV || real.length >= 5) return real;
+      const day = (n: number, h: number) => new Date(Date.now() - n * 864e5 - h * 36e5).toISOString();
+      const examples: HistoryRow[] = [
+        { key: "ex-1", date: day(1, 2), label: "Надходження з продажу", amountKop: 69090, note: "Приклад · Робота зі стресом" },
+        { key: "ex-2", date: day(3, 5), label: "Надходження з продажу", amountKop: 41454, note: "Приклад · Спокій у темпі життя" },
+        { key: "ex-3", date: day(6, 1), label: "Повернення покупцю", amountKop: -42000, note: "Приклад · Спокій у темпі життя" },
+        { key: "ex-4", date: day(9, 3), label: "Надходження з продажу", amountKop: 50320, note: "Приклад · Усвідомленість у житті" },
+        { key: "ex-5", date: day(14, 6), label: "Надходження з продажу", amountKop: 27636, note: "Приклад · Гайд «Тиша всередині»" },
+      ];
+      return [...real, ...examples].sort((x, y) => (x.date < y.date ? 1 : -1));
+    }
+    const out: HistoryRow[] = [];
+    sales.forEach((s) => {
+      out.push({ key: `${s.id}:in`, date: s.confirmedAt, label: "Надходження з продажу", amountKop: s.authorKop - authorBankFeeKop(s), note: s.title });
+      if (s.authorRefundedKop > 0) out.push({ key: `${s.id}:ref`, date: new Date(new Date(s.confirmedAt).getTime() + 3 * 864e5).toISOString(), label: "Повернення покупцю", amountKop: -s.authorRefundedKop, note: s.title });
+    });
+    return out.sort((a, b) => (a.date < b.date ? 1 : -1));
+  }, [demo, data, sales, split]);
+  const notes = demo ? [] : data?.notifications ?? [];
+  const hasHistory = histRows.length > 0 || notes.length > 0;
+
   // sales list
   const [filter, setFilter] = useState<SaleFilter>("all");
   const [shown, setShown] = useState(PAGE);
@@ -101,7 +169,7 @@ export default function AuthorFinance() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Фінанси</h1>
-          <p className="mt-1 text-[15px] text-black/55">Ваш дохід, продажі й умови співпраці.</p>
+          <p className="mt-1 text-[15px] text-black/55">Ваш дохід, продажі, повернення й документи.</p>
         </div>
         {terms?.mode === "test" && <span className="rounded-full bg-amber-50 px-3 py-1.5 text-[13px] font-semibold text-amber-800 ring-1 ring-amber-200">Тестовий режим: реальні гроші не рухаються</span>}
       </div>
@@ -110,256 +178,386 @@ export default function AuthorFinance() {
       {demo && <Notice tone="info">Демо-дані: так виглядатиме розділ, коли з’являться ваші перші продажі.</Notice>}
       {banner && <Notice tone={banner.tone}>{banner.text}</Notice>}
 
-      {/* BALANCE */}
-      <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-balance">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 id="fin-balance" className="text-[20px] font-bold text-[#12172b]">{split ? "Надходження" : "Баланс"}</h2>
-            <p className="mt-1 text-[14px] text-black/55">{split ? "Вашу частку банк зараховує на рахунок ФОП наступного робочого дня." : "Ваші кошти, які ще не виплачено."}</p>
-          </div>
-          {split ? (
-            <div className="text-right">
-              <div className="text-[34px] font-bold leading-none text-[#12172b] sm:text-[40px]">{uahFromKop(totals.monthKop)}</div>
-              <div className="mt-1 text-[12px] text-black/50">цього місяця</div>
-            </div>
-          ) : (
-            <div className={`text-[34px] font-bold leading-none sm:text-[40px] ${balanceKop < 0 ? "text-rose-600" : "text-[#12172b]"}`}>{balanceKop < 0 ? "−" : ""}{uahFromKop(Math.abs(balanceKop))}</div>
-          )}
-        </div>
-        {split ? (
-          <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-3">
-            <Mini label="Остання оплата" value={lastSale ? uahFromKop(netAuthorKop(lastSale)) : "—"} hint={lastSale ? `${fmtShort(lastSale.confirmedAt)} · ${lastSale.title}` : undefined} />
-            <Mini label="Продажів цього місяця" value={String(monthCount)} hint={monthCount ? `${monthRef} за вашим посиланням` : undefined} />
-            <Mini label="Повернено покупцям" value={uahFromKop(monthRefundKop)} hint="ваша частка, цього місяця" />
-          </div>
-        ) : (
-        <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-          <Mini label="Доступно" value={uahFromKop(bal.available)} />
-          <Mini label="Очікує підтвердження" value={uahFromKop(bal.pending)} hint={!demo && data?.nextReleaseAt ? `з ${fmtShort(data.nextReleaseAt)}` : terms ? `${terms.holdDays} днів після покупки` : undefined} />
-          <Mini label="Резерв на повернення" value={uahFromKop(bal.reserved)} />
-          <Mini label="Мінус після повернень" value={bal.debt ? `−${uahFromKop(bal.debt)}` : uahFromKop(0)} danger={bal.debt > 0} hint={bal.debt ? "покривається наступними надходженнями" : undefined} />
-        </div>
-        )}
-        <div className="mt-4 rounded-2xl bg-[#f6f4ff] p-4 text-[13px] leading-relaxed text-[#2d2a5c]">
-          <div className="flex items-center gap-2 font-semibold"><Icon name="refresh" size={15} /> Повернення коштів покупцю банк списує з вашого рахунку ФОП</div>
-          <p className="mt-1.5 text-black/60">
-            Наприклад, програма за 1000 ₴: вам {exampleAuthor} ₴, Sensoria {1000 - exampleAuthor} ₴, і з кожної частки банк утримує свою комісію. Якщо покупець повертає кошти, банк повертає {exampleAuthor} ₴ з вашого рахунку, а {1000 - exampleAuthor} ₴ — з рахунку Sensoria. Комісія банку при поверненні не повертається. Залишайте на рахунку суму, достатню для можливих повернень протягом 14 днів: якщо коштів не вистачить, банк не проведе повернення.
-          </p>
-        </div>
-      </section>
-
-      {/* HOW A PAYMENT IS SPLIT */}
-      <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-split">
-        <h2 id="fin-split" className="text-[20px] font-bold text-[#12172b]">Як ділиться оплата</h2>
-        <p className="mt-1 text-[14px] text-black/55">Ваша частка залежить від того, звідки прийшов покупець.</p>
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <SplitTile icon="compass" title="Покупець прийшов через Sensoria" text="З каталогу, пошуку, рекомендацій платформи." you={catalogPct} />
-          <SplitTile icon="heart" title="Покупець прийшов за вашим посиланням" text="Перейшов за вашим особистим посиланням (діє 30 днів)." you={referralPct} accent />
-        </div>
-        {link && (
-          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-[#f6f4ff] p-3 sm:p-4">
-            <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-semibold text-[#2d2a5c]">Ваше посилання</div>
-              <div className="mt-0.5 truncate text-[13px] text-[#4d5278]" title={link}>{link}</div>
-            </div>
-            <button type="button" onClick={() => void copyLink()} className="inline-flex min-h-[42px] items-center gap-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[14px] font-semibold text-white transition hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] focus-visible:ring-offset-2">
-              <Icon name={copied ? "check" : "clip"} size={16} /> {copied ? "Скопійовано" : "Копіювати"}
-            </button>
-            <p className="w-full text-[12px] leading-snug text-black/55">Діліться ним у соцмережах, розсилках і на консультаціях: з кожної покупки за ним ви отримуєте {referralPct}% замість {catalogPct}%.</p>
-          </div>
-        )}
-      </section>
-
-      {/* TOTALS */}
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <Stat icon="card" label="Зароблено за весь час" value={uahFromKop(totals.allTimeKop)} hint="Ваша частка, без повернень" />
-        {split ? <Stat icon="chart" label="Середня покупка" value={uahFromKop(avgKop)} hint="Ціна, без повернень" /> : <Stat icon="chart" label="Цього місяця" value={uahFromKop(totals.monthKop)} />}
-        <Stat icon="graduation" label="Продажів" value={String(totals.salesCount)} hint={totals.salesCount ? `${totals.referralCount} за вашим посиланням` : undefined} />
-        <Stat icon="refresh" label="Повернень" value={String(totals.refundsCount)} hint="Покупці можуть повернути кошти протягом 14 днів" />
+      {/* SECTIONS: one topic per tab, so each answer has one place */}
+      <div role="tablist" aria-label="Розділи фінансів" className="-mx-1 -my-1 flex gap-2 overflow-x-auto px-1 py-1.5">
+        {TABS.filter((t) => t.key !== "history" || hasHistory).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.key}
+            onClick={() => setTab(t.key)}
+            className={`inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-2xl px-4 text-[14px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${tab === t.key ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35" : "bg-white text-[#1d2240] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}
+          >
+            <Icon name={t.icon} size={16} /> {t.label}
+          </button>
+        ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        {/* INCOME BY MONTH */}
-        <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-months">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id="fin-months" className="text-[20px] font-bold text-[#12172b]">Дохід за 6 місяців</h2>
-            <div className="flex gap-4 text-[12px] text-black/60">
-              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#7c5cf0]" /> Через Sensoria</span>
-              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#22a35a]" /> За вашим посиланням</span>
-            </div>
+      {tab === "overview" && (
+        <>
+          {/* TOTALS */}
+          <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+            <Stat icon="card" label="Зароблено за весь час" value={uahFromKop(totals.allTimeKop)} hint="Ваша частка, без повернень" />
+            <Stat icon="chart" label="Середня покупка" value={uahFromKop(avgKop)} hint="Ціна для покупця" />
+            <Stat icon="graduation" label="Продажів" value={String(totals.salesCount)} hint={totals.salesCount ? `${totals.referralCount} за вашим посиланням` : undefined} />
+            <Stat icon="refresh" label="Повернень" value={String(totals.refundsCount)} hint="Протягом 14 днів після оплати" />
           </div>
-          <div className="mt-5 flex h-[200px] items-end gap-3 sm:gap-5" role="img" aria-label={months.map((m) => `${m.label}: ${uahFromKop(m.catalogKop + m.referralKop)}`).join(", ")}>
-            {months.map((m) => {
-              const total = m.catalogKop + m.referralKop;
-              return (
-                <div key={m.key} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
-                  <span className="text-[11px] font-semibold text-[#2d2a5c]">{total ? uahFromKop(total).replace(/\s?₴/, "") : ""}</span>
-                  <div className="flex w-full max-w-[56px] flex-col justify-end overflow-hidden rounded-xl bg-[#f3f1fd]" style={{ height: `${Math.max(4, (total / maxMonth) * 150)}px` }}>
-                    <div className="bg-[#22a35a]" style={{ height: `${total ? (m.referralKop / total) * 100 : 0}%` }} />
-                    <div className="bg-gradient-to-b from-[#8a6cf3] to-[#6d4cf6]" style={{ height: `${total ? (m.catalogKop / total) * 100 : 0}%` }} />
-                  </div>
-                  <span className="text-[12px] text-black/55">{m.label}</span>
+
+
+          {/* INCOME THIS MONTH */}
+          <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-income">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h2 id="fin-income" className="text-[20px] font-bold text-[#12172b]">Надходження</h2>
+                <p className="mt-1 text-[14px] text-black/55">monobank зараховує вашу частку на рахунок наступного дня. Sensoria ваші гроші не тримає.</p>
+              </div>
+              <div className="text-right">
+                <div className="text-[34px] font-bold leading-none text-[#12172b] sm:text-[40px]">{uahFromKop(monthToAccountKop)}</div>
+                <div className="mt-1 text-[12px] text-black/50">на ваш рахунок цього місяця</div>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+              <Mini label="Ваша частка" value={uahFromKop(monthShareKop)} hint={`${monthCount} ${monthCount === 1 ? "продаж" : monthCount > 1 && monthCount < 5 ? "продажі" : "продажів"}, ${monthRef} за посиланням`} />
+              <Mini label="Комісія банку" value={monthFeeKop ? `−${uahFromKop(monthFeeKop)}` : uahFromKop(0)} hint="1,3 % або 2 % з вашої частки" />
+              <Mini label="Повернено покупцям" value={monthRefundKop ? `−${uahFromKop(monthRefundKop)}` : uahFromKop(0)} hint="ваша частка" />
+              <Mini label="Надійде завтра" value={uahFromKop(comingKop)} hint="оплати за останню добу" />
+            </div>
+            {lastSale && (
+              <p className="mt-3 text-[13px] text-black/55">
+                Остання оплата: <span className="font-semibold text-[#12172b]">{lastSale.title}</span> · {fmtShort(lastSale.confirmedAt)} · +{uahFromKop(toAccountKop(lastSale))}
+              </p>
+            )}
+            <p className="mt-3 rounded-2xl bg-[#f6f4ff] px-4 py-3 text-[12px] leading-relaxed text-black/55">
+              Суми на рахунок і комісія банку тут — оцінка за тарифом. Точні суми дивіться у виписці вашого рахунку в monobank.
+            </p>
+          </section>
+
+          {/* REFERRAL LINK */}
+          {link && (
+            <section aria-labelledby="fin-link" className={`${card} p-5 sm:p-6`}>
+              <div className="flex flex-wrap items-center gap-4">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700"><Icon name="heart" size={20} /></span>
+                <div className="min-w-0 flex-1">
+                  <h2 id="fin-link" className="text-[18px] font-bold text-[#12172b]">Ваше посилання: {referralPct}% замість {catalogPct}%</h2>
+                  <p className="text-[13px] text-black/55">Покупець, що прийшов за ним, закріплюється за вами на 30 днів.</p>
                 </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* BY MATERIAL */}
-        <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-materials">
-          <h2 id="fin-materials" className="text-[20px] font-bold text-[#12172b]">За матеріалами</h2>
-          {materials.length === 0 ? (
-            <p className="mt-3 text-[14px] text-black/55">Тут з’явиться, які матеріали приносять найбільше.</p>
-          ) : (
-            <ul className="mt-4 flex flex-col gap-3">
-              {materials.map((m) => (
-                <li key={m.title} className="rounded-2xl bg-[#faf9ff] p-3.5 ring-1 ring-[#efeafd]">
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="line-clamp-2 text-[14px] font-semibold text-[#12172b]">{m.title}</span>
-                    <span className="shrink-0 text-[14px] font-bold text-[#12172b]">{uahFromKop(m.authorKop)}</span>
-                  </div>
-                  <div className="mt-1 text-[12px] text-black/55">
-                    {m.sales} {m.sales === 1 ? "продаж" : m.sales < 5 && m.sales > 1 ? "продажі" : "продажів"}
-                    {m.sales > 0 && ` · ${Math.round(m.referralShare * 100)}% за вашим посиланням`}
-                  </div>
-                </li>
-              ))}
-            </ul>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl bg-[#faf9ff] p-2 ring-1 ring-[#efeafd]">
+                <div className="min-w-0 flex-1 truncate px-2 text-[14px] text-[#4d5278]" title={link}>{link}</div>
+                <button type="button" onClick={() => void copyLink()} className="inline-flex min-h-[42px] shrink-0 items-center gap-2 rounded-xl bg-white px-4 text-[14px] font-semibold text-[#4338ca] ring-1 ring-[#e3def9] transition hover:ring-[#c9bff7] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0]">
+                  <Icon name={copied ? "check" : "clip"} size={16} /> {copied ? "Скопійовано" : "Копіювати"}
+                </button>
+              </div>
+            </section>
           )}
-        </section>
-      </div>
 
-      {/* SALES */}
-      <section className={card} aria-labelledby="fin-sales">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 sm:px-6 sm:pt-6">
-          <h2 id="fin-sales" className="text-[20px] font-bold text-[#12172b]">Продажі</h2>
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Які продажі показати">
-            {([["all", "Усі"], ["catalog", "Через Sensoria"], ["referral", "За посиланням"], ["refunds", "Повернення"]] as [SaleFilter, string][]).map(([k, l]) => (
-              <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)} className={`min-h-[40px] rounded-2xl px-3.5 text-[13px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${filter === k ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35" : "bg-white text-[#1d2240] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}>
-                {l}
-              </button>
-            ))}
+          <MonoConnectCard />
+        </>
+      )}
+
+      {tab === "sales" && (
+        <>
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+            {/* INCOME BY MONTH */}
+            <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-months">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 id="fin-months" className="text-[20px] font-bold text-[#12172b]">Дохід за 6 місяців</h2>
+                <div className="flex gap-4 text-[12px] text-black/60">
+                  <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#7c5cf0]" /> Через Sensoria</span>
+                  <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#22a35a]" /> За вашим посиланням</span>
+                </div>
+              </div>
+              <div className="mt-5 flex h-[200px] items-end gap-3 sm:gap-5" role="img" aria-label={months.map((m) => `${m.label}: ${uahFromKop(m.catalogKop + m.referralKop)}`).join(", ")}>
+                {months.map((m) => {
+                  const total = m.catalogKop + m.referralKop;
+                  return (
+                    <div key={m.key} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
+                      <span className="text-[11px] font-semibold text-[#2d2a5c]">{total ? uahFromKop(total).replace(/\s?₴/, "") : ""}</span>
+                      <div className="flex w-full max-w-[56px] flex-col justify-end overflow-hidden rounded-xl bg-[#f3f1fd]" style={{ height: `${Math.max(4, (total / maxMonth) * 150)}px` }}>
+                        <div className="bg-[#22a35a]" style={{ height: `${total ? (m.referralKop / total) * 100 : 0}%` }} />
+                        <div className="bg-gradient-to-b from-[#8a6cf3] to-[#6d4cf6]" style={{ height: `${total ? (m.catalogKop / total) * 100 : 0}%` }} />
+                      </div>
+                      <span className="text-[12px] text-black/55">{m.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* BY MATERIAL */}
+            <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-materials">
+              <h2 id="fin-materials" className="text-[20px] font-bold text-[#12172b]">За матеріалами</h2>
+              {materials.length === 0 ? (
+                <p className="mt-3 text-[14px] text-black/55">Тут з’явиться, які матеріали приносять найбільше.</p>
+              ) : (
+                <ul className="mt-4 flex flex-col gap-3">
+                  {materials.map((m) => (
+                    <li key={m.title} className="rounded-2xl bg-[#faf9ff] p-3.5 ring-1 ring-[#efeafd]">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="line-clamp-2 text-[14px] font-semibold text-[#12172b]">{m.title}</span>
+                        <span className="shrink-0 text-[14px] font-bold text-[#12172b]">{uahFromKop(m.authorKop)}</span>
+                      </div>
+                      <div className="mt-1 text-[12px] text-black/55">
+                        {m.sales} {m.sales === 1 ? "продаж" : m.sales < 5 && m.sales > 1 ? "продажі" : "продажів"}
+                        {m.sales > 0 && ` · ${Math.round(m.referralShare * 100)}% за вашим посиланням`}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           </div>
-        </div>
-        {!ready ? (
-          <div className="px-6 py-8"><span className="block h-4 w-1/3 animate-pulse rounded bg-[#e7e3fb]" /></div>
-        ) : filteredSales.length === 0 ? (
-          <p className="px-6 py-10 text-center text-[14px] text-black/55">{sales.length === 0 ? "Продажів поки немає. Поділіться своїм посиланням, щоб отримати перших покупців." : "Таких продажів немає."}</p>
-        ) : (
-          <ul className="mt-3">
-            {filteredSales.slice(0, shown).map((s) => {
-              const refunded = isFullyRefunded(s);
-              const status = refunded
-                ? "Повернено покупцю"
-                : s.refundedKop > 0
-                  ? `Частково повернено (${uahFromKop(s.refundedKop)})`
-                  : s.pendingKop > 0
-                    ? `Підтвердження до ${fmtShort(s.holdUntil)}`
-                    : "Зараховано";
-              return (
-                <li key={s.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-black/5 px-5 py-3.5 sm:px-6">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[15px] font-semibold text-[#12172b]">{s.title}</div>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-black/55">
-                      <span>{fmtShort(s.confirmedAt)}</span>
-                      <span className={`rounded-full px-2 py-0.5 font-semibold ${s.source === "referral" ? "bg-emerald-50 text-emerald-700" : "bg-[#f1eeff] text-[#5b4bd0]"}`}>{s.source === "referral" ? `Ваше посилання · ${(10000 - s.commissionBps) / 100}%` : `Через Sensoria · ${(10000 - s.commissionBps) / 100}%`}</span>
-                      <span>ціна {uahFromKop(s.priceKop)}</span>
-                      <span className={refunded ? "text-rose-600" : s.pendingKop > 0 ? "text-amber-700" : ""}>· {status}</span>
+
+          {/* SALES */}
+          <section className={card} aria-labelledby="fin-sales">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 sm:px-6 sm:pt-6">
+              <h2 id="fin-sales" className="text-[20px] font-bold text-[#12172b]">Продажі</h2>
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Які продажі показати">
+                {([["all", "Усі"], ["catalog", "Через Sensoria"], ["referral", "За посиланням"], ["refunds", "Повернення"]] as [SaleFilter, string][]).map(([k, l]) => (
+                  <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)} className={`min-h-[40px] rounded-2xl px-3.5 text-[13px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${filter === k ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35" : "bg-white text-[#1d2240] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {!ready ? (
+              <div className="px-6 py-8"><span className="block h-4 w-1/3 animate-pulse rounded bg-[#e7e3fb]" /></div>
+            ) : filteredSales.length === 0 ? (
+              <p className="px-6 py-10 text-center text-[14px] text-black/55">{sales.length === 0 ? "Продажів поки немає. Поділіться своїм посиланням, щоб отримати перших покупців." : "Таких продажів немає."}</p>
+            ) : (
+              <ul className="mt-3">
+                {filteredSales.slice(0, shown).map((s) => {
+                  const refunded = isFullyRefunded(s);
+                  const recent = new Date(s.confirmedAt).getTime() > dayAgo;
+                  const status = refunded
+                    ? "Повернено покупцю"
+                    : s.refundedKop > 0
+                      ? `Частково повернено (${uahFromKop(s.refundedKop)})`
+                      : recent
+                        ? "Надійде наступного дня"
+                        : "Зараховано на рахунок";
+                  const fee = authorBankFeeKop(s);
+                  return (
+                    <li key={s.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-black/5 px-5 py-3.5 sm:px-6">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[15px] font-semibold text-[#12172b]">{s.title}</div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-black/55">
+                          <span>{fmtShort(s.confirmedAt)}</span>
+                          <span className={`rounded-full px-2 py-0.5 font-semibold ${s.source === "referral" ? "bg-emerald-50 text-emerald-700" : "bg-[#f1eeff] text-[#5b4bd0]"}`}>{s.source === "referral" ? `Ваше посилання · ${(10000 - s.commissionBps) / 100}%` : `Через Sensoria · ${(10000 - s.commissionBps) / 100}%`}</span>
+                          <span>ціна {uahFromKop(s.priceKop)}</span>
+                          {s.cardOrigin && <span>· {s.cardOrigin === "foreign" ? "іноземна картка" : "українська картка"}</span>}
+                          <span className={refunded ? "text-rose-600" : recent ? "text-amber-700" : ""}>· {status}</span>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className={`text-[16px] font-bold ${refunded ? "text-black/35 line-through" : "text-[#1d7a45]"}`}>+{uahFromKop(refunded ? s.authorKop - fee : toAccountKop(s))}</div>
+                        <div className="text-[11px] text-black/45">частка {uahFromKop(s.authorKop)} · банк −{uahFromKop(fee)}</div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {filteredSales.length > shown && (
+              <div className="border-t border-[#eceef7] px-5 py-3 sm:px-6">
+                <button type="button" onClick={() => setShown((n) => n + PAGE)} className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#f1eeff] px-5 text-[14px] font-semibold text-[#5b4bd0] transition hover:bg-[#e7e1ff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0]">
+                  Показати ще ({Math.min(PAGE, filteredSales.length - shown)}) <span aria-hidden="true">↓</span>
+                </button>
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {tab === "calc" && (
+        <>
+          {/* HOW A PAYMENT IS SPLIT: the author tries their own price */}
+          <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-split">
+            <h2 id="fin-split" className="text-[20px] font-bold text-[#12172b]">Як ділиться оплата</h2>
+            <p className="mt-1 text-[14px] text-black/55">Вкажіть ціну свого матеріалу: побачите, скільки дійде на ваш рахунок. Покупець платить лише ціну.</p>
+
+            <div className="mt-4 flex flex-wrap items-end gap-4">
+              <label className="text-[13px] font-semibold text-[#2d2a5c]">
+                Ціна матеріалу
+                <span className="mt-1 flex min-h-[48px] items-center rounded-xl bg-[#faf9ff] px-4 ring-1 ring-[#e3def9] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#7c5cf0]">
+                  <input value={calcPrice} onChange={(e) => setCalcPrice(e.target.value.replace(/[^\d]/g, "").slice(0, 6))} inputMode="numeric" aria-label="Ціна матеріалу в гривнях" className="w-[120px] bg-transparent text-[18px] font-bold text-[#12172b] focus:outline-none" />
+                  <span className="text-[16px] font-semibold text-black/45">₴</span>
+                </span>
+              </label>
+              <div role="group" aria-label="Картка покупця" className="flex gap-2">
+                {([["ua", "Українська картка · 1,3 %"], ["foreign", "Іноземна · 2 %"]] as ["ua" | "foreign", string][]).map(([k, l]) => (
+                  <button key={k} type="button" aria-pressed={calcCard === k} onClick={() => setCalcCard(k)} className={`min-h-[48px] rounded-xl px-4 text-[13px] font-semibold transition ${calcCard === k ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35" : "bg-white text-[#1d2240] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}>{l}</button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {([
+                ["compass", "Через Sensoria", "Каталог, пошук, рекомендації.", calcCatalog, catalogPct, false],
+                ["heart", "За вашим посиланням", "Особисте посилання, діє 30 днів.", calcReferral, referralPct, true],
+              ] as [IconName, string, string, ReturnType<typeof priceBreakdown>, number, boolean][]).map(([icon, title, text, b, pct, accent]) => (
+                <div key={title} className={`rounded-2xl p-4 ring-1 sm:p-5 ${accent ? "bg-emerald-50/60 ring-emerald-100" : "bg-[#faf9ff] ring-[#efeafd]"}`}>
+                  <div className="flex items-start gap-3">
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${accent ? "bg-emerald-100 text-emerald-700" : "bg-[#ece9fe] text-[#6d5bd0]"}`}><Icon name={icon} size={19} /></span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[15px] font-semibold text-[#12172b]">{title}</div>
+                      <div className="mt-0.5 text-[13px] text-black/55">{text}</div>
                     </div>
                   </div>
-                  <div className={`shrink-0 text-[16px] font-bold ${refunded ? "text-black/35 line-through" : "text-[#1d7a45]"}`}>+{uahFromKop(refunded ? s.authorKop : netAuthorKop(s))}</div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {filteredSales.length > shown && (
-          <div className="border-t border-[#eceef7] px-5 py-3 sm:px-6">
-            <button type="button" onClick={() => setShown((n) => n + PAGE)} className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#f1eeff] px-5 text-[14px] font-semibold text-[#5b4bd0] transition hover:bg-[#e7e1ff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0]">
-              Показати ще ({Math.min(PAGE, filteredSales.length - shown)}) <span aria-hidden="true">↓</span>
-            </button>
-          </div>
-        )}
-      </section>
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        {/* PAYOUTS: rules to be filled in after monobank */}
-        <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-payouts">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#7a68e0]"><Icon name="card" size={20} /></span>
-            <div>
-              <h2 id="fin-payouts" className="text-[20px] font-bold text-[#12172b]">Виплати</h2>
-              <p className="text-[13px] text-black/55">Банк ділить кожну оплату одразу: ваша частка йде на ваш рахунок ФОП.</p>
+                  <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-white ring-1 ring-black/5" aria-hidden="true">
+                    <div className={accent ? "bg-[#22a35a]" : "bg-[#7c5cf0]"} style={{ width: `${pct}%` }} />
+                    <div className="flex-1 bg-[#d9d4f5]" />
+                  </div>
+                  <dl className="mt-3 flex flex-col gap-1.5 text-[14px]">
+                    <div className="flex justify-between"><dt className="text-black/60">Ціна</dt><dd>{uahFromKop(calcKop)}</dd></div>
+                    <div className="flex justify-between"><dt className="text-black/60">Комісія Sensoria, {Math.round((100 - pct) * 100) / 100} %</dt><dd>−{uahFromKop(b.sensoriaKop)}</dd></div>
+                    <div className="flex justify-between font-semibold"><dt>Ваша частка, {pct} %</dt><dd>{uahFromKop(b.authorKop)}</dd></div>
+                    <div className="flex justify-between"><dt className="text-black/60">Комісія банку, {calcCard === "foreign" ? "2" : "1,3"} %</dt><dd>−{uahFromKop(b.feeKop)}</dd></div>
+                    <div className={`mt-1 flex items-baseline justify-between border-t pt-2 ${accent ? "border-emerald-100" : "border-[#ebe8ff]"}`}><dt className="font-semibold text-[#12172b]">На ваш рахунок</dt><dd className="text-[22px] font-bold text-[#1d7a45]">{uahFromKop(b.toAccountKop)}</dd></div>
+                  </dl>
+                </div>
+              ))}
             </div>
-          </div>
-          <dl className="mt-4 flex flex-col divide-y divide-black/5 text-[14px]">
-            <Row label="Як надходять кошти" value="Напряму від банку" note={`monobank розщеплює оплату: ${catalogPct} % (або ${referralPct} % за вашим посиланням) на ваш рахунок ФОП, комісія Sensoria — на рахунок Sensoria.`} />
-            <Row label="Коли надходять" value="Наступного дня" note="Банк зараховує кошти наступного робочого дня після оплати." />
-            <Row label="Мінімальна сума" value="Немає" note="Запитувати виплату не потрібно." />
-            <Row label="Комісія банку" value="1,3 % або 2 %" note="Банк утримує свою комісію з кожної частки окремо: з вашої — з вашої, з частки Sensoria — з її. 1,3 % для українських карток, 2 % для іноземних." />
-            <Row label="Повернення коштів" value="14 днів" note="Покупець може повернути кошти протягом 14 днів. Банк повертає вашу частку з вашого рахунку ФОП, частку Sensoria — з рахунку Sensoria. Комісія банку не повертається. Якщо покупець оскаржить оплату у своєму банку, monobank звернеться до вас напряму: за свою частку відповідає отримувач коштів." />
-          </dl>
-        </section>
+            <p className="mt-3 text-[12px] leading-relaxed text-black/50">Комісію банк утримує з кожної частки окремо, ще до зарахування: з вашої — з вашої, з частки Sensoria — з її. Знижка банку «0 % на 30 днів» на цю схему не поширюється.</p>
+          </section>
 
-        <MonoConnectCard />
-      </div>
-
-      {/* DEBTS (only when there are any) */}
-      {(data?.debts.length ?? 0) > 0 && (
-        <section className={`${card} p-5 sm:p-6`}>
-          <h2 className="text-[20px] font-bold text-[#12172b]">Заборгованість</h2>
-          <p className="mt-1 text-[13px] leading-relaxed text-black/55">Борг виникає, коли покупцеві повертають гроші, а ваша частка вже надійшла. Нові продажі автоматично його погашають.</p>
-          <ul className="mt-3 flex flex-col gap-2">
-            {data!.debts.map((d) => (
-              <li key={d.id} className="rounded-2xl bg-[#faf9ff] px-4 py-3 text-[13px] ring-1 ring-[#efeafd]">
-                <div className="flex justify-between gap-3 font-semibold text-[#12172b]"><span>{d.status === "open" ? "Залишок" : "Погашено"}: {uahFromKop(d.outstandingKop)} з {uahFromKop(d.originalKop)}</span><span className="font-normal text-black/50">{fmtDate(d.createdAt)}</span></div>
-                <div className="mt-1 text-black/55">{d.reason}</div>
-              </li>
-            ))}
-          </ul>
-        </section>
+          {/* HOW THE MONEY ARRIVES */}
+          <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-payouts">
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#7a68e0]"><Icon name="card" size={20} /></span>
+              <div>
+                <h2 id="fin-payouts" className="text-[20px] font-bold text-[#12172b]">Як надходять кошти</h2>
+                <p className="text-[13px] text-black/55">Розподіл робить банк у момент оплати.</p>
+              </div>
+            </div>
+            <dl className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <Row label="Хто переказує" value="monobank, напряму" note={`Банк ділить кожну оплату: ${catalogPct} % (або ${referralPct} % за вашим посиланням) — на ваш рахунок, комісія Sensoria — на рахунок Sensoria.`} />
+              <Row label="Куди" value="Основний гривневий рахунок" note="Рахунок вашого ФОП або ТОВ у monobank. Інший рахунок указати не можна." />
+              <Row label="Коли" value="Наступного дня" note="І вам, і Sensoria банк зараховує кошти наступного дня після оплати." />
+              <Row label="Мінімальна сума" value="Немає" note="Запитувати виплату не потрібно: кожна оплата надходить окремо." />
+              <Row label="Комісія банку" value="1,3 % або 2 %" note="Утримується з вашої частки до зарахування: 1,3 % — українські картки, 2 % — іноземні." />
+              <Row label="Що бачить покупець" value="Сторінка monobank" note="Оплата карткою, Apple Pay або Google Pay. У виписці покупця — назва платформи." />
+            </dl>
+          </section>
+        </>
       )}
 
-      {/* TAXES & DOCUMENTS */}
-      <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-tax">
-        <h2 id="fin-tax" className="text-[20px] font-bold text-[#12172b]">Податки й документи</h2>
-        <ul className="mt-3 grid gap-3 md:grid-cols-3">
-          <InfoTile icon="idcard" title="Ви працюєте як ФОП" text="Податки зі своєї частки ви сплачуєте самостійно. Sensoria сплачує податки лише зі своєї комісії." />
-          <InfoTile icon="note" title="Акти й звіти" text="Щомісячний звіт про продажі та акт про комісію Sensoria з’являться тут після підключення оплати." />
-          <InfoTile icon="shield" title="Реквізити захищені" text="Код ФОП або ТОВ видно лише вам і команді Sensoria. Номер картки покупця ми не бачимо й не зберігаємо: оплату приймає банк." />
-        </ul>
-      </section>
-
-      {/* HISTORY & NOTIFICATIONS (rarely needed: folded) */}
-      {data && (data.ledger.length > 0 || data.notifications.length > 0) && (
-        <details className={`${card} group p-5 sm:p-6`}>
-          <summary className="flex cursor-pointer list-none items-center justify-between text-[17px] font-bold text-[#12172b]">
-            Історія операцій і сповіщення {data.notifications.some((n) => !n.readAt) && <span className="ml-2 rounded-full bg-[#7c5cf0] px-2 py-0.5 text-[11px] text-white">нові</span>}
-            <span className="transition-transform group-open:rotate-180"><Icon name="chevron" size={18} /></span>
-          </summary>
-          <div className="mt-4 grid gap-6 lg:grid-cols-2">
-            <ul className="flex flex-col">
-              {historyRows(data.ledger).slice(0, 40).map((h) => (
-                <li key={h.key} className="flex justify-between gap-3 border-b border-black/5 py-2.5 text-[13px] last:border-0">
-                  <span><span className="font-medium text-[#12172b]">{h.label}</span><span className="block text-black/50">{fmtShort(h.date)}{h.note ? ` · ${h.note}` : ""}</span></span>
-                  {h.amountKop != null && <span className={`font-semibold ${h.amountKop < 0 ? "text-rose-600" : "text-[#1d7a45]"}`}>{h.amountKop > 0 ? "+" : "−"}{uahFromKop(Math.abs(h.amountKop))}</span>}
-                </li>
-              ))}
-            </ul>
-            <div>
-              {data.notifications.some((n) => !n.readAt) && (
-                <button type="button" onClick={() => void markFinanceNotificationsRead().then(reload).catch(() => {})} className="mb-2 text-[13px] font-semibold text-[#5b4bd0] hover:underline">Позначити прочитаними</button>
-              )}
-              <ul className="flex flex-col">
-                {data.notifications.slice(0, 12).map((n) => (
-                  <li key={n.id} className={`whitespace-pre-line border-b border-black/5 py-2.5 text-[13px] leading-relaxed last:border-0 ${n.readAt ? "text-black/50" : "text-[#12172b]"}`}>{n.message}</li>
+      {tab === "refunds" && (
+        <>
+          {/* REFUNDS & DISPUTES */}
+          <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-refunds">
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#7a68e0]"><Icon name="refresh" size={20} /></span>
+              <div>
+                <h2 id="fin-refunds" className="text-[20px] font-bold text-[#12172b]">Повернення й спірні оплати</h2>
+                <p className="text-[13px] text-black/55">Що відбувається, коли покупець повертає кошти.</p>
+              </div>
+            </div>
+            <dl className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <Row label="Строк для покупця" value="14 днів" note="За правилами Sensoria покупець може повернути кошти протягом 14 днів після оплати." />
+              <Row label="Звідки списується" value="З вашого рахунку" note={`Банк повертає пропорційно: вашу частку — з вашого рахунку, частку Sensoria — з її. Наприклад, за матеріал за 1000 ₴ — ${uahFromKop(catalogEx.authorKop)} з вашого рахунку.`} />
+              <Row label="Комісія банку" value="Не повертається" note="Утримана при оплаті комісія залишається в банку." />
+              <Row label="Якщо на рахунку бракує коштів" value="Повернення не пройде" note="Банк відхилить операцію, і ми зв’яжемося з вами. Тримайте на рахунку суму можливих повернень за останні 14 днів." />
+              <Row label="Коли покупець отримає гроші" value="До 3 робочих днів" />
+              <Row label="Спірна оплата (чарджбек)" value="Відповідає отримувач" note="Якщо покупець оскаржить оплату у своєму банку, monobank звернеться до вас напряму щодо вашої частки." />
+            </dl>
+          </section>
+          {/* DEBTS (only when there are any) */}
+          {(data?.debts.length ?? 0) > 0 && (
+            <section className={`${card} p-5 sm:p-6`}>
+              <h2 className="text-[20px] font-bold text-[#12172b]">Заборгованість</h2>
+              <p className="mt-1 text-[13px] leading-relaxed text-black/55">Борг виникає, коли покупцеві повертають гроші, а ваша частка вже надійшла. Нові продажі автоматично його погашають.</p>
+              <ul className="mt-3 flex flex-col gap-2">
+                {data!.debts.map((d) => (
+                  <li key={d.id} className="rounded-2xl bg-[#faf9ff] px-4 py-3 text-[13px] ring-1 ring-[#efeafd]">
+                    <div className="flex justify-between gap-3 font-semibold text-[#12172b]"><span>{d.status === "open" ? "Залишок" : "Погашено"}: {uahFromKop(d.outstandingKop)} з {uahFromKop(d.originalKop)}</span><span className="font-normal text-black/50">{fmtDate(d.createdAt)}</span></div>
+                    <div className="mt-1 text-black/55">{d.reason}</div>
+                  </li>
                 ))}
               </ul>
-            </div>
-          </div>
-          {acc && <p className="mt-4 text-[12px] text-black/50">Статус фінансового акаунта: {STATUS_LABEL[acc.status] ?? acc.status}{acc.salesSuspended ? " · нові продажі призупинено" : ""}</p>}
-        </details>
+            </section>
+          )}
+        </>
       )}
+
+      {tab === "tax" && (
+        <>
+          {/* TAXES & DOCUMENTS */}
+          <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-tax">
+            <h2 id="fin-tax" className="text-[20px] font-bold text-[#12172b]">Податки й документи</h2>
+            <p className="mt-1 text-[14px] text-black/55">У вебі monobank по таких оплатах видно лише зарахування, тому звіт про продажі формуємо ми.</p>
+
+            <div className="mt-4 flex flex-wrap items-end gap-3 rounded-2xl bg-[#f6f4ff] p-4">
+              <div className="min-w-0 flex-1">
+                <div className="text-[15px] font-semibold text-[#12172b]">Звіт про продажі за місяць</div>
+                <p className="mt-0.5 text-[13px] text-black/55">Кожен продаж: ціна, ваша ставка, частка, картка, комісія банку, повернення й сума на рахунок. Файл CSV відкривається в Excel і Google Таблицях.</p>
+              </div>
+              {reportMonths.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <MonthPicker months={reportMonths} value={month} onChange={setReportMonth} label={monthName} />
+                  <button type="button" onClick={downloadReport} className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[14px] font-semibold text-white hover:opacity-95">
+                    <Icon name="note" size={16} /> Завантажити звіт
+                  </button>
+                </div>
+              ) : (
+                <span className="text-[13px] text-black/50">З’явиться після першого продажу.</span>
+              )}
+            </div>
+
+            <ul className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <InfoTile icon="idcard" title="Податки зі своєї частки" text="Ви працюєте як ФОП або ТОВ і сплачуєте податки зі своєї частки за своєю системою оподаткування. Sensoria сплачує податки лише зі своєї комісії." />
+              <InfoTile icon="note" title="Акт про комісію Sensoria" text="Щомісячний акт про надані послуги з’явиться тут після запуску оплат." />
+              <InfoTile icon="card" title="Чеки покупцям" text="Хто й як формує фіскальні чеки, визначимо до запуску оплат і повідомимо вас заздалегідь." />
+              <InfoTile icon="shield" title="Реквізити захищені" text="Код ФОП або ТОВ бачите лише ви й команда Sensoria. Дані картки покупця ми не бачимо й не зберігаємо: оплату приймає банк." />
+            </ul>
+          </section>
+        </>
+      )}
+
+      {tab === "history" && (
+        <>
+          {/* HISTORY & NOTIFICATIONS */}
+          {hasHistory && (
+            <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-history">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#7a68e0]"><Icon name="clock" size={20} /></span>
+                  <div>
+                    <h2 id="fin-history" className="text-[20px] font-bold text-[#12172b]">{notes.length > 0 ? "Історія операцій і сповіщення" : "Історія операцій"}</h2>
+                    {acc && <p className="text-[13px] text-black/55">Статус фінансового акаунта: {STATUS_LABEL[acc.status] ?? acc.status}{acc.salesSuspended ? " · нові продажі призупинено" : ""}</p>}
+                  </div>
+                </div>
+                {notes.some((n) => !n.readAt) && (
+                  <button type="button" onClick={() => void markFinanceNotificationsRead().then(reload).catch(() => {})} className="min-h-[40px] rounded-xl bg-[#f1eeff] px-4 text-[13px] font-semibold text-[#5b4bd0] hover:bg-[#e7e1ff]">Позначити прочитаними</button>
+                )}
+              </div>
+              {histRows.length > 0 && (
+                <div className="mt-5">
+                  <HistoryPanel rows={histRows} />
+                </div>
+              )}
+              {notes.length > 0 && (
+                <div className="mt-6 border-t border-[#f1eefb] pt-5">
+                  <div className="text-[13px] font-semibold uppercase tracking-wide text-[#6d5bd0]">Сповіщення</div>
+                  <ul className="mt-2 grid gap-2 lg:grid-cols-2">
+                    {notes.slice(0, 12).map((n) => (
+                      <li key={n.id} className={`flex gap-3 rounded-2xl px-4 py-3 ring-1 ${n.readAt ? "bg-white ring-[#f1eefb]" : "bg-[#f6f4ff] ring-[#e3def9]"}`}>
+                        <span aria-hidden="true" className={`mt-[7px] h-2 w-2 shrink-0 rounded-full ${n.readAt ? "bg-black/15" : "bg-[#7c5cf0]"}`} />
+                        <span className="min-w-0 flex-1">
+                          <span className={`block whitespace-pre-line text-[13px] leading-relaxed ${n.readAt ? "text-black/55" : "text-[#12172b]"}`}>{n.message}</span>
+                          <span className="mt-0.5 block text-[12px] text-black/40">{fmtShort(n.createdAt)}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </section>
+          )}
+        </>
+      )}
+
     </div>
   );
 }
@@ -448,28 +646,6 @@ function MonoConnectCard() {
   );
 }
 
-function SplitTile({ icon, title, text, you, accent }: { icon: IconName; title: string; text: string; you: number; accent?: boolean }) {
-  return (
-    <div className={`rounded-2xl p-4 ring-1 ${accent ? "bg-emerald-50/60 ring-emerald-100" : "bg-[#faf9ff] ring-[#efeafd]"}`}>
-      <div className="flex items-start gap-3">
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${accent ? "bg-emerald-100 text-emerald-700" : "bg-[#ece9fe] text-[#6d5bd0]"}`}><Icon name={icon} size={19} /></span>
-        <div className="min-w-0 flex-1">
-          <div className="text-[15px] font-semibold text-[#12172b]">{title}</div>
-          <div className="mt-0.5 text-[13px] text-black/55">{text}</div>
-        </div>
-      </div>
-      <div className="mt-3 flex h-3 overflow-hidden rounded-full bg-white ring-1 ring-black/5" aria-hidden="true">
-        <div className={accent ? "bg-[#22a35a]" : "bg-[#7c5cf0]"} style={{ width: `${you}%` }} />
-        <div className="flex-1 bg-[#d9d4f5]" />
-      </div>
-      <div className="mt-2 flex justify-between text-[13px]">
-        <span className="font-bold text-[#12172b]">Вам {you}%</span>
-        <span className="text-black/55">Sensoria {Math.round((100 - you) * 100) / 100}%</span>
-      </div>
-    </div>
-  );
-}
-
 function Stat({ icon, label, value, hint }: { icon: IconName; label: string; value: string; hint?: string }) {
   return (
     <div className={`${card} flex min-w-0 items-center gap-4 px-4 py-5 sm:px-5`}>
@@ -485,12 +661,10 @@ function Stat({ icon, label, value, hint }: { icon: IconName; label: string; val
 
 function Row({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="py-3">
-      <div className="flex items-center justify-between gap-3">
-        <dt className="text-[14px] text-black/60">{label}</dt>
-        <dd className={`rounded-full px-2.5 py-0.5 text-[13px] font-semibold ${value === "Уточнюється" ? "bg-amber-50 text-amber-800" : "bg-[#f1eeff] text-[#5b4bd0]"}`}>{value}</dd>
-      </div>
-      {note && <p className="mt-1 text-[12px] leading-snug text-black/50">{note}</p>}
+    <div className="rounded-2xl bg-[#faf9ff] p-4 ring-1 ring-[#f1eefb]">
+      <dt className="text-[13px] text-black/55">{label}</dt>
+      <dd className="mt-0.5 text-[16px] font-bold text-[#12172b]">{value}</dd>
+      {note && <p className="mt-1.5 text-[13px] leading-snug text-black/55">{note}</p>}
     </div>
   );
 }
@@ -517,4 +691,160 @@ function InfoTile({ icon, title, text }: { icon: IconName; title: string; text: 
 
 function Notice({ tone, children }: { tone: "info" | "warn" | "danger"; children: ReactNode }) {
   return <div className={`rounded-2xl px-5 py-3.5 text-[14px] leading-relaxed ring-1 ${TONE[tone]}`}>{children}</div>;
+}
+
+// Month choice for the report, in the site's own style (a native <select> opens the browser's grey list).
+function MonthPicker({ months, value, onChange, label }: { months: string[]; value: string; onChange: (m: string) => void; label: (m: string) => string }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+  return (
+    <div ref={root} className="relative">
+      <button type="button" aria-haspopup="listbox" aria-expanded={open} aria-label={`Місяць звіту: ${label(value)}`} onClick={() => setOpen((v) => !v)} className="inline-flex min-h-[44px] items-center gap-3 rounded-xl bg-white pl-4 pr-3 text-[14px] font-semibold text-[#12172b] ring-1 ring-[#e3def9] transition hover:ring-[#c9bff7] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0]">
+        <span className="first-letter:uppercase">{label(value)}</span>
+        <span className={`text-[#6d5bd0] transition-transform ${open ? "rotate-180" : ""}`}><Icon name="chevron" size={16} /></span>
+      </button>
+      {open && (
+        <ul role="listbox" aria-label="Місяць звіту" className="absolute right-0 z-20 mt-2 max-h-[260px] min-w-full overflow-auto rounded-2xl bg-white p-1.5 shadow-[0_18px_40px_-16px_rgba(60,60,140,0.45)] ring-1 ring-[#ebe8ff]">
+          {months.map((m) => (
+            <li key={m} role="option" aria-selected={m === value}>
+              <button type="button" onClick={() => { onChange(m); setOpen(false); }} className={`flex w-full items-center justify-between gap-3 whitespace-nowrap rounded-xl px-3 py-2.5 text-left text-[14px] first-letter:uppercase ${m === value ? "bg-[#eef0fd] font-semibold text-[#4338ca]" : "text-[#12172b] hover:bg-[#faf9ff]"}`}>
+                <span className="first-letter:uppercase">{label(m)}</span>
+                {m === value && <Icon name="check" size={15} />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// «Історія»: the latest operations first (4, then more on request), a filter by direction and a month calendar
+// that marks the days with operations; picking a day shows only that day.
+type HistKind = "all" | "in" | "out";
+const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
+const dayKey = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+function HistoryPanel({ rows }: { rows: HistoryRow[] }) {
+  const [kind, setKind] = useState<HistKind>("all");
+  const [day, setDay] = useState<string | null>(null);
+  const [shown, setShown] = useState(4);
+  const latest = rows[0] ? new Date(rows[0].date) : new Date();
+  const [view, setView] = useState(() => new Date(latest.getFullYear(), latest.getMonth(), 1));
+  useEffect(() => setShown(4), [kind, day]);
+
+  const byKind = rows.filter((r) => (kind === "all" ? true : kind === "in" ? (r.amountKop ?? 0) > 0 : (r.amountKop ?? 0) < 0));
+  const list = day ? byKind.filter((r) => dayKey(r.date) === day) : byKind;
+  const marks = new Map<string, { inn: boolean; out: boolean }>();
+  byKind.forEach((r) => {
+    const k = dayKey(r.date);
+    const m = marks.get(k) ?? { inn: false, out: false };
+    if ((r.amountKop ?? 0) > 0) m.inn = true;
+    if ((r.amountKop ?? 0) < 0) m.out = true;
+    marks.set(k, m);
+  });
+
+  const y = view.getFullYear();
+  const mo = view.getMonth();
+  const lead = (new Date(y, mo, 1).getDay() + 6) % 7; // Monday first
+  const days = new Date(y, mo + 1, 0).getDate();
+  const cells: (number | null)[] = [...Array(lead).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
+  const todayKey = dayKey(new Date().toISOString());
+  const monthTitle = view.toLocaleDateString("uk-UA", { month: "long", year: "numeric" });
+  const pill = (on: boolean) => `min-h-[40px] rounded-2xl px-3.5 text-[13px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${on ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35" : "bg-white text-[#1d2240] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`;
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Які операції показати">
+          {([["all", "Усі"], ["in", "Надходження"], ["out", "Виплати й списання"]] as [HistKind, string][]).map(([k, l]) => (
+            <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={pill(kind === k)}>{l}</button>
+          ))}
+          {day && (
+            <button type="button" onClick={() => setDay(null)} className="inline-flex min-h-[40px] items-center gap-1.5 rounded-2xl bg-[#f1eeff] px-3.5 text-[13px] font-semibold text-[#5b4bd0]">
+              {new Date(`${day}T12:00:00`).toLocaleDateString("uk-UA", { day: "numeric", month: "long" })} <span aria-hidden="true">✕</span><span className="sr-only">Показати всі дні</span>
+            </button>
+          )}
+        </div>
+        {list.length === 0 ? (
+          <p className="mt-4 rounded-2xl bg-[#faf9ff] px-4 py-6 text-center text-[14px] text-black/50 ring-1 ring-[#f1eefb]">{day ? "Цього дня таких операцій не було." : "Таких операцій поки немає."}</p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-2">
+            {list.slice(0, shown).map((h) => (
+              <li key={h.key} className="flex items-start justify-between gap-3 rounded-2xl bg-[#faf9ff] px-4 py-3 ring-1 ring-[#f1eefb]">
+                <span className="min-w-0">
+                  <span className="block text-[14px] font-semibold text-[#12172b]">{h.label}</span>
+                  <span className="block text-[12px] text-black/50">{new Date(h.date).toLocaleString("uk-UA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}{h.note ? ` · ${h.note}` : ""}</span>
+                </span>
+                {h.amountKop != null && <span className={`shrink-0 text-[14px] font-bold ${h.amountKop < 0 ? "text-rose-600" : "text-[#1d7a45]"}`}>{h.amountKop > 0 ? "+" : "−"}{uahFromKop(Math.abs(h.amountKop))}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+        {list.length > shown && (
+          <button type="button" onClick={() => setShown((n) => n + 10)} className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#f1eeff] px-5 text-[14px] font-semibold text-[#5b4bd0] transition hover:bg-[#e7e1ff]">
+            Переглянути далі ({Math.min(10, list.length - shown)}) <span aria-hidden="true">↓</span>
+          </button>
+        )}
+      </div>
+
+      {/* calendar */}
+      <div className="self-start rounded-2xl bg-[#faf9ff] p-4 ring-1 ring-[#f1eefb]">
+        <div className="flex items-center justify-between">
+          <button type="button" aria-label="Попередній місяць" onClick={() => setView(new Date(y, mo - 1, 1))} className="flex h-9 w-9 items-center justify-center rounded-xl text-[#6d5bd0] hover:bg-white"><span className="rotate-90"><Icon name="chevron" size={16} /></span></button>
+          <div className="text-[14px] font-semibold text-[#12172b] first-letter:uppercase">{monthTitle}</div>
+          <button type="button" aria-label="Наступний місяць" onClick={() => setView(new Date(y, mo + 1, 1))} className="flex h-9 w-9 items-center justify-center rounded-xl text-[#6d5bd0] hover:bg-white"><span className="-rotate-90"><Icon name="chevron" size={16} /></span></button>
+        </div>
+        <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-black/40">
+          {WEEKDAYS.map((w) => <div key={w}>{w}</div>)}
+        </div>
+        <div className="mt-1 grid grid-cols-7 gap-1">
+          {cells.map((d, i) => {
+            if (d == null) return <div key={`e${i}`} />;
+            const k = `${y}-${String(mo + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+            const m = marks.get(k);
+            const on = day === k;
+            return (
+              <button
+                key={k}
+                type="button"
+                disabled={!m}
+                aria-pressed={on}
+                aria-label={`${d} ${monthTitle}${m ? ", є операції" : ""}`}
+                onClick={() => setDay(on ? null : k)}
+                className={`relative flex h-9 flex-col items-center justify-center rounded-xl text-[13px] transition ${on ? "bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] font-semibold text-white" : m ? "bg-white font-semibold text-[#12172b] ring-1 ring-[#e3def9] hover:ring-[#c9bff7]" : "text-black/35"} ${k === todayKey && !on ? "text-[#4338ca]" : ""}`}
+              >
+                {d}
+                {m && !on && (
+                  <span className="absolute bottom-1 flex gap-0.5" aria-hidden="true">
+                    {m.inn && <span className="h-1 w-1 rounded-full bg-[#22a35a]" />}
+                    {m.out && <span className="h-1 w-1 rounded-full bg-rose-500" />}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-black/50">
+          <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-[#22a35a]" /> надходження</span>
+          <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-rose-500" /> виплати й списання</span>
+        </div>
+      </div>
+    </div>
+  );
 }

@@ -174,3 +174,50 @@ export function financeTotals(sales: SaleLike[], now: Date = new Date()) {
     refundsCount: sales.filter((s) => s.refundedKop > 0).length,
   };
 }
+
+// ── bank fee and the monthly report (monobank: 1.3 % for Ukrainian cards, 2 % for foreign, taken from each
+// receiver's own share before it reaches the account; not returned on a refund) ──────────────────────────────
+
+export type CardOrigin = "ua" | "foreign" | null | undefined;
+export const bankFeeBps = (card: CardOrigin) => (card === "foreign" ? 200 : 130);
+
+/** The bank's fee on the author's share (estimated at the Ukrainian rate when the card is unknown). */
+export const authorBankFeeKop = (s: { authorKop: number; cardOrigin?: CardOrigin }) => Math.round((s.authorKop * bankFeeBps(s.cardOrigin)) / 10000);
+
+/** What reaches the author's account for a sale: the share minus the bank's fee, minus what went back to the buyer. */
+export const toAccountKop = (s: SaleLike & { cardOrigin?: CardOrigin }) => Math.max(0, s.authorKop - authorBankFeeKop(s) - s.authorRefundedKop);
+
+/** Split of a price for the worked example: Sensoria's commission, the author's share, the bank's fee, the rest. */
+export function priceBreakdown(priceKop: number, commissionBps: number, card: CardOrigin = "ua") {
+  const sensoriaKop = Math.round((priceKop * commissionBps) / 10000);
+  const authorKop = priceKop - sensoriaKop;
+  const feeKop = Math.round((authorKop * bankFeeBps(card)) / 10000);
+  return { sensoriaKop, authorKop, feeKop, toAccountKop: authorKop - feeKop };
+}
+
+const csvCell = (v: string | number) => {
+  const t = String(v);
+  return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+};
+const money = (kop: number) => (kop / 100).toFixed(2).replace(".", ",");
+
+/** The author's sales report for one month (`yyyy-mm`), as CSV for Excel (semicolons, BOM). */
+export function monthReportCsv(sales: (SaleLike & { cardOrigin?: CardOrigin; commissionBps: number })[], month: string): string {
+  const rows = sales.filter((s) => s.confirmedAt.slice(0, 7) === month).sort((a, b) => a.confirmedAt.localeCompare(b.confirmedAt));
+  const head = ["Дата", "Матеріал", "Покупець прийшов", "Ціна, ₴", "Ваша ставка", "Ваша частка, ₴", "Картка", "Комісія банку (оцінка), ₴", "Повернено покупцю (ваша частка), ₴", "На ваш рахунок (оцінка), ₴"];
+  const lines = rows.map((s) => [
+    new Date(s.confirmedAt).toLocaleDateString("uk-UA"),
+    s.title,
+    s.source === "referral" ? "За вашим посиланням" : "Через Sensoria",
+    money(s.priceKop),
+    `${(10000 - s.commissionBps) / 100} %`,
+    money(s.authorKop),
+    s.cardOrigin === "foreign" ? "Іноземна (2 %)" : s.cardOrigin === "ua" ? "Українська (1,3 %)" : "Невідомо (1,3 %)",
+    money(authorBankFeeKop(s)),
+    money(s.authorRefundedKop),
+    money(toAccountKop(s)),
+  ]);
+  const sum = (f: (s: (typeof rows)[number]) => number) => money(rows.reduce((n, s) => n + f(s), 0));
+  const total = ["Разом", "", "", sum((s) => s.priceKop), "", sum((s) => s.authorKop), "", sum(authorBankFeeKop), sum((s) => s.authorRefundedKop), sum(toAccountKop)];
+  return "﻿" + [head, ...lines, total].map((r) => r.map(csvCell).join(";")).join("\n");
+}

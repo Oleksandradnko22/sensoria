@@ -562,6 +562,7 @@ async function applyMonoStatus(row: MonoRow, p: Record<string, unknown>): Promis
   if (effect === "paid") {
     await admin.from("mono_invoices").update({ card_origin: cardOrigin(p.paymentInfo), bank_fee_kop: bankFeeKop(p.paymentInfo) }).eq("id", row.id);
     await recordPaid(row, p);
+    await admin.from("finance_payments").update({ card_origin: cardOrigin(p.paymentInfo) }).eq("purchase_id", row.id);
   }
   if (effect === "reversed") await recordReversal(row);
   await admin.from("mono_invoices").update({ status, mono_modified: modified ?? row.mono_modified, updated_at: nowIso() }).eq("id", row.id);

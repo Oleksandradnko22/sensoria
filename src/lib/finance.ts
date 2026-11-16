@@ -33,6 +33,7 @@ export type FinanceBankAccount = {
 };
 export type FinanceSale = {
   id: string;
+  purchaseId?: string | null;
   confirmedAt: string;
   title: string;
   priceKop: number;
@@ -45,6 +46,8 @@ export type FinanceSale = {
   // where the buyer came from: «catalog» = through Sensoria (30 %), «referral» = the author's own link (15 %)
   source: "catalog" | "referral";
   commissionBps: number;
+  // which card paid (monobank paymentInfo.country): the bank's fee is 1.3 % for Ukrainian, 2 % for foreign; null = unknown
+  cardOrigin?: "ua" | "foreign" | null;
 };
 export type FinanceTerms = {
   commissionBps: number;
@@ -85,6 +88,19 @@ const EMPTY: FinanceAccount = {
 
 const missing = (e: { code?: string } | null) => !!e && (e.code === "42P01" || e.code === "PGRST205" || e.code === "42883" || e.code === "PGRST202");
 
+const SALE_COLS = "id, purchase_id, confirmed_at, content_title, amount_kop, author_kop, refunded_kop, author_refunded_kop, pending_kop, hold_until, disputed, sale_source, commission_bps";
+// card_origin arrives with mono-migration.sql; before it the list loads without it
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SaleRow = Record<string, any>;
+async function fetchSales(): Promise<{ data: SaleRow[] | null }> {
+  const q = async (cols: string) => {
+    const r = await supabase!.from("finance_payments").select(cols).order("confirmed_at", { ascending: false }).limit(500);
+    return { data: r.data as SaleRow[] | null, error: r.error };
+  };
+  const withCard = await q(`${SALE_COLS}, card_origin`);
+  return withCard.error ? await q(SALE_COLS) : withCard;
+}
+
 /** null = the finance migration has not been run yet. */
 export async function fetchMyFinance(): Promise<MyFinance | null> {
   if (!supabase) return null;
@@ -101,7 +117,7 @@ export async function fetchMyFinance(): Promise<MyFinance | null> {
     supabase.from("refund_reserves").select("release_at").eq("status", "held").order("release_at", { ascending: true }).limit(1),
     supabase.rpc("finance_public_terms"),
     supabase.from("author_bank_accounts").select("id, iban, bank_name, holder_name, tax_id, status, reject_reason, created_at").order("created_at", { ascending: false }).limit(6),
-    supabase.from("finance_payments").select("id, confirmed_at, content_title, amount_kop, author_kop, refunded_kop, author_refunded_kop, pending_kop, hold_until, disputed, sale_source, commission_bps").order("confirmed_at", { ascending: false }).limit(100),
+    fetchSales(),
   ]);
 
   const a = acc.data;
@@ -124,10 +140,11 @@ export async function fetchMyFinance(): Promise<MyFinance | null> {
       status: b.status, rejectReason: b.reject_reason, createdAt: b.created_at,
     })),
     sales: (sales.data ?? []).map((p) => ({
-      id: p.id, confirmedAt: p.confirmed_at, title: p.content_title ?? "Матеріал", priceKop: Number(p.amount_kop), authorKop: Number(p.author_kop),
+      id: p.id, purchaseId: p.purchase_id ?? null, confirmedAt: p.confirmed_at, title: p.content_title ?? "Матеріал", priceKop: Number(p.amount_kop), authorKop: Number(p.author_kop),
       refundedKop: Number(p.refunded_kop), authorRefundedKop: Number(p.author_refunded_kop), pendingKop: Number(p.pending_kop),
       holdUntil: p.hold_until, disputed: !!p.disputed,
       source: p.sale_source === "referral" ? "referral" : "catalog", commissionBps: Number(p.commission_bps ?? (p.sale_source === "referral" ? 1500 : 3000)),
+      cardOrigin: p.card_origin === "ua" || p.card_origin === "foreign" ? p.card_origin : null,
     })),
     nextReleaseAt: held.data?.[0]?.hold_until ?? null,
     nextReserveReleaseAt: reserves.data?.[0]?.release_at ?? null,

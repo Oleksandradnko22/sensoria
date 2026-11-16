@@ -502,12 +502,23 @@ export function planPaymentReceived(args: {
   reserveId: string;
   externalReference: string | null;
   mode: "test" | "live";
+  /** the bank's real fee on the whole payment (monobank `paymentInfo.fee`), when known */
+  bankFeeKop?: number | null;
 }): Plan {
   const { settings: s, now, account, debts, purchase, paymentId, reserveId } = args;
   checkSettings(s);
   if (purchase.amountKop <= 0) throw new FinanceError("free_order", "Безкоштовне замовлення не створює фінансових операцій.");
   const { authorKop, sensoriaKop } = splitAmount(purchase.amountKop, s, purchase.source);
-  const feeKop = bankFeeOnPrice(purchase.amountKop, s); // Sensoria's cost; the author's share is untouched
+  // Split at source (monobank agentFeePercent): the bank takes its fee out of each receiver's own share, so
+  // Sensoria's cost is only the fee on its commission; the author's fee is between the author and the bank.
+  // Without the split Sensoria receives the whole payment and pays the whole fee.
+  const actualFee = args.bankFeeKop != null && Number.isInteger(args.bankFeeKop) && args.bankFeeKop >= 0 ? args.bankFeeKop : null;
+  const feeKop =
+    s.splitAtSource === 1
+      ? actualFee != null
+        ? Math.round((actualFee * sensoriaKop) / purchase.amountKop)
+        : bankFeeOnPrice(sensoriaKop, s)
+      : actualFee ?? bankFeeOnPrice(purchase.amountKop, s);
   const grossKop = purchase.amountKop; // the buyer is charged the price only
   const plan = newPlan(`payment:${purchase.purchaseId}`, "PAYMENT_RECEIVED", purchase.authorId, account.version);
   const base = { authorId: purchase.authorId, paymentId, orderId: purchase.purchaseId, buyerId: purchase.buyerId };
@@ -521,8 +532,8 @@ export function planPaymentReceived(args: {
   if (feeKop > 0) {
     // the bank keeps it out of the payment: owed to the bank until settled from the statement, and Sensoria's own cost
     plan.lines.push(
-      { ...base, authorId: null, type: "BANK_FEE_COLLECTED", account: "bank_fee", delta: feeKop, reason: "Комісія банку за рахунок Sensoria" },
-      { ...base, authorId: null, type: "BANK_FEE_COLLECTED", account: "sensoria_revenue", delta: -feeKop, reason: "Комісія банку за рахунок Sensoria" }
+      { ...base, authorId: null, type: "BANK_FEE_COLLECTED", account: "bank_fee", delta: feeKop, reason: "Комісія банку з частки Sensoria" },
+      { ...base, authorId: null, type: "BANK_FEE_COLLECTED", account: "sensoria_revenue", delta: -feeKop, reason: "Комісія банку з частки Sensoria" }
     );
   }
 
@@ -1171,9 +1182,7 @@ export interface SplitInput {
   /** stable code of the content, e.g. its id */
   contentCode: string;
   authorReceiverId: string;
-  sensoriaReceiverId: string;
 }
-
 export class MonoError extends Error {
   code: string;
   constructor(code: string, message: string) {
@@ -1181,34 +1190,39 @@ export class MonoError extends Error {
     this.code = code;
   }
 }
-
 const trimTitle = (s: string, n: number) => {
   const t = s.replace(/\s+/g, " ").trim();
   return t.length > n ? `${t.slice(0, n - 1)}…` : t;
 };
 
 /**
- * The basket of a split invoice: one item for the author, one for Sensoria.
- * A part that is zero is left out (monobank rejects empty items). The totals must add up
- * to the price exactly, otherwise nothing is built: money must never be lost or invented.
+ * Sensoria's commission as monobank's `agentFeePercent`: the platform is an agent, not a split receiver
+ * (monobank: "для отримання комісії платформи передбачений параметр agentFeePercent; реєструватися як
+ * сабмерчант не потрібно"). Two decimals, so 30% / 15% are exact and any other rate stays within a kopeck.
  */
-export function buildSplitBasket(i: SplitInput): { amount: number; basketOrder: MonoBasketItem[] } {
+export function agentFeePercentOf(amountKop: number, sensoriaKop: number): number {
+  return Math.round((sensoriaKop * 10000) / amountKop) / 100;
+}
+
+/**
+ * The basket of a split invoice: ONE item, the author's, at the full price — monobank pays it to the author's
+ * splitReceiverId and keeps `agentFeePercent` of it for Sensoria. The parts must still add up to the price
+ * exactly, otherwise nothing is built: money must never be lost or invented.
+ */
+export function buildSplitBasket(i: SplitInput): { amount: number; basketOrder: MonoBasketItem[]; agentFeePercent: number } {
   const all = [i.amountKop, i.authorKop, i.sensoriaKop];
-  if (!all.every((n) => Number.isInteger(n) && n >= 0)) throw new MonoError("bad_amount", "Суми мають бути цілими невід'ємними числами в копійках.");
+  if (!all.every((n) => Number.isInteger(n) && n >= 0)) throw new MonoError("bad_amount", "Суми мають бути цілими невід'ємними числами (копійки).");
   if (i.amountKop <= 0) throw new MonoError("bad_amount", "Сума оплати має бути більшою за нуль.");
   if (i.authorKop + i.sensoriaKop !== i.amountKop) throw new MonoError("split_mismatch", "Частини автора й Sensoria не дають суму оплати.");
-  if (i.authorKop > 0 && !i.authorReceiverId) throw new MonoError("no_author_receiver", "Автор ще не підключений до розщеплення платежів.");
-  if (i.sensoriaKop > 0 && !i.sensoriaReceiverId) throw new MonoError("no_sensoria_receiver", "Не задано отримувача Sensoria.");
-
+  if (!i.authorReceiverId) throw new MonoError("no_author_receiver", "Автор ще не підключений до розщеплення платежів.");
+  const agentFeePercent = agentFeePercentOf(i.amountKop, i.sensoriaKop);
+  // the rounded percent must give back Sensoria's part within one kopeck
+  if (Math.abs(Math.round((i.amountKop * agentFeePercent) / 100) - i.sensoriaKop) > 1) throw new MonoError("split_mismatch", "Комісію Sensoria не можна точно передати банку.");
   const title = trimTitle(i.title || "Матеріал", 60);
-  const basketOrder: MonoBasketItem[] = [];
-  if (i.authorKop > 0) {
-    basketOrder.push({ name: title, qty: 1, sum: i.authorKop, total: i.authorKop, code: `${i.contentCode}:author`, splitReceiverId: i.authorReceiverId });
-  }
-  if (i.sensoriaKop > 0) {
-    basketOrder.push({ name: `Послуги платформи Sensoria: ${title}`.slice(0, 100), qty: 1, sum: i.sensoriaKop, total: i.sensoriaKop, code: `${i.contentCode}:platform`, splitReceiverId: i.sensoriaReceiverId });
-  }
-  return { amount: i.amountKop, basketOrder };
+  const basketOrder: MonoBasketItem[] = [
+    { name: title, qty: 1, sum: i.amountKop, total: i.amountKop, code: i.contentCode, splitReceiverId: i.authorReceiverId },
+  ];
+  return { amount: i.amountKop, basketOrder, agentFeePercent };
 }
 
 /**
@@ -1216,7 +1230,7 @@ export function buildSplitBasket(i: SplitInput): { amount: number; basketOrder: 
  * the webhook brings it back, so the order is never guessed from the amount.
  */
 export function buildInvoiceBody(args: SplitInput & { reference: string; redirectUrl: string; webHookUrl: string; validitySec?: number }) {
-  const { amount, basketOrder } = buildSplitBasket(args);
+  const { amount, basketOrder, agentFeePercent } = buildSplitBasket(args);
   return {
     amount,
     ccy: 980,
@@ -1229,7 +1243,30 @@ export function buildInvoiceBody(args: SplitInput & { reference: string; redirec
     webHookUrl: args.webHookUrl,
     validity: args.validitySec ?? 3600,
     paymentType: "debit",
+    agentFeePercent,
   };
+}
+
+/** The test token has no split (monobank: «тестовий токен еквайрингу, без спліта»): the same invoice without it. */
+export function withoutSplit<T extends { merchantPaymInfo: { basketOrder: MonoBasketItem[] }; agentFeePercent?: number }>(body: T) {
+  const { agentFeePercent: _drop, ...rest } = body;
+  void _drop;
+  return { ...rest, merchantPaymInfo: { ...body.merchantPaymInfo, basketOrder: body.merchantPaymInfo.basketOrder.map(({ splitReceiverId: _r, ...item }) => (void _r, item)) } };
+}
+
+// ── bank fee ─────────────────────────────────────────────────────────────────
+
+/** monobank: paymentInfo.country "804" = a Ukrainian card; another filled code = foreign; no code = unknown (never assume foreign). */
+export function cardOrigin(paymentInfo: unknown): "ua" | "foreign" | "unknown" {
+  const c = (paymentInfo as { country?: unknown } | null)?.country;
+  if (c === undefined || c === null || c === "") return "unknown";
+  return String(c) === "804" ? "ua" : "foreign";
+}
+
+/** The fee the bank actually took (paymentInfo.fee, kopecks), when it says so. */
+export function bankFeeKop(paymentInfo: unknown): number | null {
+  const f = (paymentInfo as { fee?: unknown } | null)?.fee;
+  return typeof f === "number" && Number.isFinite(f) && f >= 0 ? Math.round(f) : null;
 }
 
 // ── statuses ────────────────────────────────────────────────────────────────
@@ -1499,7 +1536,8 @@ async function sendPendingEmails(): Promise<{ sent: number; skipped: number; fai
 async function runJobs() {
   const settings = await loadSettings();
   const now = nowIso();
-  const res = { released: 0, inactivity: 0, autoPayouts: 0, distributed: 0, emails: { sent: 0, skipped: 0, failed: 0 }, errors: [] as string[] };
+  const res = { released: 0, inactivity: 0, autoPayouts: 0, distributed: 0, emails: { sent: 0, skipped: 0, failed: 0 },
+    mono: null as { checked: number; changed: number } | null, monoStatement: null as { items: number; fixed: number; unknown: number } | null, errors: [] as string[] };
 
   // 1) holds and reserves that expired
   const authors = new Set<string>();
@@ -1577,8 +1615,69 @@ async function runJobs() {
     }
   }
 
+  // 5) monobank: payments whose webhook never came, then the daily statement check
+  if (Deno.env.get("MONO_TOKEN")) {
+    try {
+      res.mono = await monoCheckStuck();
+    } catch (e) {
+      res.errors.push(`mono stuck: ${e instanceof Error ? e.message : e}`);
+    }
+    try {
+      res.monoStatement = await monoReconcileStatement();
+    } catch (e) {
+      res.errors.push(`mono statement: ${e instanceof Error ? e.message : e}`);
+    }
+  }
+
   res.emails = await sendPendingEmails();
   return res;
+}
+
+/** Invoices still open 15+ minutes after creation: ask the bank directly (webhooks may be lost after 3 retries). */
+async function monoCheckStuck() {
+  const out = { checked: 0, changed: 0 };
+  const older = new Date(Date.now() - 15 * 60_000).toISOString();
+  const newer = new Date(Date.now() - 31 * 86400_000).toISOString();
+  const { data: rows } = await admin.from("mono_invoices").select("*").in("status", ["created", "processing", "hold"])
+    .not("mono_invoice_id", "is", null).lte("updated_at", older).gte("created_at", newer).order("created_at").limit(50);
+  for (const row of (rows ?? []) as MonoRow[]) {
+    out.checked += 1;
+    const bank = await monoCall(`/api/merchant/invoice/status?invoiceId=${encodeURIComponent(row.mono_invoice_id!)}`);
+    if (!bank) continue;
+    const r = await applyMonoStatus(row, bank);
+    if (r.applied && bank.status !== row.status) out.changed += 1;
+    else await admin.from("mono_invoices").update({ updated_at: nowIso() }).eq("id", row.id); // next check in 15 minutes
+  }
+  return out;
+}
+
+/** The bank's statement for the last 2 days against our invoices: a payment the bank has and we do not is shown for review. */
+async function monoReconcileStatement() {
+  const out = { items: 0, fixed: 0, unknown: 0 };
+  const to = Math.floor(Date.now() / 1000);
+  const from = to - 2 * 86400;
+  const st = await monoCall(`/api/merchant/statement?from=${from}&to=${to}`);
+  for (const it of (Array.isArray(st?.list) ? st.list : []) as Record<string, unknown>[]) {
+    if (it.status !== "success") continue;
+    out.items += 1;
+    const invoiceId = String(it.invoiceId ?? "");
+    const { data: row } = await admin.from("mono_invoices").select("*").eq("mono_invoice_id", invoiceId).maybeSingle();
+    if (!row) {
+      out.unknown += 1;
+      const { data: seen } = await admin.from("finance_audit_log").select("id").eq("action", "mono_statement_unknown").eq("entity_id", invoiceId.slice(0, 120)).limit(1);
+      if (!seen?.length) {
+        await admin.from("finance_audit_log").insert({
+          administrator_id: null, action: "mono_statement_unknown", entity_type: "payment", entity_id: invoiceId.slice(0, 120),
+          reason: "Оплата є у виписці банку, але не знайдена в Sensoria", previous_value: null, new_value: { amount: it.amount, reference: it.reference ?? null },
+        });
+      }
+      continue;
+    }
+    if ((row as MonoRow).status === "success") continue;
+    const bank = await monoCall(`/api/merchant/invoice/status?invoiceId=${encodeURIComponent(invoiceId)}`);
+    if (bank && (await applyMonoStatus(row as MonoRow, bank)).applied) out.fixed += 1;
+  }
+  return out;
 }
 
 // ── admin helpers ───────────────────────────────────────────────────────────
@@ -1675,9 +1774,12 @@ async function monoCheckout(userId: string, payload: Record<string, unknown>) {
   if (open?.[0] && Number(open[0].amount_kop) === amountKop) return { pageUrl: open[0].page_url as string, ref: open[0].id as string, reused: true };
 
   const settings = await loadSettings();
-  const { data: cfg } = await admin.from("finance_settings").select("mode, mono_sensoria_receiver_id").eq("id", 1).single();
+  const { data: cfg } = await admin.from("finance_settings").select("mode").eq("id", 1).single();
   const mode: "test" | "live" = cfg?.mode === "live" ? "live" : "test";
-  const { data: rcv } = await admin.from("author_mono_receivers").select("receiver_id").eq("author_id", content.author_id).maybeSingle();
+  const { data: rcv } = await admin.from("author_mono_receivers").select("receiver_id, status").eq("author_id", content.author_id).maybeSingle();
+  // live: a paid sale needs the author's FOP connected to the split; the test token has no split at all
+  const receiverId = rcv?.status === "active" ? String(rcv.receiver_id ?? "") : "";
+  if (mode === "live" && !receiverId) throw new FinanceError("author_not_connected", "Автор ще не підключив прийом оплат. Спробуйте пізніше.");
   // referral rate only on the server's own record of the buyer's click (never from the client)
   const { data: attr } = await admin.from("referral_attributions").select("created_at").eq("buyer_id", userId).eq("author_id", content.author_id).maybeSingle();
   const source = pickSaleSource(attr?.created_at ?? null, nowIso());
@@ -1686,11 +1788,12 @@ async function monoCheckout(userId: string, payload: Record<string, unknown>) {
   const ref = uuid();
   const requested = String(payload.origin ?? "");
   const origin = allowedOrigins().includes(requested) ? requested : siteUrl();
-  const body = buildInvoiceBody({
+  const split = buildInvoiceBody({
     amountKop, authorKop, sensoriaKop, title: content.title, contentCode: content.id,
-    authorReceiverId: rcv?.receiver_id ?? "", sensoriaReceiverId: cfg?.mono_sensoria_receiver_id ?? "",
+    authorReceiverId: receiverId || "test-no-split",
     reference: ref, redirectUrl: `${origin}/payment-result?pay=${ref}`, webHookUrl: `${SUPABASE_URL}/functions/v1/finance?hook=mono`,
   });
+  const body = mode === "live" ? split : withoutSplit(split);
 
   const { error: insErr } = await admin.from("mono_invoices").insert({
     id: ref, buyer_id: userId, content_id: content.id, author_id: content.author_id,
@@ -1738,6 +1841,7 @@ async function recordPaid(row: MonoRow, p: Record<string, unknown>) {
       settings, now: nowIso(), account, debts,
       purchase: { purchaseId: row.id, authorId: row.author_id, buyerId: row.buyer_id, amountKop: row.amount_kop, contentId: row.content_id, contentTitle: content?.title ?? "", source: row.sale_source },
       paymentId: uuid(), reserveId: uuid(), externalReference: String(p.invoiceId ?? row.mono_invoice_id ?? "").slice(0, 120), mode: row.mode,
+      bankFeeKop: bankFeeKop(p.paymentInfo),
     });
   }, null).catch((e) => {
     if (e instanceof FinanceError && e.code === "duplicate") return null; // the same payment was already recorded
@@ -1779,7 +1883,10 @@ async function applyMonoStatus(row: MonoRow, p: Record<string, unknown>): Promis
     return { applied: false, reason: "amount_mismatch" };
   }
   const effect = effectOf(status);
-  if (effect === "paid") await recordPaid(row, p);
+  if (effect === "paid") {
+    await admin.from("mono_invoices").update({ card_origin: cardOrigin(p.paymentInfo), bank_fee_kop: bankFeeKop(p.paymentInfo) }).eq("id", row.id);
+    await recordPaid(row, p);
+  }
   if (effect === "reversed") await recordReversal(row);
   await admin.from("mono_invoices").update({ status, mono_modified: modified ?? row.mono_modified, updated_at: nowIso() }).eq("id", row.id);
   return { applied: true };
@@ -1872,7 +1979,7 @@ Deno.serve(async (req) => {
     }
 
     // ── an author's own actions ──
-    if (action === "touchActivity" || action === "requestPayout" || action === "markNotificationsRead" || action === "saveBankAccount") {
+    if (action === "touchActivity" || action === "requestPayout" || action === "markNotificationsRead" || action === "saveBankAccount" || action === "monoConnection" || action === "requestMonoConnection") {
       if (prof?.role !== "author") return json({ error: "Лише для авторів." }, 403);
       const settings = await loadSettings();
 
@@ -1892,6 +1999,28 @@ Deno.serve(async (req) => {
         // reading the notifications is itself meaningful activity
         await applyWithRetry(async () => planActivity({ now: nowIso(), account: await loadAccount(user.id), type: "ack_notification" }), null);
         return json({ ok: true });
+      }
+
+      // connecting the author's FOP/TOV to the monobank split: the author names it, the owner links monobank's receiver id
+      if (action === "monoConnection") {
+        const { data: r } = await admin.from("author_mono_receivers").select("status, ipn, legal_name, updated_at").eq("author_id", user.id).maybeSingle();
+        return json({ ok: true, status: r?.status ?? "none", ipnLast4: r?.ipn ? String(r.ipn).slice(-4) : null, legalName: r?.legal_name ?? null, updatedAt: r?.updated_at ?? null });
+      }
+      if (action === "requestMonoConnection") {
+        const ipn = String(payload.ipn ?? "").replace(/\s+/g, "");
+        const legalName = String(payload.legalName ?? "").trim().replace(/\s+/g, " ").slice(0, 160);
+        if (!validateTaxId(ipn)) throw new FinanceError("bad_tax_id", "РНОКПП ФОП — 10 цифр, ЄДРПОУ ТОВ — 8 цифр.");
+        if (legalName.length < 5) throw new FinanceError("bad_name", "Вкажіть назву ФОП або ТОВ повністю, як у документах.");
+        const { data: cur } = await admin.from("author_mono_receivers").select("status, ipn").eq("author_id", user.id).maybeSingle();
+        if (cur?.status === "active" && cur.ipn === ipn) return json({ ok: true, status: "active", unchanged: true });
+        // a new FOP means a new receiver: until the owner links it, paid sales wait (the old receiver is not reused)
+        const { error: upErr } = await admin.from("author_mono_receivers").upsert(
+          { author_id: user.id, ipn, legal_name: legalName, status: "requested", receiver_id: null, updated_at: nowIso() },
+          { onConflict: "author_id" },
+        );
+        if (upErr) throw new Error(upErr.message);
+        await admin.from("finance_audit_log").insert({ administrator_id: null, action: "mono_connection_requested", entity_type: "author", entity_id: user.id, reason: "Автор надіслав дані ФОП для підключення оплат", previous_value: cur ? { status: cur.status } : null, new_value: { ipn: `••••${ipn.slice(-4)}`, legalName } });
+        return json({ ok: true, status: "requested" });
       }
 
       if (action === "saveBankAccount") {
@@ -1972,7 +2101,7 @@ Deno.serve(async (req) => {
     }
     if (action === "author") return json(await authorOverview(String(payload.authorId)));
     if (action === "verify") return json({ mismatches: (await admin.rpc("finance_verify")).data ?? [] });
-    if ((action === "bankAccounts" || action === "payoutRegistry") && adminRole !== "owner") {
+    if ((action === "bankAccounts" || action === "payoutRegistry" || action === "monoReceivers" || action === "setMonoReceiver") && adminRole !== "owner") {
       return json({ error: "Банківські реквізити авторів доступні лише власнику." }, 403);
     }
     if (action === "bankAccounts") {
@@ -2100,6 +2229,52 @@ Deno.serve(async (req) => {
       const authorId = String(payload.authorId);
       await applyWithRetry(async () =>
         planAdminStatus({ now: nowIso(), account: await loadAccount(authorId), action: payload.statusAction, reason, adminId: user.id, idempotencyKey: String(payload.requestKey ?? uuid()) }), user.id);
+      return json({ ok: true });
+    }
+
+    // monobank split receivers: requests from authors + monobank's own list (matched by IPN/EDRPOU where the bank returns it)
+    if (action === "monoReceivers") {
+      const { data: rows } = await admin.from("author_mono_receivers").select("*").order("updated_at", { ascending: false }).limit(300);
+      const ids = (rows ?? []).map((r) => r.author_id);
+      const { data: profs } = ids.length ? await admin.from("profiles").select("id, name, email").in("id", ids) : { data: [] };
+      // deno-lint-ignore no-explicit-any
+      const byId = new Map<string, any>((profs ?? []).map((p: { id: string }) => [p.id, p]));
+      let bank: Record<string, unknown>[] = [];
+      let bankError: string | null = null;
+      if (Deno.env.get("MONO_TOKEN")) {
+        try {
+          const res = await monoCall("/api/merchant/split-receiver/list");
+          bank = Array.isArray(res?.list) ? res.list : Array.isArray(res) ? res : [];
+        } catch (e) {
+          bankError = e instanceof Error ? e.message : String(e);
+        }
+      }
+      const idOf = (b: Record<string, unknown>) => String(b.splitReceiverId ?? b.id ?? "");
+      const codeOf = (b: Record<string, unknown>) => String(b.ipn ?? b.edrpou ?? b.taxId ?? b.code ?? "").replace(/\s+/g, "");
+      return json({
+        receivers: (rows ?? []).map((r) => ({
+          authorId: r.author_id, name: byId.get(r.author_id)?.name ?? "—", email: byId.get(r.author_id)?.email ?? "",
+          ipn: r.ipn, legalName: r.legal_name, status: r.status, receiverId: r.receiver_id, updatedAt: r.updated_at,
+          suggested: r.ipn ? bank.filter((b) => codeOf(b) === r.ipn).map(idOf).filter(Boolean) : [],
+        })),
+        bank: bank.map((b) => ({ id: idOf(b), name: String(b.name ?? b.legalName ?? b.fullName ?? ""), code: codeOf(b) })),
+        bankError,
+      });
+    }
+    if (action === "setMonoReceiver") {
+      if (!reason) throw new FinanceError("reason_required", "Вкажіть причину (що саме ви перевірили).");
+      const authorId = String(payload.authorId ?? "");
+      const disable = !!payload.disable;
+      const receiverId = String(payload.receiverId ?? "").trim().slice(0, 120);
+      if (!disable && !receiverId) throw new FinanceError("bad_receiver", "Вкажіть splitReceiverId з monobank.");
+      const { data: cur } = await admin.from("author_mono_receivers").select("*").eq("author_id", authorId).maybeSingle();
+      if (!cur) throw new FinanceError("bad_author", "Автор ще не надсилав даних ФОП.");
+      await admin.from("author_mono_receivers").update(disable ? { status: "disabled", updated_at: nowIso() } : { status: "active", receiver_id: receiverId, updated_at: nowIso() }).eq("author_id", authorId);
+      await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: disable ? "mono_receiver_disabled" : "mono_receiver_linked", entity_type: "author", entity_id: authorId, reason, previous_value: { status: cur.status, receiverId: cur.receiver_id }, new_value: disable ? { status: "disabled" } : { status: "active", receiverId } });
+      await admin.from("financial_notifications").insert({
+        author_id: authorId, event_type: disable ? "MONO_DISABLED" : "MONO_CONNECTED", dedupe_key: `mono:${authorId}:${disable ? "off" : receiverId}`,
+        message: disable ? `Прийом оплат призупинено. Причина: ${reason}` : "Прийом оплат підключено: ваша частка надходитиме на рахунок ФОП у monobank.",
+      });
       return json({ ok: true });
     }
 

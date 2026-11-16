@@ -49,6 +49,8 @@ export default function AdminFinance() {
   const [authors, setAuthors] = useState<Row[]>([]);
   const [queue, setQueue] = useState<Row[]>([]);
   const [banks, setBanks] = useState<Row[]>([]);
+  const [mono, setMono] = useState<{ receivers: Row[]; bank: Row[]; bankError: string | null }>({ receivers: [], bank: [], bankError: null });
+  const [rcvIds, setRcvIds] = useState<Record<string, string>>({});
   const [feePaid, setFeePaid] = useState({ amount: "", surplus: false });
   const [detail, setDetail] = useState<Row | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +79,8 @@ export default function AdminFinance() {
       if (o.role === "owner") {
         const b = await callFinance<{ accounts: Row[] }>({ action: "bankAccounts" }).catch(() => ({ accounts: [] as Row[] }));
         setBanks(b.accounts);
+        const m = await callFinance<{ receivers: Row[]; bank: Row[]; bankError: string | null }>({ action: "monoReceivers" }).catch(() => null);
+        if (m) setMono(m);
       }
       setForm({
         authorPercent: String(o.settings.authorBps / 100),
@@ -187,6 +191,61 @@ export default function AdminFinance() {
               : `Розбіжність! Різниця журналу: ${k(ov.totals.gap_kop)}, неузгоджених балансів: ${ov.mismatches.length}. Не проводьте виплат, поки не з'ясовано причину.`}
           </div>
         </>
+      )}
+
+      {/* MONOBANK SPLIT: authors' FOP/TOV linked to monobank's splitReceiverId */}
+      {owner && (
+        <section className="rounded-2xl bg-white border border-black/5 p-5">
+          <h3 className="text-[16px] font-semibold mb-1">Підключення авторів до monobank ({mono.receivers.filter((r) => r.status === "requested").length} очікують)</h3>
+          <p className="text-[13px] text-black/50 mb-3">
+            Після того як банк підключив ФОП автора, знайдіть його splitReceiverId у списку банку (за кодом) і прив’яжіть. Без активного підключення платні матеріали автора не продаються.
+          </p>
+          {mono.bankError && <div className="mb-3 text-[13px] text-amber-700">Список отримувачів банку не завантажився: {mono.bankError}</div>}
+          {mono.receivers.length === 0 ? (
+            <div className="text-[13px] text-black/45">Автори ще не надсилали даних ФОП.</div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {mono.receivers.map((r) => {
+                const value = rcvIds[r.authorId] ?? r.receiverId ?? r.suggested?.[0] ?? "";
+                return (
+                  <div key={r.authorId} className="border border-black/5 rounded-xl px-4 py-3 text-[13px] flex flex-wrap items-center gap-3">
+                    <div className="flex-1 min-w-[240px]">
+                      <div className="font-medium">{r.name} <span className="text-black/40 font-normal">{r.email}</span></div>
+                      <div className="mt-1"><b>{r.legalName}</b> · код: {r.ipn}</div>
+                      <div className={r.status === "active" ? "text-emerald-700" : r.status === "disabled" ? "text-rose-700" : "text-amber-700"}>
+                        {r.status === "active" ? `Підключено: ${r.receiverId}` : r.status === "disabled" ? "Призупинено" : "Очікує підключення"}
+                        {r.status !== "active" && r.suggested?.length ? ` · у банку знайдено: ${r.suggested.join(", ")}` : ""}
+                      </div>
+                    </div>
+                    <input
+                      value={value}
+                      onChange={(e) => setRcvIds((m) => ({ ...m, [r.authorId]: e.target.value }))}
+                      placeholder="splitReceiverId"
+                      className="min-h-[38px] w-[220px] rounded-lg border border-black/10 px-3 font-mono text-[12px]"
+                    />
+                    <button disabled={!value.trim()} onClick={() => ask({
+                      title: "Прив’язати отримувача?", confirmLabel: "Прив’язати", danger: false,
+                      text: "Вкажіть, що саме ви звірили (назва й код ФОП у банку збігаються з даними автора). Після цього продажі автора йдуть через розщеплення.",
+                      run: async (reason) => { await callFinance({ action: "setMonoReceiver", authorId: r.authorId, receiverId: value.trim(), reason }); setInfo("Автора підключено."); await load(); },
+                    })} className="px-3 py-2 rounded-lg bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white disabled:opacity-50">Прив’язати</button>
+                    {r.status === "active" && (
+                      <button onClick={() => ask({
+                        title: "Призупинити прийом оплат?", confirmLabel: "Призупинити", danger: true, text: "Причину побачить автор. Нові оплати за його матеріали стануть недоступні.",
+                        run: async (reason) => { await callFinance({ action: "setMonoReceiver", authorId: r.authorId, disable: true, reason }); await load(); },
+                      })} className="px-3 py-2 rounded-lg border border-black/10">Призупинити</button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {mono.bank.length > 0 && (
+            <details className="mt-3 text-[12px] text-black/55">
+              <summary className="cursor-pointer">Отримувачі в monobank ({mono.bank.length})</summary>
+              <ul className="mt-2 flex flex-col gap-1 font-mono">{mono.bank.map((b) => <li key={b.id}>{b.id} · {b.name} · {b.code}</li>)}</ul>
+            </details>
+          )}
+        </section>
       )}
 
       {/* BANK ACCOUNTS TO VERIFY */}

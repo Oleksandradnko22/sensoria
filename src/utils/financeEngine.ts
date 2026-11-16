@@ -476,12 +476,23 @@ export function planPaymentReceived(args: {
   reserveId: string;
   externalReference: string | null;
   mode: "test" | "live";
+  /** the bank's real fee on the whole payment (monobank `paymentInfo.fee`), when known */
+  bankFeeKop?: number | null;
 }): Plan {
   const { settings: s, now, account, debts, purchase, paymentId, reserveId } = args;
   checkSettings(s);
   if (purchase.amountKop <= 0) throw new FinanceError("free_order", "Безкоштовне замовлення не створює фінансових операцій.");
   const { authorKop, sensoriaKop } = splitAmount(purchase.amountKop, s, purchase.source);
-  const feeKop = bankFeeOnPrice(purchase.amountKop, s); // Sensoria's cost; the author's share is untouched
+  // Split at source (monobank agentFeePercent): the bank takes its fee out of each receiver's own share, so
+  // Sensoria's cost is only the fee on its commission; the author's fee is between the author and the bank.
+  // Without the split Sensoria receives the whole payment and pays the whole fee.
+  const actualFee = args.bankFeeKop != null && Number.isInteger(args.bankFeeKop) && args.bankFeeKop >= 0 ? args.bankFeeKop : null;
+  const feeKop =
+    s.splitAtSource === 1
+      ? actualFee != null
+        ? Math.round((actualFee * sensoriaKop) / purchase.amountKop)
+        : bankFeeOnPrice(sensoriaKop, s)
+      : actualFee ?? bankFeeOnPrice(purchase.amountKop, s);
   const grossKop = purchase.amountKop; // the buyer is charged the price only
   const plan = newPlan(`payment:${purchase.purchaseId}`, "PAYMENT_RECEIVED", purchase.authorId, account.version);
   const base = { authorId: purchase.authorId, paymentId, orderId: purchase.purchaseId, buyerId: purchase.buyerId };
@@ -495,8 +506,8 @@ export function planPaymentReceived(args: {
   if (feeKop > 0) {
     // the bank keeps it out of the payment: owed to the bank until settled from the statement, and Sensoria's own cost
     plan.lines.push(
-      { ...base, authorId: null, type: "BANK_FEE_COLLECTED", account: "bank_fee", delta: feeKop, reason: "Комісія банку за рахунок Sensoria" },
-      { ...base, authorId: null, type: "BANK_FEE_COLLECTED", account: "sensoria_revenue", delta: -feeKop, reason: "Комісія банку за рахунок Sensoria" }
+      { ...base, authorId: null, type: "BANK_FEE_COLLECTED", account: "bank_fee", delta: feeKop, reason: "Комісія банку з частки Sensoria" },
+      { ...base, authorId: null, type: "BANK_FEE_COLLECTED", account: "sensoria_revenue", delta: -feeKop, reason: "Комісія банку з частки Sensoria" }
     );
   }
 

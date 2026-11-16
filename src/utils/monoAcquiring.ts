@@ -31,9 +31,7 @@ export interface SplitInput {
   /** stable code of the content, e.g. its id */
   contentCode: string;
   authorReceiverId: string;
-  sensoriaReceiverId: string;
 }
-
 export class MonoError extends Error {
   code: string;
   constructor(code: string, message: string) {
@@ -41,34 +39,39 @@ export class MonoError extends Error {
     this.code = code;
   }
 }
-
 const trimTitle = (s: string, n: number) => {
   const t = s.replace(/\s+/g, " ").trim();
   return t.length > n ? `${t.slice(0, n - 1)}…` : t;
 };
 
 /**
- * The basket of a split invoice: one item for the author, one for Sensoria.
- * A part that is zero is left out (monobank rejects empty items). The totals must add up
- * to the price exactly, otherwise nothing is built: money must never be lost or invented.
+ * Sensoria's commission as monobank's `agentFeePercent`: the platform is an agent, not a split receiver
+ * (monobank: "для отримання комісії платформи передбачений параметр agentFeePercent; реєструватися як
+ * сабмерчант не потрібно"). Two decimals, so 30% / 15% are exact and any other rate stays within a kopeck.
  */
-export function buildSplitBasket(i: SplitInput): { amount: number; basketOrder: MonoBasketItem[] } {
+export function agentFeePercentOf(amountKop: number, sensoriaKop: number): number {
+  return Math.round((sensoriaKop * 10000) / amountKop) / 100;
+}
+
+/**
+ * The basket of a split invoice: ONE item, the author's, at the full price — monobank pays it to the author's
+ * splitReceiverId and keeps `agentFeePercent` of it for Sensoria. The parts must still add up to the price
+ * exactly, otherwise nothing is built: money must never be lost or invented.
+ */
+export function buildSplitBasket(i: SplitInput): { amount: number; basketOrder: MonoBasketItem[]; agentFeePercent: number } {
   const all = [i.amountKop, i.authorKop, i.sensoriaKop];
-  if (!all.every((n) => Number.isInteger(n) && n >= 0)) throw new MonoError("bad_amount", "Суми мають бути цілими невід'ємними числами в копійках.");
+  if (!all.every((n) => Number.isInteger(n) && n >= 0)) throw new MonoError("bad_amount", "Суми мають бути цілими невід'ємними числами (копійки).");
   if (i.amountKop <= 0) throw new MonoError("bad_amount", "Сума оплати має бути більшою за нуль.");
   if (i.authorKop + i.sensoriaKop !== i.amountKop) throw new MonoError("split_mismatch", "Частини автора й Sensoria не дають суму оплати.");
-  if (i.authorKop > 0 && !i.authorReceiverId) throw new MonoError("no_author_receiver", "Автор ще не підключений до розщеплення платежів.");
-  if (i.sensoriaKop > 0 && !i.sensoriaReceiverId) throw new MonoError("no_sensoria_receiver", "Не задано отримувача Sensoria.");
-
+  if (!i.authorReceiverId) throw new MonoError("no_author_receiver", "Автор ще не підключений до розщеплення платежів.");
+  const agentFeePercent = agentFeePercentOf(i.amountKop, i.sensoriaKop);
+  // the rounded percent must give back Sensoria's part within one kopeck
+  if (Math.abs(Math.round((i.amountKop * agentFeePercent) / 100) - i.sensoriaKop) > 1) throw new MonoError("split_mismatch", "Комісію Sensoria не можна точно передати банку.");
   const title = trimTitle(i.title || "Матеріал", 60);
-  const basketOrder: MonoBasketItem[] = [];
-  if (i.authorKop > 0) {
-    basketOrder.push({ name: title, qty: 1, sum: i.authorKop, total: i.authorKop, code: `${i.contentCode}:author`, splitReceiverId: i.authorReceiverId });
-  }
-  if (i.sensoriaKop > 0) {
-    basketOrder.push({ name: `Послуги платформи Sensoria: ${title}`.slice(0, 100), qty: 1, sum: i.sensoriaKop, total: i.sensoriaKop, code: `${i.contentCode}:platform`, splitReceiverId: i.sensoriaReceiverId });
-  }
-  return { amount: i.amountKop, basketOrder };
+  const basketOrder: MonoBasketItem[] = [
+    { name: title, qty: 1, sum: i.amountKop, total: i.amountKop, code: i.contentCode, splitReceiverId: i.authorReceiverId },
+  ];
+  return { amount: i.amountKop, basketOrder, agentFeePercent };
 }
 
 /**
@@ -76,7 +79,7 @@ export function buildSplitBasket(i: SplitInput): { amount: number; basketOrder: 
  * the webhook brings it back, so the order is never guessed from the amount.
  */
 export function buildInvoiceBody(args: SplitInput & { reference: string; redirectUrl: string; webHookUrl: string; validitySec?: number }) {
-  const { amount, basketOrder } = buildSplitBasket(args);
+  const { amount, basketOrder, agentFeePercent } = buildSplitBasket(args);
   return {
     amount,
     ccy: 980,
@@ -89,7 +92,30 @@ export function buildInvoiceBody(args: SplitInput & { reference: string; redirec
     webHookUrl: args.webHookUrl,
     validity: args.validitySec ?? 3600,
     paymentType: "debit",
+    agentFeePercent,
   };
+}
+
+/** The test token has no split (monobank: «тестовий токен еквайрингу, без спліта»): the same invoice without it. */
+export function withoutSplit<T extends { merchantPaymInfo: { basketOrder: MonoBasketItem[] }; agentFeePercent?: number }>(body: T) {
+  const { agentFeePercent: _drop, ...rest } = body;
+  void _drop;
+  return { ...rest, merchantPaymInfo: { ...body.merchantPaymInfo, basketOrder: body.merchantPaymInfo.basketOrder.map(({ splitReceiverId: _r, ...item }) => (void _r, item)) } };
+}
+
+// ── bank fee ─────────────────────────────────────────────────────────────────
+
+/** monobank: paymentInfo.country "804" = a Ukrainian card; another filled code = foreign; no code = unknown (never assume foreign). */
+export function cardOrigin(paymentInfo: unknown): "ua" | "foreign" | "unknown" {
+  const c = (paymentInfo as { country?: unknown } | null)?.country;
+  if (c === undefined || c === null || c === "") return "unknown";
+  return String(c) === "804" ? "ua" : "foreign";
+}
+
+/** The fee the bank actually took (paymentInfo.fee, kopecks), when it says so. */
+export function bankFeeKop(paymentInfo: unknown): number | null {
+  const f = (paymentInfo as { fee?: unknown } | null)?.fee;
+  return typeof f === "number" && Number.isFinite(f) && f >= 0 ? Math.round(f) : null;
 }
 
 // ── statuses ────────────────────────────────────────────────────────────────

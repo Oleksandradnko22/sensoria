@@ -170,6 +170,10 @@ export function touchFinanceActivity(type: "login" | "view_finance" | "manage_co
 export const requestPayout = (amountKop: number) => callFinance<{ ok: true; payoutId: string }>({ action: "requestPayout", amountKop });
 export const saveBankAccount = (v: { iban: string; bankName: string; holderName: string; taxId: string }) =>
   callFinance<{ ok: true; status: string; unchanged?: boolean }>({ action: "saveBankAccount", ...v });
+export type MonoConnection = { status: "none" | "requested" | "active" | "disabled"; ipnLast4: string | null; legalName: string | null; updatedAt: string | null };
+export const fetchMonoConnection = () => callFinance<{ ok: true } & MonoConnection>({ action: "monoConnection" });
+export const requestMonoConnection = (v: { ipn: string; legalName: string }) =>
+  callFinance<{ ok: true; status: string; unchanged?: boolean }>({ action: "requestMonoConnection", ...v });
 export const markFinanceNotificationsRead = () => callFinance<{ ok: true }>({ action: "markNotificationsRead" });
 
 // ── paying a material on monobank (the server decides the amount and the split; the browser only names the material) ──

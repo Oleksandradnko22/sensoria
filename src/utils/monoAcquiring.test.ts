@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, createSign } from "node:crypto";
 import test from "node:test";
 import {
-  MONO_CMS_NAME, MonoError, buildInvoiceBody, buildSplitBasket, derToRawSignature, effectOf, isNewer, parseStatus, spkiFromPem,
-  verifyWebhookSignature,
+  MONO_CMS_NAME, MonoError, bankFeeKop, buildInvoiceBody, buildSplitBasket, cardOrigin, derToRawSignature, effectOf, isNewer, parseStatus, spkiFromPem,
+  verifyWebhookSignature, withoutSplit,
 } from "./monoAcquiring.ts";
 
 const base = {
@@ -13,29 +13,32 @@ const base = {
   title: "Програма: спокій у тривозі",
   contentCode: "c1",
   authorReceiverId: "rcv-author",
-  sensoriaReceiverId: "rcv-sensoria",
 };
 
 test("cms name is the one monobank asked for", () => {
   assert.equal(MONO_CMS_NAME, "sensoria");
 });
 
-test("basket: two items, each to its own receiver, totals add up to the price", () => {
-  const { amount, basketOrder } = buildSplitBasket(base);
+test("basket: one item, the author's, at the full price; Sensoria's part goes as agentFeePercent", () => {
+  const { amount, basketOrder, agentFeePercent } = buildSplitBasket(base);
   assert.equal(amount, 100000);
-  assert.equal(basketOrder.length, 2);
-  assert.deepEqual(basketOrder.map((b) => b.splitReceiverId), ["rcv-author", "rcv-sensoria"]);
-  assert.equal(basketOrder.reduce((s, b) => s + b.total, 0), amount);
-  for (const b of basketOrder) {
-    assert.equal(b.qty, 1);
-    assert.equal(b.sum, b.total);
-  }
+  assert.equal(basketOrder.length, 1);
+  assert.equal(basketOrder[0].splitReceiverId, "rcv-author");
+  assert.equal(basketOrder[0].sum, 100000);
+  assert.equal(basketOrder[0].total, 100000);
+  assert.equal(agentFeePercent, 30);
 });
 
-test("basket: a zero part is left out", () => {
-  const only = buildSplitBasket({ ...base, authorKop: 100000, sensoriaKop: 0 });
-  assert.equal(only.basketOrder.length, 1);
-  assert.equal(only.basketOrder[0].splitReceiverId, "rcv-author");
+test("basket: the referral rate (15%) and a Sensoria-free sale", () => {
+  assert.equal(buildSplitBasket({ ...base, authorKop: 85000, sensoriaKop: 15000 }).agentFeePercent, 15);
+  assert.equal(buildSplitBasket({ ...base, authorKop: 100000, sensoriaKop: 0 }).agentFeePercent, 0);
+});
+
+test("basket: an odd price still gives Sensoria its part within a kopeck", () => {
+  const amountKop = 33333;
+  const sensoriaKop = 10000; // 30.0003%
+  const { agentFeePercent } = buildSplitBasket({ ...base, amountKop, sensoriaKop, authorKop: amountKop - sensoriaKop });
+  assert.ok(Math.abs(Math.round((amountKop * agentFeePercent) / 100) - sensoriaKop) <= 1);
 });
 
 test("basket: refuses parts that do not add up", () => {
@@ -50,24 +53,38 @@ test("basket: refuses fractions, negatives and zero price", () => {
 
 test("basket: an author who is not connected to split blocks the sale", () => {
   assert.throws(() => buildSplitBasket({ ...base, authorReceiverId: "" }), (e) => e instanceof MonoError && e.code === "no_author_receiver");
-  assert.throws(() => buildSplitBasket({ ...base, sensoriaReceiverId: "" }), (e) => e instanceof MonoError && e.code === "no_sensoria_receiver");
 });
 
-test("basket: long titles are cut, codes are stable", () => {
+test("basket: long titles are cut, the code is the content id", () => {
   const { basketOrder } = buildSplitBasket({ ...base, title: "А".repeat(300) });
   assert.ok(basketOrder[0].name.length <= 60);
-  assert.ok(basketOrder[1].name.length <= 100);
-  assert.equal(basketOrder[0].code, "c1:author");
-  assert.equal(basketOrder[1].code, "c1:platform");
+  assert.equal(basketOrder[0].code, "c1");
 });
 
-test("invoice body carries our reference, urls and UAH", () => {
+test("invoice body carries our reference, urls, UAH and the agent fee", () => {
   const b = buildInvoiceBody({ ...base, reference: "intent-1", redirectUrl: "https://sensoria.courses/payment-result", webHookUrl: "https://x.supabase.co/functions/v1/mono-webhook" });
   assert.equal(b.ccy, 980);
   assert.equal(b.merchantPaymInfo.reference, "intent-1");
   assert.equal(b.amount, 100000);
   assert.equal(b.paymentType, "debit");
+  assert.equal(b.agentFeePercent, 30);
   assert.ok(b.webHookUrl.endsWith("/mono-webhook"));
+});
+
+test("test mode: the same invoice without split fields", () => {
+  const b = withoutSplit(buildInvoiceBody({ ...base, reference: "r", redirectUrl: "https://a", webHookUrl: "https://b" }));
+  assert.equal("agentFeePercent" in b, false);
+  assert.equal("splitReceiverId" in b.merchantPaymInfo.basketOrder[0], false);
+  assert.equal(b.amount, 100000);
+});
+
+test("card origin and bank fee from paymentInfo", () => {
+  assert.equal(cardOrigin({ country: "804" }), "ua");
+  assert.equal(cardOrigin({ country: "840" }), "foreign");
+  assert.equal(cardOrigin({}), "unknown");
+  assert.equal(cardOrigin(null), "unknown");
+  assert.equal(bankFeeKop({ fee: 1300 }), 1300);
+  assert.equal(bankFeeKop({}), null);
 });
 
 test("statuses: only success pays", () => {

@@ -674,6 +674,20 @@ test("referral sale: the lower rate is frozen on the payment, split goes to the 
   assert.equal(row.sale_source, "referral");
 });
 
+test("split: Sensoria's bank fee is only the fee on its own share (estimate and real fee)", () => {
+  const settings = { ...DEFAULT_SETTINGS, splitAtSource: 1, bankFeeBps: 130 };
+  const run = (bankFeeKop?: number) => planPaymentReceived({
+    settings, now: T0, account: new World().account, debts: [],
+    purchase: { purchaseId: "p-fee", authorId: AUTHOR, buyerId: "b", amountKop: 100000 },
+    paymentId: "pay-fee", reserveId: "res-fee", externalReference: "T", mode: "test", bankFeeKop,
+  });
+  const fee = (plan: ReturnType<typeof run>) => (plan.payments[0].row as Record<string, unknown>).fee_kop;
+  assert.equal(fee(run()), 390); // 1.3 % of the 30 000 commission
+  assert.equal(fee(run(2000)), 600); // a foreign card: 2 % of the whole payment, Sensoria's 30 % of it
+  assert.equal(fee(run(0)), 0);
+  assert.equal(conservationGap(run(2000).lines), 0);
+});
+
 test("pickSaleSource: referral only for a record made before the purchase and inside 30 days", () => {
   const buy = "2026-11-10T12:00:00Z";
   assert.equal(pickSaleSource(null, buy), "catalog");

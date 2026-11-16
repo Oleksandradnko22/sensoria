@@ -64,7 +64,54 @@ create table if not exists public.finance_settings (
   updated_at timestamptz not null default now(),
   constraint finance_shares_sum check (author_bps + commission_bps = 10000)
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.finance_settings add column if not exists author_bps int not null default 7000;
+alter table public.finance_settings drop constraint if exists finance_settings_author_bps_check;
+alter table public.finance_settings add constraint finance_settings_author_bps_check check (author_bps between 0 and 10000);
+alter table public.finance_settings add column if not exists commission_bps int not null default 3000;
+alter table public.finance_settings drop constraint if exists finance_settings_commission_bps_check;
+alter table public.finance_settings add constraint finance_settings_commission_bps_check check (commission_bps between 0 and 10000);
+alter table public.finance_settings add column if not exists referral_commission_bps int not null default 1500;
+alter table public.finance_settings drop constraint if exists finance_settings_referral_commission_bps_check;
+alter table public.finance_settings add constraint finance_settings_referral_commission_bps_check check (referral_commission_bps between 0 and 10000);
+alter table public.finance_settings add column if not exists hold_days int not null default 14;
+alter table public.finance_settings drop constraint if exists finance_settings_hold_days_check;
+alter table public.finance_settings add constraint finance_settings_hold_days_check check (hold_days >= 0);
+alter table public.finance_settings add column if not exists reserve_bps int not null default 0;
+alter table public.finance_settings drop constraint if exists finance_settings_reserve_bps_check;
+alter table public.finance_settings add constraint finance_settings_reserve_bps_check check (reserve_bps between 0 and 10000);
+alter table public.finance_settings add column if not exists reserve_days int not null default 0;
+alter table public.finance_settings drop constraint if exists finance_settings_reserve_days_check;
+alter table public.finance_settings add constraint finance_settings_reserve_days_check check (reserve_days >= 0);
+alter table public.finance_settings add column if not exists inactivity_days int not null default 14;
+alter table public.finance_settings drop constraint if exists finance_settings_inactivity_days_check;
+alter table public.finance_settings add constraint finance_settings_inactivity_days_check check (inactivity_days > 0);
+alter table public.finance_settings add column if not exists warning_grace_days int not null default 3;
+alter table public.finance_settings drop constraint if exists finance_settings_warning_grace_days_check;
+alter table public.finance_settings add constraint finance_settings_warning_grace_days_check check (warning_grace_days >= 0);
+alter table public.finance_settings add column if not exists reminder_days int not null default 3;
+alter table public.finance_settings drop constraint if exists finance_settings_reminder_days_check;
+alter table public.finance_settings add constraint finance_settings_reminder_days_check check (reminder_days >= 0);
+alter table public.finance_settings add column if not exists min_payout_kop bigint not null default 50000;
+alter table public.finance_settings drop constraint if exists finance_settings_min_payout_kop_check;
+alter table public.finance_settings add constraint finance_settings_min_payout_kop_check check (min_payout_kop >= 0);
+alter table public.finance_settings add column if not exists bank_fee_bps int not null default 0;
+alter table public.finance_settings drop constraint if exists finance_settings_bank_fee_bps_check;
+alter table public.finance_settings add constraint finance_settings_bank_fee_bps_check check (bank_fee_bps between 0 and 9999);
+alter table public.finance_settings add column if not exists bank_fee_fixed_kop bigint not null default 0;
+alter table public.finance_settings drop constraint if exists finance_settings_bank_fee_fixed_kop_check;
+alter table public.finance_settings add constraint finance_settings_bank_fee_fixed_kop_check check (bank_fee_fixed_kop >= 0);
+alter table public.finance_settings add column if not exists auto_payout boolean not null default true;
+alter table public.finance_settings add column if not exists split_at_source boolean not null default true;
+alter table public.finance_settings add column if not exists sensoria_iban text;
+alter table public.finance_settings add column if not exists sensoria_account_holder text;
+alter table public.finance_settings add column if not exists mode text not null default 'test';
+alter table public.finance_settings drop constraint if exists finance_settings_mode_check;
+alter table public.finance_settings add constraint finance_settings_mode_check check (mode in ('test', 'live'));
+alter table public.finance_settings add column if not exists updated_at timestamptz not null default now();
 insert into public.finance_settings (id) values (1) on conflict do nothing;
+-- an older copy kept 75 / 25: the agreed split is 70 / 30 (85 / 15 by the author's own link)
+update public.finance_settings set author_bps = 7000, commission_bps = 3000 where id = 1 and author_bps = 7500 and commission_bps = 2500;
 alter table public.finance_settings enable row level security;
 -- no policies: read/changed only by the finance Edge Function (service role)
 
@@ -92,6 +139,36 @@ create table if not exists public.author_financial_accounts (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.author_financial_accounts add column if not exists pending_kop bigint not null default 0;
+alter table public.author_financial_accounts drop constraint if exists author_financial_accounts_pending_kop_check;
+alter table public.author_financial_accounts add constraint author_financial_accounts_pending_kop_check check (pending_kop >= 0);
+alter table public.author_financial_accounts add column if not exists available_kop bigint not null default 0;
+alter table public.author_financial_accounts drop constraint if exists author_financial_accounts_available_kop_check;
+alter table public.author_financial_accounts add constraint author_financial_accounts_available_kop_check check (available_kop >= 0);
+alter table public.author_financial_accounts add column if not exists reserved_kop bigint not null default 0;
+alter table public.author_financial_accounts drop constraint if exists author_financial_accounts_reserved_kop_check;
+alter table public.author_financial_accounts add constraint author_financial_accounts_reserved_kop_check check (reserved_kop >= 0);
+alter table public.author_financial_accounts add column if not exists debt_kop bigint not null default 0;
+alter table public.author_financial_accounts drop constraint if exists author_financial_accounts_debt_kop_check;
+alter table public.author_financial_accounts add constraint author_financial_accounts_debt_kop_check check (debt_kop >= 0);
+alter table public.author_financial_accounts add column if not exists in_flight_kop bigint not null default 0;
+alter table public.author_financial_accounts drop constraint if exists author_financial_accounts_in_flight_kop_check;
+alter table public.author_financial_accounts add constraint author_financial_accounts_in_flight_kop_check check (in_flight_kop >= 0);
+alter table public.author_financial_accounts add column if not exists lifetime_earnings_kop bigint not null default 0;
+alter table public.author_financial_accounts add column if not exists total_paid_out_kop bigint not null default 0;
+alter table public.author_financial_accounts add column if not exists total_refunded_kop bigint not null default 0;
+alter table public.author_financial_accounts add column if not exists account_status text not null default 'ACTIVE';
+alter table public.author_financial_accounts drop constraint if exists author_financial_accounts_account_status_check;
+alter table public.author_financial_accounts add constraint author_financial_accounts_account_status_check check (account_status in ('ACTIVE','DEBT','INACTIVE_WITH_DEBT','WARNING','SALES_SUSPENDED','DEBT_COLLECTION','CLOSURE_REQUESTED','CLOSED'));
+alter table public.author_financial_accounts add column if not exists admin_hold boolean not null default false;
+alter table public.author_financial_accounts add column if not exists sales_suspended boolean not null default false;
+alter table public.author_financial_accounts add column if not exists last_meaningful_activity_at timestamptz;
+alter table public.author_financial_accounts add column if not exists warning_at timestamptz;
+alter table public.author_financial_accounts add column if not exists reminder_sent_at timestamptz;
+alter table public.author_financial_accounts add column if not exists version int not null default 0;
+alter table public.author_financial_accounts add column if not exists created_at timestamptz not null default now();
+alter table public.author_financial_accounts add column if not exists updated_at timestamptz not null default now();
 
 create table if not exists public.finance_payments (
   id uuid primary key,
@@ -129,6 +206,50 @@ create table if not exists public.finance_payments (
   check (author_kop + sensoria_kop = amount_kop),
   check (refunded_kop <= amount_kop)
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.finance_payments add column if not exists purchase_id uuid;
+alter table public.finance_payments add column if not exists author_id uuid;
+alter table public.finance_payments add column if not exists buyer_id uuid;
+alter table public.finance_payments add column if not exists amount_kop bigint;
+alter table public.finance_payments drop constraint if exists finance_payments_amount_kop_check;
+alter table public.finance_payments add constraint finance_payments_amount_kop_check check (amount_kop > 0);
+alter table public.finance_payments add column if not exists fee_kop bigint not null default 0;
+alter table public.finance_payments drop constraint if exists finance_payments_fee_kop_check;
+alter table public.finance_payments add constraint finance_payments_fee_kop_check check (fee_kop >= 0);
+alter table public.finance_payments add column if not exists gross_kop bigint;
+alter table public.finance_payments add column if not exists content_id uuid;
+alter table public.finance_payments add column if not exists content_title text;
+alter table public.finance_payments add column if not exists fee_refunded_kop bigint not null default 0;
+alter table public.finance_payments add column if not exists split_author_kop bigint;
+alter table public.finance_payments add column if not exists split_sensoria_kop bigint;
+alter table public.finance_payments add column if not exists currency text not null default 'UAH';
+alter table public.finance_payments add column if not exists payment_status text not null default 'received';
+alter table public.finance_payments drop constraint if exists finance_payments_payment_status_check;
+alter table public.finance_payments add constraint finance_payments_payment_status_check check (payment_status in ('initiated','confirmed','received','failed'));
+alter table public.finance_payments add column if not exists external_reference text;
+alter table public.finance_payments add column if not exists mode text not null default 'test';
+alter table public.finance_payments drop constraint if exists finance_payments_mode_check;
+alter table public.finance_payments add constraint finance_payments_mode_check check (mode in ('test','live'));
+alter table public.finance_payments add column if not exists author_bps int;
+alter table public.finance_payments add column if not exists commission_bps int;
+alter table public.finance_payments add column if not exists sale_source text not null default 'catalog';
+alter table public.finance_payments drop constraint if exists finance_payments_sale_source_check;
+alter table public.finance_payments add constraint finance_payments_sale_source_check check (sale_source in ('catalog','referral'));
+alter table public.finance_payments add column if not exists author_kop bigint;
+alter table public.finance_payments add column if not exists sensoria_kop bigint;
+alter table public.finance_payments add column if not exists pending_kop bigint not null default 0;
+alter table public.finance_payments drop constraint if exists finance_payments_pending_kop_check;
+alter table public.finance_payments add constraint finance_payments_pending_kop_check check (pending_kop >= 0);
+alter table public.finance_payments add column if not exists hold_until timestamptz;
+alter table public.finance_payments add column if not exists refunded_kop bigint not null default 0;
+alter table public.finance_payments drop constraint if exists finance_payments_refunded_kop_check;
+alter table public.finance_payments add constraint finance_payments_refunded_kop_check check (refunded_kop >= 0);
+alter table public.finance_payments add column if not exists author_refunded_kop bigint not null default 0;
+alter table public.finance_payments add column if not exists sensoria_refunded_kop bigint not null default 0;
+alter table public.finance_payments add column if not exists disputed boolean not null default false;
+alter table public.finance_payments add column if not exists confirmed_at timestamptz;
+alter table public.finance_payments add column if not exists received_at timestamptz;
+alter table public.finance_payments add column if not exists created_at timestamptz not null default now();
 create index if not exists finance_payments_author_idx on public.finance_payments (author_id, hold_until);
 
 create table if not exists public.finance_refunds (
@@ -149,6 +270,28 @@ create table if not exists public.finance_refunds (
   created_at timestamptz not null default now(),
   completed_at timestamptz
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.finance_refunds add column if not exists payment_id uuid;
+alter table public.finance_refunds add column if not exists order_id uuid;
+alter table public.finance_refunds add column if not exists buyer_id uuid;
+alter table public.finance_refunds add column if not exists author_id uuid;
+alter table public.finance_refunds add column if not exists total_refund_kop bigint;
+alter table public.finance_refunds drop constraint if exists finance_refunds_total_refund_kop_check;
+alter table public.finance_refunds add constraint finance_refunds_total_refund_kop_check check (total_refund_kop > 0);
+alter table public.finance_refunds add column if not exists fee_refund_kop bigint not null default 0;
+alter table public.finance_refunds add column if not exists buyer_refund_kop bigint;
+alter table public.finance_refunds add column if not exists author_share_kop bigint;
+alter table public.finance_refunds add column if not exists sensoria_share_kop bigint;
+alter table public.finance_refunds add column if not exists refund_type text;
+alter table public.finance_refunds drop constraint if exists finance_refunds_refund_type_check;
+alter table public.finance_refunds add constraint finance_refunds_refund_type_check check (refund_type in ('full','partial','chargeback'));
+alter table public.finance_refunds add column if not exists idempotency_key text;
+alter table public.finance_refunds add column if not exists status text not null default 'approved';
+alter table public.finance_refunds drop constraint if exists finance_refunds_status_check;
+alter table public.finance_refunds add constraint finance_refunds_status_check check (status in ('requested','approved','completed','failed'));
+alter table public.finance_refunds add column if not exists reason text;
+alter table public.finance_refunds add column if not exists created_at timestamptz not null default now();
+alter table public.finance_refunds add column if not exists completed_at timestamptz;
 
 create table if not exists public.author_debts (
   id uuid primary key,
@@ -161,6 +304,21 @@ create table if not exists public.author_debts (
   created_at timestamptz not null default now(),
   resolved_at timestamptz
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.author_debts add column if not exists author_id uuid;
+alter table public.author_debts add column if not exists source_refund_id uuid;
+alter table public.author_debts add column if not exists original_kop bigint;
+alter table public.author_debts drop constraint if exists author_debts_original_kop_check;
+alter table public.author_debts add constraint author_debts_original_kop_check check (original_kop > 0);
+alter table public.author_debts add column if not exists outstanding_kop bigint;
+alter table public.author_debts drop constraint if exists author_debts_outstanding_kop_check;
+alter table public.author_debts add constraint author_debts_outstanding_kop_check check (outstanding_kop >= 0);
+alter table public.author_debts add column if not exists reason text;
+alter table public.author_debts add column if not exists status text not null default 'open';
+alter table public.author_debts drop constraint if exists author_debts_status_check;
+alter table public.author_debts add constraint author_debts_status_check check (status in ('open','repaid'));
+alter table public.author_debts add column if not exists created_at timestamptz not null default now();
+alter table public.author_debts add column if not exists resolved_at timestamptz;
 create index if not exists author_debts_author_idx on public.author_debts (author_id, status, created_at);
 
 create table if not exists public.refund_reserves (
@@ -175,6 +333,19 @@ create table if not exists public.refund_reserves (
   created_at timestamptz not null default now(),
   check (released_kop + used_kop <= reserved_kop)
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.refund_reserves add column if not exists author_id uuid;
+alter table public.refund_reserves add column if not exists payment_id uuid;
+alter table public.refund_reserves add column if not exists reserved_kop bigint;
+alter table public.refund_reserves drop constraint if exists refund_reserves_reserved_kop_check;
+alter table public.refund_reserves add constraint refund_reserves_reserved_kop_check check (reserved_kop > 0);
+alter table public.refund_reserves add column if not exists released_kop bigint not null default 0;
+alter table public.refund_reserves add column if not exists used_kop bigint not null default 0;
+alter table public.refund_reserves add column if not exists status text not null default 'held';
+alter table public.refund_reserves drop constraint if exists refund_reserves_status_check;
+alter table public.refund_reserves add constraint refund_reserves_status_check check (status in ('held','released','used'));
+alter table public.refund_reserves add column if not exists release_at timestamptz;
+alter table public.refund_reserves add column if not exists created_at timestamptz not null default now();
 create index if not exists refund_reserves_author_idx on public.refund_reserves (author_id, status, release_at);
 
 create table if not exists public.payouts (
@@ -195,6 +366,25 @@ create table if not exists public.payouts (
   confirmation_reference text,
   failure_reason text
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.payouts add column if not exists author_id uuid;
+alter table public.payouts add column if not exists amount_kop bigint;
+alter table public.payouts drop constraint if exists payouts_amount_kop_check;
+alter table public.payouts add constraint payouts_amount_kop_check check (amount_kop > 0);
+alter table public.payouts add column if not exists currency text not null default 'UAH';
+alter table public.payouts add column if not exists payout_status text not null default 'requested';
+alter table public.payouts drop constraint if exists payouts_payout_status_check;
+alter table public.payouts add constraint payouts_payout_status_check check (payout_status in ('requested','processing','paid','failed','cancelled'));
+alter table public.payouts add column if not exists destination text;
+alter table public.payouts add column if not exists bank_account_id uuid;
+alter table public.payouts add column if not exists destination_iban text;
+alter table public.payouts add column if not exists destination_holder text;
+alter table public.payouts add column if not exists destination_tax_id text;
+alter table public.payouts add column if not exists is_auto boolean not null default false;
+alter table public.payouts add column if not exists requested_at timestamptz not null default now();
+alter table public.payouts add column if not exists processed_at timestamptz;
+alter table public.payouts add column if not exists confirmation_reference text;
+alter table public.payouts add column if not exists failure_reason text;
 create index if not exists payouts_author_idx on public.payouts (author_id, requested_at desc);
 create index if not exists payouts_status_idx on public.payouts (payout_status);
 
@@ -215,6 +405,25 @@ create table if not exists public.author_bank_accounts (
   verified_at timestamptz,
   created_at timestamptz not null default now()
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.author_bank_accounts add column if not exists author_id uuid;
+alter table public.author_bank_accounts add column if not exists iban text;
+alter table public.author_bank_accounts drop constraint if exists author_bank_accounts_iban_check;
+alter table public.author_bank_accounts add constraint author_bank_accounts_iban_check check (iban ~ '^UA[0-9]{27}$');
+alter table public.author_bank_accounts add column if not exists bank_name text;
+alter table public.author_bank_accounts add column if not exists holder_name text;
+alter table public.author_bank_accounts drop constraint if exists author_bank_accounts_holder_name_check;
+alter table public.author_bank_accounts add constraint author_bank_accounts_holder_name_check check (length(btrim(holder_name)) >= 5);
+alter table public.author_bank_accounts add column if not exists tax_id text;
+alter table public.author_bank_accounts drop constraint if exists author_bank_accounts_tax_id_check;
+alter table public.author_bank_accounts add constraint author_bank_accounts_tax_id_check check (tax_id ~ '^([0-9]{8}|[0-9]{10})$');
+alter table public.author_bank_accounts add column if not exists status text not null default 'pending';
+alter table public.author_bank_accounts drop constraint if exists author_bank_accounts_status_check;
+alter table public.author_bank_accounts add constraint author_bank_accounts_status_check check (status in ('pending','verified','rejected','replaced'));
+alter table public.author_bank_accounts add column if not exists reject_reason text;
+alter table public.author_bank_accounts add column if not exists verified_by uuid;
+alter table public.author_bank_accounts add column if not exists verified_at timestamptz;
+alter table public.author_bank_accounts add column if not exists created_at timestamptz not null default now();
 create unique index if not exists author_bank_one_verified on public.author_bank_accounts (author_id) where status = 'verified';
 create unique index if not exists author_bank_one_pending on public.author_bank_accounts (author_id) where status = 'pending';
 create index if not exists author_bank_author_idx on public.author_bank_accounts (author_id, created_at desc);
@@ -231,6 +440,11 @@ create table if not exists public.finance_operations (
   actor_id uuid,
   created_at timestamptz not null default now()
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.finance_operations add column if not exists kind text;
+alter table public.finance_operations add column if not exists author_id uuid;
+alter table public.finance_operations add column if not exists actor_id uuid;
+alter table public.finance_operations add column if not exists created_at timestamptz not null default now();
 alter table public.finance_operations enable row level security;
 
 create table if not exists public.ledger_entries (
@@ -256,6 +470,26 @@ create table if not exists public.ledger_entries (
   reason text,
   created_at timestamptz not null default now()
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.ledger_entries add column if not exists operation_key text;
+alter table public.ledger_entries add column if not exists type text;
+alter table public.ledger_entries drop constraint if exists ledger_entries_type_check;
+alter table public.ledger_entries add constraint ledger_entries_type_check check (type in ( 'PAYMENT_RECEIVED','AUTHOR_EARNING','SENSORIA_COMMISSION','AUTHOR_PAYOUT','REFUND','PARTIAL_REFUND', 'AUTHOR_DEBT_CREATED','AUTHOR_DEBT_REPAID','REFUND_RESERVE_CREATED','REFUND_RESERVE_RELEASED', 'CHARGEBACK','MANUAL_ADJUSTMENT','HOLD_RELEASED','BANK_FEE_COLLECTED','BANK_FEE_PAID'));
+alter table public.ledger_entries add column if not exists account text;
+alter table public.ledger_entries drop constraint if exists ledger_entries_account_check;
+alter table public.ledger_entries add constraint ledger_entries_account_check check (account in ( 'cash_in','cash_out','sensoria_revenue','author_pending','author_available','author_reserved', 'author_debt','payout_in_flight','bank_fee','author_paid_out','author_earned','author_refunded'));
+alter table public.ledger_entries add column if not exists delta_kop bigint;
+alter table public.ledger_entries add column if not exists currency text not null default 'UAH';
+alter table public.ledger_entries add column if not exists author_id uuid;
+alter table public.ledger_entries add column if not exists payment_id uuid;
+alter table public.ledger_entries add column if not exists refund_id uuid;
+alter table public.ledger_entries add column if not exists payout_id uuid;
+alter table public.ledger_entries add column if not exists order_id uuid;
+alter table public.ledger_entries add column if not exists buyer_id uuid;
+alter table public.ledger_entries add column if not exists author_share_kop bigint;
+alter table public.ledger_entries add column if not exists sensoria_share_kop bigint;
+alter table public.ledger_entries add column if not exists reason text;
+alter table public.ledger_entries add column if not exists created_at timestamptz not null default now();
 create index if not exists ledger_author_idx on public.ledger_entries (author_id, id desc);
 create index if not exists ledger_order_idx on public.ledger_entries (order_id);
 create index if not exists ledger_op_idx on public.ledger_entries (operation_key);
@@ -288,6 +522,18 @@ create table if not exists public.financial_notifications (
   created_at timestamptz not null default now(),
   unique (author_id, dedupe_key)       -- the same event is never sent twice
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.financial_notifications add column if not exists author_id uuid;
+alter table public.financial_notifications add column if not exists event_type text;
+alter table public.financial_notifications add column if not exists dedupe_key text;
+alter table public.financial_notifications add column if not exists message text;
+alter table public.financial_notifications add column if not exists amount_kop bigint;
+alter table public.financial_notifications add column if not exists related_operation text;
+alter table public.financial_notifications add column if not exists delivery_status text not null default 'pending';
+alter table public.financial_notifications drop constraint if exists financial_notifications_delivery_status_check;
+alter table public.financial_notifications add constraint financial_notifications_delivery_status_check check (delivery_status in ('pending','sent','skipped','failed'));
+alter table public.financial_notifications add column if not exists read_at timestamptz;
+alter table public.financial_notifications add column if not exists created_at timestamptz not null default now();
 create index if not exists financial_notifications_author_idx on public.financial_notifications (author_id, created_at desc);
 create index if not exists financial_notifications_pending_idx on public.financial_notifications (delivery_status) where delivery_status = 'pending';
 
@@ -298,6 +544,11 @@ create table if not exists public.author_activity (
   is_meaningful boolean not null default true,
   created_at timestamptz not null default now()
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.author_activity add column if not exists author_id uuid;
+alter table public.author_activity add column if not exists activity_type text;
+alter table public.author_activity add column if not exists is_meaningful boolean not null default true;
+alter table public.author_activity add column if not exists created_at timestamptz not null default now();
 create index if not exists author_activity_author_idx on public.author_activity (author_id, created_at desc);
 
 create table if not exists public.author_status_log (
@@ -309,6 +560,13 @@ create table if not exists public.author_status_log (
   operation_key text,
   created_at timestamptz not null default now()
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.author_status_log add column if not exists author_id uuid;
+alter table public.author_status_log add column if not exists from_status text;
+alter table public.author_status_log add column if not exists to_status text;
+alter table public.author_status_log add column if not exists reason text;
+alter table public.author_status_log add column if not exists operation_key text;
+alter table public.author_status_log add column if not exists created_at timestamptz not null default now();
 
 create table if not exists public.finance_audit_log (
   id bigint generated always as identity primary key,
@@ -321,6 +579,15 @@ create table if not exists public.finance_audit_log (
   new_value jsonb,
   created_at timestamptz not null default now()
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.finance_audit_log add column if not exists administrator_id uuid;
+alter table public.finance_audit_log add column if not exists action text;
+alter table public.finance_audit_log add column if not exists entity_type text;
+alter table public.finance_audit_log add column if not exists entity_id text;
+alter table public.finance_audit_log add column if not exists reason text;
+alter table public.finance_audit_log add column if not exists previous_value jsonb;
+alter table public.finance_audit_log add column if not exists new_value jsonb;
+alter table public.finance_audit_log add column if not exists created_at timestamptz not null default now();
 create or replace function public.audit_immutable()
 returns trigger language plpgsql as $$
 begin
@@ -699,6 +966,16 @@ create table if not exists public.content_access_log (
   user_agent text,
   created_at timestamptz not null default now()
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.content_access_log add column if not exists user_id uuid;
+alter table public.content_access_log add column if not exists content_id uuid;
+alter table public.content_access_log add column if not exists purchase_id uuid;
+alter table public.content_access_log add column if not exists action text;
+alter table public.content_access_log drop constraint if exists content_access_log_action_check;
+alter table public.content_access_log add constraint content_access_log_action_check check (action in ('open', 'download'));
+alter table public.content_access_log add column if not exists ip text;
+alter table public.content_access_log add column if not exists user_agent text;
+alter table public.content_access_log add column if not exists created_at timestamptz not null default now();
 create index if not exists content_access_log_user_idx on public.content_access_log (user_id, created_at desc);
 create index if not exists content_access_log_content_idx on public.content_access_log (content_id, created_at desc);
 create index if not exists content_access_log_purchase_idx on public.content_access_log (purchase_id);
@@ -746,6 +1023,10 @@ create table if not exists public.referral_attributions (
   created_at timestamptz not null default now(),
   primary key (buyer_id, author_id)
 );
+-- repair: an older copy of this table may already exist; bring its columns and value checks up to date
+alter table public.referral_attributions add column if not exists buyer_id uuid;
+alter table public.referral_attributions add column if not exists author_id uuid;
+alter table public.referral_attributions add column if not exists created_at timestamptz not null default now();
 alter table public.referral_attributions enable row level security;
 -- no policies: no direct reads or writes from the app
 

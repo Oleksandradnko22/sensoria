@@ -1,10 +1,10 @@
 // «Фінанси» in the author cabinet. What does not depend on the bank is complete: how a payment is split (70 % when
 // the buyer came through Sensoria, 85 % through the author's own link), income by month and by material, every sale
-// with its source and status, the bank account. How the money reaches the author (payouts) depends on monobank's
-// answer, so that block shows the rules that will be filled in then («Уточнюється»), not invented numbers.
+// with its source and status, and the connection of the author's FOP/TOV to monobank's split (the bank sends the
+// author's share straight to the author's account; Sensoria's commission comes as agentFeePercent).
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSession } from "../../context/SessionContext";
-import { fetchMyFinance, markFinanceNotificationsRead, saveBankAccount, touchFinanceActivity, type FinanceSale, type MyFinance } from "../../lib/finance";
+import { fetchMonoConnection, fetchMyFinance, markFinanceNotificationsRead, requestMonoConnection, touchFinanceActivity, type FinanceSale, type MonoConnection, type MyFinance } from "../../lib/finance";
 import { STATUS_LABEL, financeTotals, historyRows, incomeByMaterial, isFullyRefunded, monthlyIncome, netAuthorKop, statusExplanation, uahFromKop } from "../../utils/financeView";
 import { buildReferralLink } from "../../utils/referral";
 import { SHOW_AUTHOR_DEMO } from "../../utils/demoMode";
@@ -116,9 +116,9 @@ export default function AuthorFinance() {
           <Mini label="Мінус після повернень" value={bal.debt ? `−${uahFromKop(bal.debt)}` : uahFromKop(0)} danger={bal.debt > 0} hint={bal.debt ? "покривається наступними надходженнями" : undefined} />
         </div>
         <div className="mt-4 rounded-2xl bg-[#f6f4ff] p-4 text-[13px] leading-relaxed text-[#2d2a5c]">
-          <div className="flex items-center gap-2 font-semibold"><Icon name="refresh" size={15} /> Повернення коштів покупцю списуються з цього балансу, а не з вашого рахунку ФОП</div>
+          <div className="flex items-center gap-2 font-semibold"><Icon name="refresh" size={15} /> Повернення коштів покупцю банк списує з вашого рахунку ФОП</div>
           <p className="mt-1.5 text-black/60">
-            Наприклад, програма за 1000 ₴: вам {exampleAuthor} ₴, Sensoria {1000 - exampleAuthor} ₴. Якщо покупець повертає кошти, Sensoria повертає свою частину, а на вашому балансі з’являється −{exampleAuthor} ₴. Якщо балансу не вистачає, він стає від’ємним, і наступні надходження (одне чи кілька) спершу покривають цей мінус, а решта йде вам.
+            Наприклад, програма за 1000 ₴: вам {exampleAuthor} ₴, Sensoria {1000 - exampleAuthor} ₴, і з кожної частки банк утримує свою комісію. Якщо покупець повертає кошти, банк повертає {exampleAuthor} ₴ з вашого рахунку, а {1000 - exampleAuthor} ₴ — з рахунку Sensoria. Залишайте на рахунку суму, достатню для можливих повернень протягом 14 днів: якщо коштів не вистачить, повернення не пройде, і сума стане вашим мінусом, який покривають наступні продажі.
           </p>
         </div>
       </section>
@@ -264,19 +264,19 @@ export default function AuthorFinance() {
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#7a68e0]"><Icon name="card" size={20} /></span>
             <div>
               <h2 id="fin-payouts" className="text-[20px] font-bold text-[#12172b]">Виплати</h2>
-              <p className="text-[13px] text-black/55">З’являться після підключення оплати через банк.</p>
+              <p className="text-[13px] text-black/55">Банк ділить кожну оплату одразу: ваша частка йде на ваш рахунок ФОП.</p>
             </div>
           </div>
           <dl className="mt-4 flex flex-col divide-y divide-black/5 text-[14px]">
-            <Row label="Як надходять кошти" value="Уточнюється" note="Одразу на ваш рахунок ФОП у момент покупки або виплатою від Sensoria: залежить від схеми банку." />
-            <Row label="Коли надходять" value="Уточнюється" note={terms ? `Сьогодні в системі: ${terms.holdDays} днів на підтвердження покупки.` : undefined} />
-            <Row label="Мінімальна сума" value="Уточнюється" />
-            <Row label="Комісія банку" value="Уточнюється" note="Комісію за еквайринг сплачує Sensoria зі своєї частки: ваша частка не зменшується." />
-            <Row label="Повернення коштів" value="14 днів" note="Покупець може повернути кошти протягом 14 днів. Вашу частку буде списано з балансу, не з рахунку ФОП." />
+            <Row label="Як надходять кошти" value="Напряму від банку" note="monobank розщеплює оплату: 70 % (або 85 % за вашим посиланням) на ваш рахунок ФОП, комісія Sensoria — на рахунок Sensoria." />
+            <Row label="Коли надходять" value="Наступного дня" note="Банк зараховує кошти наступного робочого дня після оплати." />
+            <Row label="Мінімальна сума" value="Немає" note="Запитувати виплату не потрібно." />
+            <Row label="Комісія банку" value="1,3 % або 2 %" note="Банк утримує свою комісію з кожної частки окремо: з вашої — з вашої, з частки Sensoria — з її. 1,3 % для українських карток, 2 % для іноземних." />
+            <Row label="Повернення коштів" value="14 днів" note="Покупець може повернути кошти протягом 14 днів. Банк повертає вашу частку з вашого рахунку ФОП, частку Sensoria — з рахунку Sensoria. Комісія банку не повертається." />
           </dl>
         </section>
 
-        <BankAccountCard data={data} reload={reload} />
+        <MonoConnectCard />
       </div>
 
       {/* DEBTS (only when there are any) */}
@@ -301,7 +301,7 @@ export default function AuthorFinance() {
         <ul className="mt-3 grid gap-3 md:grid-cols-3">
           <InfoTile icon="idcard" title="Ви працюєте як ФОП" text="Податки зі своєї частки ви сплачуєте самостійно. Sensoria сплачує податки лише зі своєї комісії." />
           <InfoTile icon="note" title="Акти й звіти" text="Щомісячний звіт про продажі та акт про комісію Sensoria з’являться тут після підключення оплати." />
-          <InfoTile icon="shield" title="Реквізити захищені" text="Номер рахунку видно лише вам і команді Sensoria для перевірки. Номер картки ми не приймаємо й не зберігаємо." />
+          <InfoTile icon="shield" title="Реквізити захищені" text="Код ФОП або ТОВ видно лише вам і команді Sensoria. Номер картки покупця ми не бачимо й не зберігаємо: оплату приймає банк." />
         </ul>
       </section>
 
@@ -339,68 +339,86 @@ export default function AuthorFinance() {
   );
 }
 
-function BankAccountCard({ data, reload }: { data: MyFinance | null; reload: () => Promise<void> }) {
+function MonoConnectCard() {
+  const [conn, setConn] = useState<MonoConnection | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [holder, setHolder] = useState("");
-  const [taxId, setTaxId] = useState("");
-  const [iban, setIban] = useState("");
-  const [bankName, setBankName] = useState("");
+  const [legalName, setLegalName] = useState("");
+  const [ipn, setIpn] = useState("");
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const verified = data?.bankAccounts.find((b) => b.status === "verified") ?? null;
-  const pending = data?.bankAccounts.find((b) => b.status === "pending") ?? null;
-  const rejected = !pending && !verified ? data?.bankAccounts.find((b) => b.status === "rejected") ?? null : null;
-  const cleanIban = iban.replace(/\s+/g, "").toUpperCase();
-  const problem = !holder.trim() ? "Вкажіть ПІБ власника рахунку." : !/^\d{8}(\d{2})?$/.test(taxId.trim()) ? "РНОКПП — 10 цифр, ЄДРПОУ — 8 цифр." : !/^UA\d{27}$/.test(cleanIban) ? "IBAN має починатися з UA і містити 29 символів." : null;
 
+  const load = async () => {
+    try {
+      setConn(await fetchMonoConnection());
+      setLoadFailed(false);
+    } catch {
+      setLoadFailed(true);
+    }
+  };
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const problem = legalName.trim().length < 5 ? "Вкажіть назву ФОП або ТОВ повністю, як у документах." : !/^(\d{8}|\d{10})$/.test(ipn) ? "РНОКПП ФОП — 10 цифр, ЄДРПОУ ТОВ — 8 цифр." : null;
   const save = async () => {
     if (problem) return setError(problem);
     setSaving(true);
     setError(null);
     try {
-      await saveBankAccount({ iban: cleanIban, bankName, holderName: holder.trim(), taxId: taxId.trim() });
-      setSaved(true);
+      await requestMonoConnection({ ipn, legalName: legalName.trim() });
       setEditing(false);
-      window.setTimeout(() => setSaved(false), 3500);
-      await reload();
+      await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Не вдалося зберегти.");
+      setError(e instanceof Error ? e.message : "Не вдалося надіслати.");
     } finally {
       setSaving(false);
     }
   };
   const input = "min-h-[46px] w-full rounded-xl border border-[#d9d4f5] bg-[#faf9ff] px-4 text-[14px] focus:border-[#5b3df5] focus:bg-white focus:outline-none";
+  const status = conn?.status ?? "none";
 
   return (
-    <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-bank">
+    <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-mono">
       <div className="flex items-center gap-3">
         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#7a68e0]"><Icon name="idcard" size={20} /></span>
         <div>
-          <h2 id="fin-bank" className="text-[20px] font-bold text-[#12172b]">Рахунок для надходжень</h2>
-          <p className="text-[13px] text-black/55">Рахунок ФОП, власником якого є ви. Перевіряє команда Sensoria.</p>
+          <h2 id="fin-mono" className="text-[20px] font-bold text-[#12172b]">Прийом оплат</h2>
+          <p className="text-[13px] text-black/55">Ваш ФОП або ТОВ з рахунком у monobank.</p>
         </div>
       </div>
-      {verified && !editing && <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-[14px] text-emerald-900">Підтверджено: {verified.bankName || "Банк"} · IBAN ••••{verified.ibanLast4}<div className="text-[13px] text-emerald-800/70">{verified.holderName}</div></div>}
-      {pending && !editing && <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] text-amber-900">На перевірці: IBAN ••••{pending.ibanLast4}, {pending.holderName}.</div>}
-      {rejected && !editing && <div className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-[14px] text-rose-900">Рахунок ••••{rejected.ibanLast4} не підтверджено{rejected.rejectReason ? `: ${rejected.rejectReason}` : ""}. Вкажіть рахунок ще раз.</div>}
-      {!verified && !pending && !rejected && !editing && <p className="mt-4 rounded-2xl bg-[#faf9ff] px-4 py-3 text-[14px] text-black/60">Рахунок ще не вказано. Без нього оплати за ваші матеріали не зможуть надходити.</p>}
+      {loadFailed && <p className="mt-4 rounded-2xl bg-[#faf9ff] px-4 py-3 text-[14px] text-black/60">Не вдалося завантажити стан підключення. Оновіть сторінку пізніше.</p>}
+      {!loadFailed && conn && !editing && (
+        <>
+          {status === "active" && <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-[14px] text-emerald-900">Підключено: {conn.legalName} · код ••••{conn.ipnLast4}<div className="text-[13px] text-emerald-800/70">Ваша частка надходить на рахунок у monobank.</div></div>}
+          {status === "requested" && <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] text-amber-900">На підключенні: {conn.legalName} · код ••••{conn.ipnLast4}<div className="text-[13px] text-amber-800/80">Ми надішлемо вам анкету банку. Після її заповнення банк підключає рахунок до 24 годин.</div></div>}
+          {status === "disabled" && <div className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-[14px] text-rose-900">Прийом оплат призупинено. Деталі — у сповіщеннях, або надішліть дані ще раз.</div>}
+          {status === "none" && (
+            <div className="mt-4 rounded-2xl bg-[#faf9ff] px-4 py-3 text-[14px] text-black/65">
+              Поки ФОП не підключено, платні матеріали не можна купити.
+              <ol className="mt-2 list-decimal space-y-1 pl-5 text-[13px] text-black/55">
+                <li>Відкрийте рахунок ФОП або ТОВ у monobank, якщо його ще немає.</li>
+                <li>Надішліть тут назву й код.</li>
+                <li>Заповніть анкету банку, яку ми надішлемо.</li>
+              </ol>
+            </div>
+          )}
+        </>
+      )}
       {editing ? (
         <div className="mt-4 grid gap-3">
-          <label className="text-[13px] font-semibold text-[#2d2a5c]">ПІБ власника рахунку (як у банку)<input value={holder} onChange={(e) => setHolder(e.target.value)} autoComplete="name" className={`${input} mt-1`} /></label>
-          <label className="text-[13px] font-semibold text-[#2d2a5c]">РНОКПП або ЄДРПОУ<input value={taxId} onChange={(e) => setTaxId(e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" className={`${input} mt-1`} /></label>
-          <label className="text-[13px] font-semibold text-[#2d2a5c]">IBAN<input value={iban} onChange={(e) => setIban(e.target.value.toUpperCase())} placeholder="UA00 0000 0000 0000 0000 0000 0000 0" className={`${input} mt-1`} /></label>
-          <label className="text-[13px] font-semibold text-[#2d2a5c]">Банк<input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Наприклад, monobank" className={`${input} mt-1`} /></label>
+          <label className="text-[13px] font-semibold text-[#2d2a5c]">Назва ФОП або ТОВ (як у документах)<input value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="ФОП Прізвище Ім’я По батькові" className={`${input} mt-1`} /></label>
+          <label className="text-[13px] font-semibold text-[#2d2a5c]">РНОКПП (ФОП) або ЄДРПОУ (ТОВ)<input value={ipn} onChange={(e) => setIpn(e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" className={`${input} mt-1`} /></label>
+          {status === "active" && <p className="text-[13px] text-amber-800">Після зміни даних продажі зупиняться, доки банк не підключить новий рахунок.</p>}
           {error && <p role="alert" className="text-[13px] text-rose-700">{error}</p>}
           <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={() => void save()} disabled={saving} className="min-h-[46px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-5 text-[14px] font-semibold text-white hover:opacity-95 disabled:opacity-60">{saving ? "Надсилаємо…" : "Надіслати на перевірку"}</button>
+            <button type="button" onClick={() => void save()} disabled={saving} className="min-h-[46px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-5 text-[14px] font-semibold text-white hover:opacity-95 disabled:opacity-60">{saving ? "Надсилаємо…" : "Надіслати"}</button>
             <button type="button" onClick={() => { setEditing(false); setError(null); }} className="min-h-[46px] rounded-xl px-4 text-[14px] font-semibold text-black/55 hover:text-black">Скасувати</button>
           </div>
         </div>
       ) : (
-        <button type="button" onClick={() => setEditing(true)} className="mt-4 inline-flex min-h-[44px] items-center rounded-xl bg-[#f1eeff] px-4 text-[14px] font-semibold text-[#5b4bd0] hover:bg-[#e7e1ff]">{verified || pending ? "Змінити рахунок" : "Вказати рахунок"}</button>
+        conn && <button type="button" onClick={() => { setLegalName(conn.legalName ?? ""); setIpn(""); setEditing(true); }} className="mt-4 inline-flex min-h-[44px] items-center rounded-xl bg-[#f1eeff] px-4 text-[14px] font-semibold text-[#5b4bd0] hover:bg-[#e7e1ff]">{status === "none" ? "Підключити ФОП" : "Змінити дані"}</button>
       )}
-      {saved && <p role="status" className="mt-2 text-[13px] text-emerald-700">Надіслано на перевірку.</p>}
     </section>
   );
 }

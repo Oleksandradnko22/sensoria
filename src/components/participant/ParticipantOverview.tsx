@@ -50,9 +50,7 @@ import {
 } from "../../lib/dashboardPriority";
 import { getGuideStatus, withRealGuideStatus } from "../../lib/guideProgress";
 import {
-  getJourneySteps,
   hasStartedFirstPractice,
-  hasViewedEmotionalProfile,
 } from "../../lib/emotionalProfile";
 import type { ContentKind } from "../../data/participantDashboard";
 import type { StatusFilter } from "./ParticipantLearning";
@@ -427,18 +425,6 @@ export default function ParticipantOverview({
   // Replaces the previous reuse of completed PROGRAM count here, which
   // was really a different, unrelated number wearing this sentence's
   // clothes.
-  const journeyDoneCount = insight
-    ? getJourneySteps({
-        hasAssessment: true,
-        hasViewedProfile: hasViewedEmotionalProfile(),
-        // Real program activity (content_progress, via the shared
-        // participation layer) ORs into this — see
-        // lib/emotionalProfile.ts's own header for why this can no
-        // longer just read the static `enrollments` array for programs
-        // (2026-09-21, Overview/Learning consistency follow-up).
-        hasStartedPractice: hasStartedFirstPractice(programParticipation.enrollments.length > 0),
-      }).filter((s) => s.done).length
-    : 0;
 
   // Real PROGRAM candidates for "Продовжити"/"Ще N незавершені"/preview
   // (2026-09-21) — programParticipation.enrollments already only ever
@@ -633,6 +619,10 @@ export default function ParticipantOverview({
   // Genuinely nothing yet (not just nothing recent) gets its own honest
   // "недостатньо даних" copy instead of a fake insight.
   const observations = useObservationsSummary(session?.profile.id);
+  // the same 3 steps as «Ваш шлях» on the emotional profile: assessed, noticed changes, tried a practice
+  const journeyDoneCount = insight
+    ? [true, (observations?.total ?? 0) > 0, hasStartedFirstPractice(programParticipation.enrollments.length > 0)].filter(Boolean).length
+    : 0;
 
   const hello = greetingName(session?.profile.name);
   const inProgressCount = combinedEnrollmentsForPriority.filter((e) => e.status === "in-progress").length;
@@ -641,7 +631,7 @@ export default function ParticipantOverview({
     { label: "У процесі", value: String(inProgressCount), icon: "library", pending: programParticipation.loading },
     { label: "Завершено", value: String(completedCount), icon: "check", pending: programParticipation.loading },
     { label: "Спостереження", value: String(observations?.total ?? 0), icon: "note", pending: !observations },
-    { label: "Кроків до балансу", value: String(journeyDoneCount), icon: "heart", pending: assessmentLoading },
+    { label: "Кроків до балансу", value: `${journeyDoneCount} з 3`, icon: "heart", pending: assessmentLoading },
   ];
   const secondaryBtn =
     "inline-flex min-h-[52px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-white px-4 text-[15px] xl:text-[14px] min-[1500px]:text-[15px] font-semibold text-[#1d2240] shadow-[0_8px_22px_-12px_rgba(60,60,140,0.35)] ring-1 ring-[#ebe8ff] transition hover:bg-[#faf9ff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0]";

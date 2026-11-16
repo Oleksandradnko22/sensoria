@@ -32,6 +32,7 @@ const CORE: { key: string; table: string; column: string; select?: string }[] = 
 
 const EXTRA: { table: string; column: string }[] = [
   { table: "support_tickets", column: "user_id" },
+  { table: "assessment_history", column: "profile_id" },
   { table: "content_reports", column: "reporter_id" },
   { table: "content_comments", column: "user_id" },
   { table: "content_progress", column: "user_id" },

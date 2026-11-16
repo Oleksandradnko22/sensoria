@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { pluralUk } from "../../utils/plural";
 import { Icon, type IconName } from "../ui/Icon";
 import {
   enrollments,
@@ -1538,7 +1539,7 @@ function ContentCard({
       : kindLabel[item.kind];
 
   const metaLine = programProgress
-    ? `${programProgress.totalModules} модулів · ${programProgress.totalItems} елементів`
+    ? `${programProgress.totalModules} ${pluralUk(programProgress.totalModules, "модуль", "модулі", "модулів")} · ${programProgress.totalItems} ${pluralUk(programProgress.totalItems, "елемент", "елементи", "елементів")}`
     : item.kind === "meditation"
     ? info.duration
     : item.kind === "guide" && info.sizeLabel

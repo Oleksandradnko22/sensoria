@@ -31,7 +31,7 @@ type Props = {
 };
 
 const BTN =
-  "inline-flex min-h-[48px] w-full items-center justify-center rounded-[16px] bg-gradient-to-r from-[#0057ff] to-[#7b2cff] px-5 text-[16px] font-semibold text-white shadow-[0_10px_24px_-12px_rgba(0,87,255,0.6)] transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2";
+  "inline-flex min-h-[48px] w-full items-center justify-center rounded-[16px] bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-5 text-[16px] font-semibold text-white shadow-[0_10px_24px_-12px_rgba(0,87,255,0.6)] transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2";
 
 // Soft lavender card: a basket with three cards (program, meditation, guide), drawn here from simple
 // shapes, calm waves at the bottom and one pill per kind of material.
@@ -266,11 +266,11 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
           </p>
 
           {addedCount > 0 && (
-            <div role="status" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-emerald-50 px-5 py-4 text-slate-900 shadow-[0_16px_40px_-26px_rgba(30,41,99,0.45)]">
-              <p className="text-[15px] font-medium text-emerald-800">
+            <div role="status" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-gradient-to-r from-[#eef0fd] to-[#f6f1ff] ring-1 ring-[#e4def9] px-5 py-4 text-slate-900 shadow-[0_16px_40px_-26px_rgba(30,41,99,0.45)]">
+              <p className="text-[15px] font-medium text-[#2d2a5c]">
                 Додано в кабінет: {addedCount} {materialsWord(addedCount)}. Вони тепер у розділі «Моє навчання».
               </p>
-              <button type="button" onClick={onOpenCabinet} className="min-h-[44px] rounded-xl bg-emerald-600 px-4 text-[14px] font-semibold text-white transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
+              <button type="button" onClick={onOpenCabinet} className="min-h-[44px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[14px] font-semibold text-white transition hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] focus-visible:ring-offset-2">
                 Перейти в кабінет
               </button>
             </div>
@@ -314,7 +314,7 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
 
                       <div className="flex shrink-0 items-center justify-between gap-3 sm:min-h-[150px] sm:flex-col sm:items-end sm:self-stretch sm:justify-between sm:py-0.5">
                         {isFree ? (
-                          <span className="rounded-full bg-emerald-100 px-3 py-1 text-[13px] font-semibold text-emerald-700">Безкоштовно</span>
+                          <span className="rounded-full bg-[#f1eeff] px-3 py-1 text-[13px] font-semibold text-[#6d5bd0]">Безкоштовно</span>
                         ) : (
                           <span className="text-[18px] font-semibold">{formatPrice(item.price)}</span>
                         )}
@@ -368,7 +368,7 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                                 onClick={() => pay(l.item)}
                                 disabled={paying !== null}
                                 aria-label={`Оплатити: ${l.item.title}`}
-                                className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-r from-[#0057ff] to-[#7b2cff] px-4 text-[14px] font-semibold text-white transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2 disabled:opacity-60"
+                                className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[14px] font-semibold text-white transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2 disabled:opacity-60"
                               >
                                 {paying === l.item.id ? "Зачекайте…" : `Оплатити · ${formatPrice(l.item.price)}`}
                               </button>
@@ -399,7 +399,7 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                       type="button"
                       onClick={() => claim(free.map((l) => l.item))}
                       disabled={claiming}
-                      className="flex min-h-[52px] w-full items-center justify-center gap-2.5 rounded-[16px] bg-gradient-to-r from-[#059669] to-[#10b981] px-5 text-[16px] font-semibold text-white shadow-[0_10px_24px_-12px_rgba(5,150,105,0.65)] transition hover:opacity-90 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#059669] focus-visible:ring-offset-2 disabled:opacity-60"
+                      className="flex min-h-[52px] w-full items-center justify-center gap-2.5 rounded-[16px] bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-5 text-[16px] font-semibold text-white shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] transition hover:opacity-90 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#059669] focus-visible:ring-offset-2 disabled:opacity-60"
                     >
                       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         {isParticipant ? <path d="M12 5v14M5 12h14" /> : <path d="M15 4h4v16h-4M10 8l4 4-4 4M14 12H4" />}

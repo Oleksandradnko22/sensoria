@@ -1939,7 +1939,7 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
               </button>
               <button
                 onClick={confirmFinishEarly}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-500 text-white text-[13px] font-semibold hover:opacity-90 transition"
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[13px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 transition"
               >
                 Завершити
               </button>

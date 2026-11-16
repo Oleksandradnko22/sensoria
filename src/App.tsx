@@ -162,10 +162,17 @@ function AppInner() {
     captureReferralFromUrl();
   }, []);
 
-  // Back / Forward -> page
+  // Back / Forward -> page («/account» = the signed-in person's cabinet)
+  const sessionRoleRef = useRef<string | null>(null);
   useEffect(() => {
     const onPop = () => {
       const r = pageForPath(window.location.pathname);
+      const role = sessionRoleRef.current;
+      if (window.location.pathname === "/account" && role) {
+        setPage(role === "author" ? "author-dashboard" : "participant-dashboard");
+        window.scrollTo(0, 0);
+        return;
+      }
       setPage(r.page);
       setAuthorProfileId(r.authorId);
       setProgramDetailId(r.programId);
@@ -219,6 +226,9 @@ function AppInner() {
   // rules in src/utils/session.ts (tab genuinely reopened, idle past
   // the 3-hour mark) before it's trusted — see the effect below.
   const [session, setSession] = useState<Profile | null | undefined>(undefined);
+  useEffect(() => {
+    sessionRoleRef.current = session?.role ?? null;
+  }, [session]);
 
   // a signed-in buyer hands the remembered referral to the server (verified there; the finance function decides the rate)
   useEffect(() => {

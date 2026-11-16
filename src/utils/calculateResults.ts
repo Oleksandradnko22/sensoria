@@ -16,7 +16,7 @@ const MAX_ANSWER_VALUE = 3;
 const SUPPORTING_PATTERN_THRESHOLD = 50;
 const MAX_SUPPORTING_PATTERNS = 2;
 
-function getIntensity(normalizedPercent: number): Intensity {
+export function getIntensity(normalizedPercent: number): Intensity {
   if (normalizedPercent <= 25) return "low";
   if (normalizedPercent <= 50) return "moderate";
   if (normalizedPercent <= 75) return "high";

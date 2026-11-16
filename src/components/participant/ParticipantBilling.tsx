@@ -117,7 +117,7 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
 
   const canOpen = (p: PurchaseView) => !!p.title && !!p.kind && grantsAccess(p) && !!onOpenMaterial;
   const open = (p: PurchaseView) => {
-    if (canOpen(p)) onOpenMaterial?.(p.kind!, p.contentId);
+    if (canOpen(p)) onOpenMaterial?.(p.kind!, p.siteId ?? p.contentId);
   };
 
   const exportCsv = () => {

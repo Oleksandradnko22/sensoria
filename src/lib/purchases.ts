@@ -21,7 +21,7 @@ export async function fetchMyPurchases(participantId: string): Promise<PurchaseV
   const contentIds = Array.from(new Set(rows.map((r) => r.content_id as string)));
   const { data: contentRows, error: cErr } = await supabase
     .from("content")
-    .select("id, title, kind, author_id")
+    .select("id, title, kind, author_id, slug")
     .in("id", contentIds);
   if (cErr) throw cErr;
   const byId = new Map((contentRows ?? []).map((c) => [c.id as string, c]));
@@ -38,6 +38,8 @@ export async function fetchMyPurchases(participantId: string): Promise<PurchaseV
     return {
       id: r.id as string,
       contentId: r.content_id as string,
+      // the id the site opens it by: a program's uuid, a guide's or meditation's slug
+      siteId: c && c.kind !== "program" && c.slug ? (c.slug as string) : (r.content_id as string),
       kind: (c?.kind as PurchaseKind | undefined) ?? null,
       title: (c?.title as string | undefined) ?? null,
       author: c ? nameById.get(c.author_id as string) ?? null : null,

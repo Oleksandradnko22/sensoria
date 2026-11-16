@@ -1772,7 +1772,10 @@ interface MonoRow {
 
 async function monoCheckout(userId: string, payload: Record<string, unknown>) {
   const contentId = String(payload.contentId ?? "");
-  const { data: content } = await admin.from("content").select("id, author_id, title, price, status, sale_status").eq("id", contentId).maybeSingle();
+  // programs are named by their uuid, guides and meditations by their readable slug (the id the site uses)
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contentId);
+  const { data: content } = await admin.from("content").select("id, author_id, title, price, status, sale_status")
+    .eq(isUuid ? "id" : "slug", contentId).maybeSingle();
   if (!content || content.status !== "published") throw new FinanceError("not_for_sale", "Цей матеріал недоступний для купівлі.");
   if (content.sale_status && !["published", "restored"].includes(content.sale_status)) throw new FinanceError("not_for_sale", "Продаж цього матеріалу тимчасово призупинено.");
   if (content.author_id === userId) throw new FinanceError("own_content", "Власний матеріал купувати не потрібно.");
@@ -1831,11 +1834,12 @@ async function recordPaid(row: MonoRow, p: Record<string, unknown>) {
     { onConflict: "id", ignoreDuplicates: true },
   );
   if (pErr) throw new Error(pErr.message);
-  const { data: content } = await admin.from("content").select("title, kind").eq("id", row.content_id).maybeSingle();
-  // the paid material shows up in «Моє навчання» (the same table free materials go to)
+  const { data: content } = await admin.from("content").select("title, kind, slug").eq("id", row.content_id).maybeSingle();
+  // the paid material shows up in «Моє навчання» (the same table free materials go to), under the id the site
+  // uses for it: a program's uuid, a guide's or meditation's slug
   if (content?.kind) {
     const { error: aErr } = await admin.from("acquired_content").upsert(
-      { user_id: row.buyer_id, kind: content.kind, content_id: row.content_id },
+      { user_id: row.buyer_id, kind: content.kind, content_id: content.kind === "program" ? row.content_id : (content.slug ?? row.content_id) },
       { onConflict: "user_id,kind,content_id", ignoreDuplicates: true },
     );
     if (aErr) throw new Error(aErr.message);
@@ -1934,7 +1938,10 @@ async function monoStatusFor(userId: string, ref: string) {
       cur = (await admin.from("mono_invoices").select("*").eq("id", ref).single()).data as MonoRow;
     }
   }
-  return { status: cur.status, purchaseId: cur.status === "success" ? cur.id : null, contentId: cur.content_id };
+  // the site names guides and meditations by slug: send it so the paid item leaves the cart
+  const { data: c } = await admin.from("content").select("kind, slug").eq("id", cur.content_id).maybeSingle();
+  const siteId = c && c.kind !== "program" && c.slug ? c.slug : cur.content_id;
+  return { status: cur.status, purchaseId: cur.status === "success" ? cur.id : null, contentId: siteId };
 }
 
 /** A full refund of a payment made through monobank goes back to the buyer's card first; only then the books change. */

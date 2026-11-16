@@ -9,6 +9,7 @@ export type PurchaseKind = "program" | "guide" | "meditation";
 export type PurchaseView = {
   id: string;
   contentId: string;
+  siteId?: string;
   kind: PurchaseKind | null;
   title: string | null; // null = material no longer available
   author: string | null;

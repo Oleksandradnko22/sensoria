@@ -213,7 +213,7 @@ export default function AuthorFinance() {
                 <p className="mt-1 text-[14px] text-black/55">monobank зараховує вашу частку на рахунок наступного дня. Sensoria ваші гроші не тримає.</p>
               </div>
               <div className="text-right">
-                <div className="text-[34px] font-bold leading-none text-[#12172b] sm:text-[40px]">{uahFromKop(monthToAccountKop)}</div>
+                <div className={`text-[34px] font-bold leading-none sm:text-[40px] ${monthToAccountKop < 0 ? "text-rose-600" : "text-[#12172b]"}`}>{monthToAccountKop < 0 ? "−" : ""}{uahFromKop(Math.abs(monthToAccountKop))}</div>
                 <div className="mt-1 text-[12px] text-black/50">на ваш рахунок цього місяця</div>
               </div>
             </div>

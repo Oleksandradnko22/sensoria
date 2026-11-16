@@ -184,8 +184,9 @@ export const bankFeeBps = (card: CardOrigin) => (card === "foreign" ? 200 : 130)
 /** The bank's fee on the author's share (estimated at the Ukrainian rate when the card is unknown). */
 export const authorBankFeeKop = (s: { authorKop: number; cardOrigin?: CardOrigin }) => Math.round((s.authorKop * bankFeeBps(s.cardOrigin)) / 10000);
 
-/** What reaches the author's account for a sale: the share minus the bank's fee, minus what went back to the buyer. */
-export const toAccountKop = (s: SaleLike & { cardOrigin?: CardOrigin }) => Math.max(0, s.authorKop - authorBankFeeKop(s) - s.authorRefundedKop);
+/** What a sale leaves on the author's account: the share minus the bank's fee, minus what went back to the buyer.
+ * After a full refund it is below zero by the fee: the bank keeps its fee. */
+export const toAccountKop = (s: SaleLike & { cardOrigin?: CardOrigin }) => s.authorKop - authorBankFeeKop(s) - s.authorRefundedKop;
 
 /** Split of a price for the worked example: Sensoria's commission, the author's share, the bank's fee, the rest. */
 export function priceBreakdown(priceKop: number, commissionBps: number, card: CardOrigin = "ua") {

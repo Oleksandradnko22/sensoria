@@ -1867,6 +1867,16 @@ async function recordPaid(row: MonoRow, p: Record<string, unknown>) {
   });
 }
 
+/** A fully refunded purchase no longer gives access: it is marked refunded and leaves «Моє навчання». */
+async function revokePaidAccess(purchaseId: string) {
+  const { data: pu } = await admin.from("purchases").update({ status: "refunded" }).eq("id", purchaseId).select("participant_id, content_id").maybeSingle();
+  if (!pu) return;
+  const { data: c } = await admin.from("content").select("kind, slug").eq("id", pu.content_id).maybeSingle();
+  if (!c?.kind) return;
+  const ids = [pu.content_id as string, ...(c.slug ? [c.slug as string] : [])];
+  await admin.from("acquired_content").delete().eq("user_id", pu.participant_id).eq("kind", c.kind).in("content_id", ids);
+}
+
 async function recordReversal(row: MonoRow) {
   const { data: pay } = await admin.from("finance_payments").select("*").eq("purchase_id", row.id).maybeSingle();
   if (!pay) return;
@@ -1887,7 +1897,7 @@ async function recordReversal(row: MonoRow) {
     if (e instanceof FinanceError && e.code === "duplicate") return null;
     throw e;
   });
-  await admin.from("purchases").update({ status: "refunded" }).eq("id", row.id);
+  await revokePaidAccess(row.id);
 }
 
 /** One place for webhooks and status checks. Throws on a real failure so that the bank retries the webhook. */
@@ -2199,7 +2209,20 @@ Deno.serve(async (req) => {
       if (!pay) throw new FinanceError("no_payment", "Платіж не знайдено: оплату ще не підтверджено.");
       const kind = (payload.kind as RefundKind) ?? "full";
       const authorId = pay.author_id as string;
-      await monoCancelIfNeeded(pay.purchase_id as string, kind, requestKey);
+      try {
+        await monoCancelIfNeeded(pay.purchase_id as string, kind, requestKey);
+      } catch (e) {
+        // monobank refuses a refund when a receiver's account lacks the money: the author learns it at once and the
+        // attempt stays in the audit log, so the team can agree with the author and try again
+        if (e instanceof FinanceError && e.code === "mono_cancel_failed") {
+          await admin.from("financial_notifications").insert({
+            author_id: authorId, event_type: "REFUND_FAILED", dedupe_key: `refund-failed:${requestKey}`,
+            message: `Банк не провів повернення коштів покупцю за «${pay.content_title ?? "матеріал"}». Найчастіше причина — на вашому рахунку ФОП бракує суми вашої частки. Поповніть рахунок, і ми повторимо повернення.`,
+          });
+          await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: "refund_failed_at_bank", entity_type: "payment", entity_id: pay.id, reason, previous_value: null, new_value: { purchaseId: pay.purchase_id, kind } });
+        }
+        throw e;
+      }
       const plan = await applyWithRetry(async () => {
         const [account, fresh, reserveRows] = await Promise.all([
           loadAccount(authorId),
@@ -2216,7 +2239,7 @@ Deno.serve(async (req) => {
       // a fully refunded order no longer gives the buyer access
       const after = (await admin.from("finance_payments").select("amount_kop, refunded_kop, purchase_id").eq("id", pay.id).single()).data;
       if (after && Number(after.refunded_kop) >= Number(after.amount_kop)) {
-        await admin.from("purchases").update({ status: "refunded" }).eq("id", after.purchase_id);
+        await revokePaidAccess(after.purchase_id as string);
       }
       await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: `refund_${kind}`, entity_type: "payment", entity_id: pay.id, reason, previous_value: null, new_value: { key: plan?.key } });
       return json({ ok: true });

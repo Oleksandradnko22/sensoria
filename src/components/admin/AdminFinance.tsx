@@ -441,7 +441,7 @@ export default function AdminFinance() {
                         <>
                           <button disabled={!owner} onClick={() => ask({
                             title: `Повернути ${k(left)} покупцю?`, confirmLabel: "Повернути повністю", danger: true,
-                            text: "Покупець отримає повну суму. Частка автора спише його кошти або створить борг.",
+                            text: "Покупець отримає повну суму. Банк поверне частку автора з його рахунку ФОП, частку Sensoria — з рахунку Sensoria. Комісія банку не повертається.",
                             run: async (reason) => { await callFinance({ action: "refund", paymentId: p.id, kind: "full", reason, requestKey: key() }); setInfo("Повернення оформлено."); await refreshAll(authorId); },
                           })} className="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-700 bg-rose-50 disabled:opacity-30">Повне повернення</button>
                           <input value={partial[p.id] ?? ""} onChange={(e) => setPartial({ ...partial, [p.id]: e.target.value.replace(/[^\d.,]/g, "") })} placeholder="Частково, ₴" className="w-28 px-2 py-1.5 rounded-lg border border-black/10" />

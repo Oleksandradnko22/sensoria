@@ -295,7 +295,7 @@ export default function AuthorOverview({
           </button>
           <button type="button" onClick={() => onNavigate("finance")} className={secondaryBtn}>
             <span className="text-[#6d5bd0]"><Icon name="card" size={19} /></span>
-            Переглянути виплати
+            Переглянути фінанси
           </button>
           <button type="button" onClick={() => onNavigate("reviews")} className={secondaryBtn}>
             <span className="text-[#6d5bd0]"><Icon name="star" size={19} /></span>

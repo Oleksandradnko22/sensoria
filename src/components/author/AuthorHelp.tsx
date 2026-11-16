@@ -19,7 +19,7 @@ const TICKET_CATEGORIES = Object.keys(TICKET_CATEGORY_LABELS) as TicketCategory[
 // authorFaqCategories doesn't silently break a shortcut.
 const QUICK_SCENARIOS: { label: string; categoryId: string; question: string }[] = [
   {
-    label: "Коли будуть виплати",
+    label: "Коли надходять кошти",
     categoryId: "finance",
     question: "Як часто відбуваються виплати?",
   },
@@ -135,7 +135,7 @@ export default function AuthorHelp() {
         <h2 className="text-[20px] font-bold text-[#12172b]">Що сталося? Знайдемо відповідь</h2>
         <div className="relative mt-4">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-black/35"><Icon name="search" size={18} /></span>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Наприклад: «коли будуть виплати»" aria-label="Пошук у допомозі" className="w-full rounded-2xl bg-white py-4 pl-12 pr-4 text-[15px] ring-1 ring-[#e3def9] focus:outline-none focus:ring-2 focus:ring-[#7c5cf0]" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Наприклад: «коли надходять кошти»" aria-label="Пошук у допомозі" className="w-full rounded-2xl bg-white py-4 pl-12 pr-4 text-[15px] ring-1 ring-[#e3def9] focus:outline-none focus:ring-2 focus:ring-[#7c5cf0]" />
         </div>
         {!q && (
           <div className="mt-4 flex flex-wrap gap-2">

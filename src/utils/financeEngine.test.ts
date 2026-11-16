@@ -75,7 +75,7 @@ class World {
         this.payments.set(r.id, {
           id: r.id, purchaseId: r.purchase_id, authorId: r.author_id, buyerId: r.buyer_id, amountKop: r.amount_kop,
           feeKop: r.fee_kop, feeRefundedKop: 0, authorKop: r.author_kop, sensoriaKop: r.sensoria_kop, pendingKop: r.pending_kop, holdUntil: r.hold_until,
-          refundedKop: 0, authorRefundedKop: 0, sensoriaRefundedKop: 0, disputed: false,
+          refundedKop: 0, authorRefundedKop: 0, sensoriaRefundedKop: 0, disputed: false, splitAuthorKop: r.split_author_kop ?? null,
         });
       } else {
         const p = this.payments.get(r.id)!;
@@ -638,18 +638,26 @@ test("split: payment is divided at once, nothing is held or left to pay out", ()
   assert.equal(conservationGap(w.lines), 0);
 });
 
-test("split: refund after the split becomes author debt; the next sale's author leg repays it", () => {
+test("split: the bank takes a refund back from each receiver's account; no author debt", () => {
   const w = new World();
   w.settings = { ...BASE_SETTINGS, splitAtSource: 1 };
   const p = w.pay(100000);
   w.refund(p, 100000, "full", undefined, day(3));
-  assert.equal(w.account.debt, 75000); // buyer got everything back; the author's share was already paid out
+  assert.equal(w.account.debt, 0); // monobank returns the author's 75 000 from the author's own account
+  assert.equal(w.account.totalPaidOut, 0); // the payout of that share is reversed
+  assert.equal(w.account.lifetimeEarnings, 0);
   w.pay(100000, day(5));
-  assert.equal(w.account.debt, 0);
-  assert.equal(w.account.totalPaidOut, 75000 + 0); // second sale: 75 000 all went to the debt, author leg = 0
-  const last = [...w.payments.values()].pop()!;
-  assert.equal(last.pendingKop, 0);
+  assert.equal(w.account.totalPaidOut, 75000); // the next sale is paid in full, nothing withheld
   assert.equal(conservationGap(w.lines), 0);
+});
+
+test("split: chargeback is also returned by the bank from the receivers, no debt", () => {
+  const w = new World();
+  w.settings = { ...BASE_SETTINGS, splitAtSource: 1 };
+  const p = w.pay(100000);
+  w.refund(p, 100000, "chargeback", undefined, day(3));
+  assert.equal(w.account.debt, 0);
+  assert.equal(w.debtList().length, 0);
 });
 
 test("default rates: 30 % catalog, 15 % referral", () => {

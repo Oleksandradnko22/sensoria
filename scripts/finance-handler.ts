@@ -131,6 +131,7 @@ const toPayment = (p: any): PaymentState => ({
   sensoriaRefundedKop: Number(p.sensoria_refunded_kop),
   feeRefundedKop: Number(p.fee_refunded_kop ?? 0),
   disputed: !!p.disputed,
+  splitAuthorKop: p.split_author_kop == null ? null : Number(p.split_author_kop),
 });
 
 // deno-lint-ignore no-explicit-any

@@ -1,6 +1,5 @@
-// DEV only: `?billingDemo=1` shows sample purchases so the populated page
-// can be reviewed while payments are not connected. Never active in a
-// production build, never mixed into real data.
+// Sample purchases for «Оплати». DEV: `?billingDemo=1` shows them even next to real rows; otherwise they appear only
+// as the demo (SHOW_DEMO) when the person has no purchases yet, and are never mixed into real data.
 import type { PurchaseView } from "../utils/purchasesView.ts";
 
 const KEY = "sensoria.billingDemo";
@@ -13,8 +12,11 @@ export function billingDemoOn(): boolean {
   return sessionStorage.getItem(KEY) === "1";
 }
 
+// The same rows are the participant's demo «Після покупки» (SHOW_DEMO): dates are relative to today, so the paid
+// program is always inside the 14-day refund window.
+const daysAgo = (d: number) => new Date(Date.now() - d * 86400000).toISOString();
 export const BILLING_DEMO: PurchaseView[] = [
-  { id: "00000001-demo", contentId: "stress-course", kind: "program", title: "Робота зі стресом", author: "Андрій Коваленко", amount: 1500, date: "2026-07-21T14:32:00Z", status: "paid" },
-  { id: "00000002-demo", contentId: "panic-sos", kind: "guide", title: "SOS при панічних атаках", author: "Андрій Коваленко", amount: 290, date: "2026-07-28T10:05:00Z", status: "paid" },
-  { id: "00000003-demo", contentId: "quick-grounding", kind: "meditation", title: "Швидке заземлення", author: "Sensoria", amount: 0, date: "2026-08-05T09:00:00Z", status: "free" },
+  { id: "00000001-demo", contentId: "stress-course", kind: "program", title: "Робота зі стресом", author: "Андрій Коваленко", amount: 1500, date: daysAgo(0), status: "paid" },
+  { id: "00000002-demo", contentId: "healthy-balance", kind: "program", title: "Підтримка емоційного балансу", author: "Sensoria", amount: 0, date: daysAgo(6), status: "free" },
+  { id: "00000003-demo", contentId: "quick-grounding", kind: "meditation", title: "Швидке заземлення", author: "Sensoria", amount: 0, date: daysAgo(12), status: "free" },
 ];

@@ -229,6 +229,9 @@ export type PaymentState = {
   sensoriaRefundedKop: Kop;
   feeRefundedKop: Kop;
   disputed: boolean;
+  // set when monobank split the payment at source: the author's share went straight to the author's account, so on a
+  // refund or chargeback the bank takes it back from that account (proportionally), never from Sensoria
+  splitAuthorKop?: Kop | null;
 };
 
 export type ReserveState = {
@@ -723,7 +726,17 @@ export function planRefund(args: {
     plan.lines.push({ ...base, authorId: null, type: lineType, account: "bank_fee", delta: -feeShare, reason: "Повернення комісії банку покупцю" });
   }
 
-  let left = authorShare;
+  // Split at source: the bank returns each receiver's part from that receiver's own account (monobank: proportional,
+  // and when the author's account lacks the money the refund simply fails at the bank). The payout recorded at payment
+  // is reversed for that part; nothing is taken from balances and no debt arises.
+  const viaBank = payment.splitAuthorKop != null;
+  if (viaBank && authorShare > 0) {
+    plan.lines.push(
+      { ...base, authorId: payment.authorId, type: lineType, account: "author_paid_out", delta: -authorShare, reason: "Банк повертає частку автора з його рахунку" },
+      { ...base, authorId: payment.authorId, type: lineType, account: "cash_out", delta: -authorShare, reason: "Банк повертає частку автора з його рахунку" }
+    );
+  }
+  let left = viaBank ? 0 : authorShare;
   const fromPending = Math.min(left, payment.pendingKop, account.pending);
   left -= fromPending;
   const fromReserve = Math.min(left, reserve ? reserveLeft(reserve) : 0, account.reserved);
@@ -779,7 +792,7 @@ export function planRefund(args: {
 
   plan.notifications.push(
     note("REFUND_AFFECTED_BALANCE", `refund:${args.refundId}`, now, {
-      what: "Покупцеві оформлено повернення коштів, це змінило ваш баланс.",
+      what: viaBank ? "Покупцеві оформлено повернення коштів: банк повертає вашу частку з вашого рахунку ФОП." : "Покупцеві оформлено повернення коштів, це змінило ваш баланс.",
       amountKop: authorShare,
       reason: args.reason,
       operation: plan.key,
@@ -1460,6 +1473,7 @@ const toPayment = (p: any): PaymentState => ({
   sensoriaRefundedKop: Number(p.sensoria_refunded_kop),
   feeRefundedKop: Number(p.fee_refunded_kop ?? 0),
   disputed: !!p.disputed,
+  splitAuthorKop: p.split_author_kop == null ? null : Number(p.split_author_kop),
 });
 
 // deno-lint-ignore no-explicit-any

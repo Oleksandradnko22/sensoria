@@ -524,9 +524,13 @@ function ParticipantDashboardPageInner({
               <ParticipantBilling
                 active={section === "billing"}
                 onNavigate={setSection}
-                onOpenProgram={onOpenProgram}
-                onOpenGuide={onOpenGuide}
-                onOpenMeditation={onOpenMeditation}
+                onOpenMaterial={(kind, id) => {
+                  // the material opens over «Моє навчання»: closing it leaves the person there
+                  goToLearning(kind);
+                  if (kind === "program") openProgramAtItem(id);
+                  else if (kind === "meditation") setContinuingMeditationId(id);
+                  else setContinuingGuideId(id);
+                }}
               />
             </div>
           )}

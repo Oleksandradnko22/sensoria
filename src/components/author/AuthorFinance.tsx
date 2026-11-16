@@ -45,7 +45,9 @@ export default function AuthorFinance() {
   // demo showcase while the author has no real sales yet
   const realSales = useMemo(() => data?.sales ?? [], [data]);
   const demo = SHOW_AUTHOR_DEMO && ready && realSales.length === 0;
-  const sales: FinanceSale[] = useMemo(() => (demo ? demoWorld().sales : realSales), [demo, realSales]);
+  // with monobank's split the bank pays the author's share at once: nothing is held by Sensoria
+  const split = data?.terms?.splitAtSource ?? true;
+  const sales: FinanceSale[] = useMemo(() => (demo ? demoWorld().sales.map((s) => (split ? { ...s, pendingKop: 0 } : s)) : realSales), [demo, realSales, split]);
 
   const totals = useMemo(() => financeTotals(sales), [sales]);
   const months = useMemo(() => monthlyIncome(sales, 6), [sales]);
@@ -66,6 +68,14 @@ export default function AuthorFinance() {
   const balanceKop = bal.pending + bal.available + bal.reserved - bal.debt;
   // the worked example uses the real rate: a 1000 ₴ program bought through the catalog
   const exampleAuthor = Math.round(1000 * catalogPct) / 100;
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+  const thisMonth = sales.filter((s) => !isFullyRefunded(s) && new Date(s.confirmedAt).getTime() >= monthStart);
+  const monthCount = thisMonth.length;
+  const monthRefundKop = sales.filter((s) => new Date(s.confirmedAt).getTime() >= monthStart).reduce((n, s) => n + s.authorRefundedKop, 0);
+  const monthRef = thisMonth.filter((s) => s.source === "referral").length;
+  const lastSale = sales.find((s) => !isFullyRefunded(s)) ?? null;
+  const live = sales.filter((s) => !isFullyRefunded(s));
+  const avgKop = live.length ? Math.round(live.reduce((n, s) => n + s.priceKop, 0) / live.length) : 0;
 
   // referral link
   const link = authorId && typeof window !== "undefined" ? buildReferralLink(window.location.origin, authorId) : "";
@@ -104,21 +114,36 @@ export default function AuthorFinance() {
       <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-balance">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 id="fin-balance" className="text-[20px] font-bold text-[#12172b]">Баланс</h2>
-            <p className="mt-1 text-[14px] text-black/55">Ваші кошти, які ще не виплачено.</p>
+            <h2 id="fin-balance" className="text-[20px] font-bold text-[#12172b]">{split ? "Надходження" : "Баланс"}</h2>
+            <p className="mt-1 text-[14px] text-black/55">{split ? "Вашу частку банк зараховує на рахунок ФОП наступного робочого дня." : "Ваші кошти, які ще не виплачено."}</p>
           </div>
-          <div className={`text-[34px] font-bold leading-none sm:text-[40px] ${balanceKop < 0 ? "text-rose-600" : "text-[#12172b]"}`}>{balanceKop < 0 ? "−" : ""}{uahFromKop(Math.abs(balanceKop))}</div>
+          {split ? (
+            <div className="text-right">
+              <div className="text-[34px] font-bold leading-none text-[#12172b] sm:text-[40px]">{uahFromKop(totals.monthKop)}</div>
+              <div className="mt-1 text-[12px] text-black/50">цього місяця</div>
+            </div>
+          ) : (
+            <div className={`text-[34px] font-bold leading-none sm:text-[40px] ${balanceKop < 0 ? "text-rose-600" : "text-[#12172b]"}`}>{balanceKop < 0 ? "−" : ""}{uahFromKop(Math.abs(balanceKop))}</div>
+          )}
         </div>
+        {split ? (
+          <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-3">
+            <Mini label="Остання оплата" value={lastSale ? uahFromKop(netAuthorKop(lastSale)) : "—"} hint={lastSale ? `${fmtShort(lastSale.confirmedAt)} · ${lastSale.title}` : undefined} />
+            <Mini label="Продажів цього місяця" value={String(monthCount)} hint={monthCount ? `${monthRef} за вашим посиланням` : undefined} />
+            <Mini label="Повернено покупцям" value={uahFromKop(monthRefundKop)} hint="ваша частка, цього місяця" />
+          </div>
+        ) : (
         <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
           <Mini label="Доступно" value={uahFromKop(bal.available)} />
           <Mini label="Очікує підтвердження" value={uahFromKop(bal.pending)} hint={!demo && data?.nextReleaseAt ? `з ${fmtShort(data.nextReleaseAt)}` : terms ? `${terms.holdDays} днів після покупки` : undefined} />
           <Mini label="Резерв на повернення" value={uahFromKop(bal.reserved)} />
           <Mini label="Мінус після повернень" value={bal.debt ? `−${uahFromKop(bal.debt)}` : uahFromKop(0)} danger={bal.debt > 0} hint={bal.debt ? "покривається наступними надходженнями" : undefined} />
         </div>
+        )}
         <div className="mt-4 rounded-2xl bg-[#f6f4ff] p-4 text-[13px] leading-relaxed text-[#2d2a5c]">
           <div className="flex items-center gap-2 font-semibold"><Icon name="refresh" size={15} /> Повернення коштів покупцю банк списує з вашого рахунку ФОП</div>
           <p className="mt-1.5 text-black/60">
-            Наприклад, програма за 1000 ₴: вам {exampleAuthor} ₴, Sensoria {1000 - exampleAuthor} ₴, і з кожної частки банк утримує свою комісію. Якщо покупець повертає кошти, банк повертає {exampleAuthor} ₴ з вашого рахунку, а {1000 - exampleAuthor} ₴ — з рахунку Sensoria. Залишайте на рахунку суму, достатню для можливих повернень протягом 14 днів: якщо коштів не вистачить, повернення не пройде, і сума стане вашим мінусом, який покривають наступні продажі.
+            Наприклад, програма за 1000 ₴: вам {exampleAuthor} ₴, Sensoria {1000 - exampleAuthor} ₴, і з кожної частки банк утримує свою комісію. Якщо покупець повертає кошти, банк повертає {exampleAuthor} ₴ з вашого рахунку, а {1000 - exampleAuthor} ₴ — з рахунку Sensoria. Комісія банку при поверненні не повертається. Залишайте на рахунку суму, достатню для можливих повернень протягом 14 днів: якщо коштів не вистачить, банк не проведе повернення.
           </p>
         </div>
       </section>
@@ -148,7 +173,7 @@ export default function AuthorFinance() {
       {/* TOTALS */}
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <Stat icon="card" label="Зароблено за весь час" value={uahFromKop(totals.allTimeKop)} hint="Ваша частка, без повернень" />
-        <Stat icon="chart" label="Цього місяця" value={uahFromKop(totals.monthKop)} />
+        {split ? <Stat icon="chart" label="Середня покупка" value={uahFromKop(avgKop)} hint="Ціна, без повернень" /> : <Stat icon="chart" label="Цього місяця" value={uahFromKop(totals.monthKop)} />}
         <Stat icon="graduation" label="Продажів" value={String(totals.salesCount)} hint={totals.salesCount ? `${totals.referralCount} за вашим посиланням` : undefined} />
         <Stat icon="refresh" label="Повернень" value={String(totals.refundsCount)} hint="Покупці можуть повернути кошти протягом 14 днів" />
       </div>
@@ -268,11 +293,11 @@ export default function AuthorFinance() {
             </div>
           </div>
           <dl className="mt-4 flex flex-col divide-y divide-black/5 text-[14px]">
-            <Row label="Як надходять кошти" value="Напряму від банку" note="monobank розщеплює оплату: 70 % (або 85 % за вашим посиланням) на ваш рахунок ФОП, комісія Sensoria — на рахунок Sensoria." />
+            <Row label="Як надходять кошти" value="Напряму від банку" note={`monobank розщеплює оплату: ${catalogPct} % (або ${referralPct} % за вашим посиланням) на ваш рахунок ФОП, комісія Sensoria — на рахунок Sensoria.`} />
             <Row label="Коли надходять" value="Наступного дня" note="Банк зараховує кошти наступного робочого дня після оплати." />
             <Row label="Мінімальна сума" value="Немає" note="Запитувати виплату не потрібно." />
             <Row label="Комісія банку" value="1,3 % або 2 %" note="Банк утримує свою комісію з кожної частки окремо: з вашої — з вашої, з частки Sensoria — з її. 1,3 % для українських карток, 2 % для іноземних." />
-            <Row label="Повернення коштів" value="14 днів" note="Покупець може повернути кошти протягом 14 днів. Банк повертає вашу частку з вашого рахунку ФОП, частку Sensoria — з рахунку Sensoria. Комісія банку не повертається." />
+            <Row label="Повернення коштів" value="14 днів" note="Покупець може повернути кошти протягом 14 днів. Банк повертає вашу частку з вашого рахунку ФОП, частку Sensoria — з рахунку Sensoria. Комісія банку не повертається. Якщо покупець оскаржить оплату у своєму банку, monobank звернеться до вас напряму: за свою частку відповідає отримувач коштів." />
           </dl>
         </section>
 
@@ -384,13 +409,13 @@ function MonoConnectCard() {
         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#7a68e0]"><Icon name="idcard" size={20} /></span>
         <div>
           <h2 id="fin-mono" className="text-[20px] font-bold text-[#12172b]">Прийом оплат</h2>
-          <p className="text-[13px] text-black/55">Ваш ФОП або ТОВ з рахунком у monobank.</p>
+          <p className="text-[13px] text-black/55">Ваш ФОП або ТОВ з рахунком у monobank. Фізичних осіб банк не підключає.</p>
         </div>
       </div>
       {loadFailed && <p className="mt-4 rounded-2xl bg-[#faf9ff] px-4 py-3 text-[14px] text-black/60">Не вдалося завантажити стан підключення. Оновіть сторінку пізніше.</p>}
       {!loadFailed && conn && !editing && (
         <>
-          {status === "active" && <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-[14px] text-emerald-900">Підключено: {conn.legalName} · код ••••{conn.ipnLast4}<div className="text-[13px] text-emerald-800/70">Ваша частка надходить на рахунок у monobank.</div></div>}
+          {status === "active" && <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-[14px] text-emerald-900">Підключено: {conn.legalName} · код ••••{conn.ipnLast4}<div className="text-[13px] text-emerald-800/70">Ваша частка надходить на основний гривневий рахунок у monobank.</div></div>}
           {status === "requested" && <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-[14px] text-amber-900">На підключенні: {conn.legalName} · код ••••{conn.ipnLast4}<div className="text-[13px] text-amber-800/80">Ми надішлемо вам анкету банку. Після її заповнення банк підключає рахунок до 24 годин.</div></div>}
           {status === "disabled" && <div className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-[14px] text-rose-900">Прийом оплат призупинено. Деталі — у сповіщеннях, або надішліть дані ще раз.</div>}
           {status === "none" && (

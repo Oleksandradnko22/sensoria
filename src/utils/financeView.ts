@@ -203,22 +203,36 @@ const csvCell = (v: string | number) => {
 const money = (kop: number) => (kop / 100).toFixed(2).replace(".", ",");
 
 /** The author's sales report for one month (`yyyy-mm`), as CSV for Excel (semicolons, BOM). */
-export function monthReportCsv(sales: (SaleLike & { cardOrigin?: CardOrigin; commissionBps: number })[], month: string): string {
+/** Bank credits the author's share the next day; until the bank statement is matched, the credit date is that estimate. */
+export function creditDateEstimate(confirmedAt: string): string {
+  const d = new Date(confirmedAt);
+  d.setDate(d.getDate() + 1);
+  return d.toLocaleDateString("uk-UA");
+}
+
+/** Month report for the author's accountant: the full price is the taxable income (accounting-model.md, 3.1). */
+export function monthReportCsv(sales: (SaleLike & { cardOrigin?: CardOrigin; commissionBps: number; creditedAt?: string | null; bankFeeKop?: number | null })[], month: string): string {
   const rows = sales.filter((s) => s.confirmedAt.slice(0, 7) === month).sort((a, b) => a.confirmedAt.localeCompare(b.confirmedAt));
-  const head = ["Дата", "Матеріал", "Покупець прийшов", "Ціна, ₴", "Ваша ставка", "Ваша частка, ₴", "Картка", "Комісія банку (оцінка), ₴", "Повернено покупцю (ваша частка), ₴", "На ваш рахунок (оцінка), ₴"];
+  const fee = (s: (typeof rows)[number]) => (s.bankFeeKop != null ? s.bankFeeKop : authorBankFeeKop(s));
+  const head = [
+    "Дата оплати (чек)", "Дата зарахування", "Матеріал", "Покупець прийшов", "Ціна = дохід для податкового обліку, ₴", "Ваша ставка", "Ваша частка, ₴", "Картка",
+    "Комісія банку з вашої частки, ₴", "Джерело комісії", "Повернено покупцю (ваша частка), ₴", "На ваш рахунок, ₴",
+  ];
   const lines = rows.map((s) => [
     new Date(s.confirmedAt).toLocaleDateString("uk-UA"),
+    s.creditedAt ? new Date(s.creditedAt).toLocaleDateString("uk-UA") : `${creditDateEstimate(s.confirmedAt)} (орієнтовно)`,
     s.title,
     s.source === "referral" ? "За вашим посиланням" : "Через Sensoria",
     money(s.priceKop),
     `${(10000 - s.commissionBps) / 100} %`,
     money(s.authorKop),
     s.cardOrigin === "foreign" ? "Іноземна (2 %)" : s.cardOrigin === "ua" ? "Українська (1,3 %)" : "Невідомо (1,3 %)",
-    money(authorBankFeeKop(s)),
+    money(fee(s)),
+    s.bankFeeKop != null ? "Дані банку" : "Оцінка (банк ще не повідомив)",
     money(s.authorRefundedKop),
-    money(toAccountKop(s)),
+    money(s.authorKop - fee(s) - s.authorRefundedKop),
   ]);
   const sum = (f: (s: (typeof rows)[number]) => number) => money(rows.reduce((n, s) => n + f(s), 0));
-  const total = ["Разом", "", "", sum((s) => s.priceKop), "", sum((s) => s.authorKop), "", sum(authorBankFeeKop), sum((s) => s.authorRefundedKop), sum(toAccountKop)];
-  return "﻿" + [head, ...lines, total].map((r) => r.map(csvCell).join(";")).join("\n");
+  const total = ["Разом", "", "", "", sum((s) => s.priceKop), "", sum((s) => s.authorKop), "", sum(fee), "", sum((s) => s.authorRefundedKop), sum((s) => s.authorKop - fee(s) - s.authorRefundedKop)];
+  return "\uFEFF" + [head, ...lines, total].map((r) => r.map(csvCell).join(";")).join("\n");
 }

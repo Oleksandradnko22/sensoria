@@ -635,6 +635,16 @@ Deno.serve(async (req) => {
     }
     const senderId = userData.user.id;
 
+    // Release B: no messages without the current consents (docs/consent-legal-spec.md, 2.4). Admins answer as support.
+    {
+      const guard = createClient(supabaseUrl, serviceKey);
+      const { data: ok, error: gErr } = await guard.rpc("has_required_consents", { p_uid: senderId });
+      if (!gErr && ok === false) {
+        const { data: me } = await guard.from("profiles").select("is_admin").eq("id", senderId).maybeSingle();
+        if (!me?.is_admin) return json({ error: "Щоб продовжити, прийміть умови користування.", code: "consent_required" }, 403);
+      }
+    }
+
     const payload = await req.json().catch(() => null);
 
     // ── BROADCAST: one message from an author to their participants (supabase/messages-scale.sql) ──

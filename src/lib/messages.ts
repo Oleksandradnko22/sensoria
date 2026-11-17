@@ -71,7 +71,7 @@ type MessageRow = {
 // .message, etc.) is technical and was never meant for a participant to
 // read, so it's logged for debugging and swapped for one calm fallback
 // instead.
-const KNOWN_USER_FACING_MESSAGES = new Set(["Не авторизовано.", "Некоректний запит."]);
+const KNOWN_USER_FACING_MESSAGES = new Set(["Не авторизовано.", "Некоректний запит.", "Щоб продовжити, прийміть умови користування."]);
 const GENERIC_SEND_FAILURE = "Не вдалося надіслати повідомлення. Спробуйте ще раз трохи згодом.";
 
 async function describeFunctionsError(error: unknown): Promise<Error> {

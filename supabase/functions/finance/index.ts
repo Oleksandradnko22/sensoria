@@ -1771,6 +1771,9 @@ interface MonoRow {
 }
 
 async function monoCheckout(userId: string, payload: Record<string, unknown>) {
+  // release B: no invoice without the buyer's current consents (docs/consent-legal-spec.md, 2.4); a missing function = not migrated yet
+  const { data: consentOk, error: consentErr } = await admin.rpc("has_required_consents", { p_uid: userId });
+  if (!consentErr && consentOk === false) throw new FinanceError("consent_required", "Щоб продовжити, прийміть умови користування.");
   const contentId = String(payload.contentId ?? "");
   // programs are named by their uuid, guides and meditations by their readable slug (the id the site uses)
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contentId);

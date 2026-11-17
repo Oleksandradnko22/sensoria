@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
+import ConsentGate from './components/legal/ConsentGate.tsx'
 import './index.css' 
 import { startRangeFill } from './utils/rangeFill.ts'
 
@@ -20,6 +21,7 @@ async function start() {
   root.render(
     <React.StrictMode>
       <App />
+      <ConsentGate />
     </React.StrictMode>,
   )
 }

@@ -100,12 +100,14 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
         ["Матеріал", title(p)],
         ...(p.kind ? [["Тип", KIND_LABEL[p.kind]] as [string, string]] : []),
         ...(p.author ? [["Автор", p.author] as [string, string]] : []),
+        // Seller's legal name (ФОП/ТОВ) comes with the seller block of release C; until then the author is named as the seller.
+        ["Продавець", p.author ? `автор матеріалу — ${p.author}` : "автор матеріалу"],
         ...(session?.profile.name ? [["Покупець", session.profile.name] as [string, string]] : []),
         ["Спосіб оплати", "Картка, через monobank"],
         ["Статус", STATUS_LABEL[p.status]],
         ["Сума", formatAmount(p.amount)],
       ];
-      await downloadReceiptPdf(lines, number, "Оплату прийнято через monobank. Дані картки Sensoria не отримує й не зберігає.");
+      await downloadReceiptPdf(lines, number, "Не є фіскальним чеком. Фіскальний чек видає продавець. Оплату прийнято через monobank; дані картки Sensoria не отримує й не зберігає.");
     } catch {
       setPdfError("Не вдалося створити PDF. Спробуйте ще раз.");
     } finally {

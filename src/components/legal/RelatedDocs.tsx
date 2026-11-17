@@ -29,8 +29,14 @@ export default function RelatedDocs({ onOpenTerms, onOpenPrivacy, onOpenRefunds,
         {current !== "participant" && (
           <li><a href="/participant-agreement" className={btn}>Угода учасника</a></li>
         )}
-        {current !== "author" && onOpenAuthorAgreement && (
-          <li><button type="button" onClick={onOpenAuthorAgreement} className={btn}>Договір з автором</button></li>
+        {current !== "author" && (
+          <li>
+            {onOpenAuthorAgreement ? (
+              <button type="button" onClick={onOpenAuthorAgreement} className={btn}>Договір з автором (оферта)</button>
+            ) : (
+              <a href="/author-agreement" className={btn}>Договір з автором (оферта)</a>
+            )}
+          </li>
         )}
         <li><a href="/crisis-help" className={btn}>Допомога в кризі</a></li>
         <li className="t-body text-gray-700">

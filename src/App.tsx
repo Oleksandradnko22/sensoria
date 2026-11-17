@@ -25,7 +25,6 @@ import {
 import {
   fetchCurrentProfile,
   reconcileOAuthRole,
-  recordConsent,
   logoutAccount,
   getMfaStatus,
   type Profile,
@@ -259,7 +258,6 @@ function AppInner() {
       // so it doesn't linger across refreshes.
       const params = new URLSearchParams(window.location.search);
       const oauthRole = params.get("oauth_role") as UserRole | null;
-      const oauthConsent = params.get("oauth_consent");
       if (oauthRole) {
         window.history.replaceState({}, "", window.location.pathname);
       }
@@ -275,7 +273,6 @@ function AppInner() {
         ? await reconcileOAuthRole(oauthRole)
         : await fetchCurrentProfile();
 
-      if (oauthConsent) await recordConsent(oauthConsent).catch(() => undefined);
 
       // one role per account: Google sign-in through the other form does not switch the role — the same message as
       // for e-mail sign-in, on that form

@@ -43,6 +43,7 @@ import {
 import { isPasswordValid as isPasswordRuleValid, PASSWORD_HINT } from "../../utils/passwordRules";
 import { acceptLegal, saveNewContentTopics, withdrawConsent } from "../../lib/legalGate";
 import { PARTICIPANT_ITEMS } from "../../data/consentTexts";
+import MyLegalDocuments from "../legal/MyLegalDocuments";
 
 // the six themes of the catalog — picked by the person for the «Нові матеріали» email
 const TOPICS: { id: string; label: string }[] = [
@@ -805,6 +806,8 @@ export default function ParticipantProfile({ onOpenMaterial }: { onOpenMaterial?
         )}
         {prefError && <p role="alert" className="mt-2 text-[14px] text-rose-700">{prefError}</p>}
       </section>
+
+      <MyLegalDocuments role="participant" className={card} />
 
       {/* SESSIONS */}
       <section className={card} aria-labelledby="profile-sessions">

@@ -4,7 +4,8 @@ import RelatedDocs from "../components/legal/RelatedDocs";
 // DRAFT for legal review. The 14-day request is the platform's existing help
 // rule (data/participantDashboard.ts), presented as an ADDITIONAL option, not
 // a limit on statutory consumer rights.
-const SECTIONS: LegalSection[] = [
+// the full text — also for the PDF in «Документи і згоди»
+export const SECTIONS: LegalSection[] = [
   {
     id: "principles",
     title: "Загальні положення",

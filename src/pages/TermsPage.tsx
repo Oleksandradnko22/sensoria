@@ -4,7 +4,8 @@ import RelatedDocs from "../components/legal/RelatedDocs";
 // DRAFT for legal review. Facts come from how the product works; everything
 // the project does not define (operator, dates, ages, deadlines) is an amber
 // {{?...}} marker or a field in data/legalOperator.ts — see LegalLayout.
-const SECTIONS: LegalSection[] = [
+// the full text — also for the PDF in «Документи і згоди»
+export const SECTIONS: LegalSection[] = [
   {
     id: "operator",
     title: "Оператор і загальні положення",

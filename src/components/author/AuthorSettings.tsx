@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import MyLegalDocuments from "../legal/MyLegalDocuments";
 import { pluralUk } from "../../utils/plural";
 import Switch from "../ui/Switch";
 import { supabase } from "../../lib/supabaseClient";
@@ -436,6 +437,8 @@ export default function AuthorSettings() {
           </details>
 
           {/* SECURITY */}
+          <MyLegalDocuments role="author" className={CARD} />
+
           <div className={CARD}>
             <SectionTitle icon="shield" title="Захист акаунта" hint="Пароль, код при вході й пристрої, на яких ви увійшли." />
 

@@ -10,7 +10,6 @@ import {
   type Profile,
 } from "../lib/auth";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
-import ConsentCheckbox from "../components/ConsentCheckbox";
 import MfaCodeStep from "../components/auth/MfaCodeStep";
 import RestoreAccountStep from "../components/auth/RestoreAccountStep";
 import { isFullName } from "../utils/personName.ts";
@@ -59,8 +58,6 @@ const EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.com$/
 
 export default function DashboardAuthPage({ role, onAuthenticated, onBackToSite }: Props) {
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [consent, setConsent] = useState(false);
-  const [age18, setAge18] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -103,7 +100,7 @@ export default function DashboardAuthPage({ role, onAuthenticated, onBackToSite 
   const canSubmit =
     !submitting &&
     (mode === "register"
-      ? isNameValid && isEmailValid && isPasswordValid && consent && age18
+      ? isNameValid && isEmailValid && isPasswordValid
       : isEmailValid && isPasswordValid);
 
   if (pendingProfile) {
@@ -140,7 +137,7 @@ export default function DashboardAuthPage({ role, onAuthenticated, onBackToSite 
     setInfoMessage(null);
     setGoogleSubmitting(true);
     try {
-      await loginWithGoogle(role, mode === "register" && consent && age18);
+      await loginWithGoogle(role);
       // A full-page redirect to Google happens inside loginWithGoogle —
       // this component unmounts before there's anything else to do.
     } catch (e) {
@@ -245,7 +242,7 @@ export default function DashboardAuthPage({ role, onAuthenticated, onBackToSite 
           <button
             type="button"
             onClick={submitGoogle}
-            disabled={!isSupabaseConfigured || googleSubmitting || (mode === "register" && !(consent && age18))}
+            disabled={!isSupabaseConfigured || googleSubmitting}
             className="
               w-full mb-6 py-4 rounded-2xl font-medium
               bg-white text-black
@@ -271,7 +268,7 @@ export default function DashboardAuthPage({ role, onAuthenticated, onBackToSite 
 
           {mode === "register" && (
             <div className="mb-6">
-              <ConsentCheckbox checked={consent} onChange={setConsent} ageChecked={age18} onAgeChange={setAge18} />
+              <p className="text-[13px] leading-relaxed text-white/75">Після реєстрації ви ознайомитеся з умовами користування та приймете їх перед входом у кабінет.</p>
             </div>
           )}
 

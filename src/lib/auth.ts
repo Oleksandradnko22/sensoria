@@ -10,7 +10,6 @@ import { fetchMyPrivateProfile } from "./privateProfile.ts";
 import { supabase, createIsolatedClient } from "./supabaseClient.ts";
 import { removeCurrentDeviceSession } from "./deviceSessions.ts";
 import type { UserRole } from "../utils/session.ts";
-import { LEGAL } from "../data/legalOperator.ts";
 import { uploadContentFile, deleteContentFile } from "./storage.ts";
 
 export type Profile = {
@@ -65,32 +64,13 @@ export async function registerAccount(
   password: string
 ): Promise<void> {
   const client = requireSupabase();
-  // The consent checkbox is required on every registration form; the
-  // handle_new_user() trigger stores the accepted edition (legal_consents).
+  // Consents are given on the consent screen right after the first sign-in (ConsentGate, release B), not here.
   const { error } = await client.auth.signUp({
     email,
     password,
-    options: { data: { role, name, consent_version: LEGAL.edition, age_confirmed: "true" } },
+    options: { data: { role, name } },
   });
   if (error) throw error;
-}
-
-// Google sign-up: consent travels through the redirect (oauth_consent) and is
-// stored on return, once there is a session.
-export async function recordConsent(version: string): Promise<void> {
-  if (!supabase) return;
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
-  await supabase.from("legal_consents").upsert(
-    ["terms", "privacy", "age_18"].map((document) => ({
-      user_id: user.id,
-      document,
-      version,
-    })),
-    { onConflict: "user_id,document,version", ignoreDuplicates: true }
-  );
 }
 
 export async function loginAccount(email: string, password: string): Promise<void> {
@@ -135,10 +115,9 @@ export function translateAuthError(message: string): string {
 // The intended role travels through as a query param on the redirect
 // URL (App.tsx's boot effect reads it back on return and reconciles it
 // against whatever role the sign-up trigger just defaulted to).
-export async function loginWithGoogle(role: UserRole, consented = false): Promise<void> {
+export async function loginWithGoogle(role: UserRole): Promise<void> {
   const client = requireSupabase();
-  const consent = consented ? `&oauth_consent=${encodeURIComponent(LEGAL.edition)}` : "";
-  const redirectTo = `${window.location.origin}${window.location.pathname}?oauth_role=${role}${consent}`;
+  const redirectTo = `${window.location.origin}${window.location.pathname}?oauth_role=${role}`;
   const { error } = await client.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo },

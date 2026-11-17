@@ -2,7 +2,8 @@ import LegalLayout, { type LegalSection } from "../components/legal/LegalLayout"
 import RelatedDocs from "../components/legal/RelatedDocs";
 
 // Text: docs/legal/participant-agreement.md (sections 1–13). Keep the two in sync word for word.
-const SECTIONS: LegalSection[] = [
+// the full text — also for the PDF in «Документи і згоди»
+export const SECTIONS: LegalSection[] = [
   {
     id: "about",
     title: "Що таке Sensoria",

@@ -5,7 +5,6 @@ import {
   translateAuthError,
   type Profile,
 } from "../lib/auth";
-import ConsentCheckbox from "../components/ConsentCheckbox";
 import { isPasswordValid as isPasswordRuleValid, PASSWORD_HINT } from "../utils/passwordRules";
 
 type Props = {
@@ -33,8 +32,6 @@ const [password, setPassword] =
   useState("");
 
   const [showPassword, setShowPassword] = useState(false);
-  const [consent, setConsent] = useState(false);
-  const [age18, setAge18] = useState(false);
 
   // "Touched" flags — errors only render after the user leaves a field
   // (or tries to submit), not while they're still typing into it for
@@ -63,9 +60,7 @@ const [password, setPassword] =
   !submitting &&
   name.trim().length > 1 &&
   isEmailValid &&
-  isPasswordValid &&
-  consent &&
-  age18;
+  isPasswordValid;
 
   const submit = async () => {
     if (!canContinue) return;
@@ -295,7 +290,7 @@ const [password, setPassword] =
           </div>
 
           <div className="mt-6">
-            <ConsentCheckbox checked={consent} onChange={setConsent} ageChecked={age18} onAgeChange={setAge18} />
+            <p className="text-[13px] leading-relaxed text-white/75">Після реєстрації ви ознайомитеся з умовами користування та приймете їх перед входом у кабінет.</p>
           </div>
 
           <div

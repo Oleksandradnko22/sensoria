@@ -3,7 +3,8 @@ import RelatedDocs from "../components/legal/RelatedDocs";
 
 // DRAFT structure for legal review. Only what the product demonstrably does is
 // stated; every legal detail (bases, terms, processors) is an amber marker.
-const SECTIONS: LegalSection[] = [
+// the full text — also for the PDF in «Документи і згоди»
+export const SECTIONS: LegalSection[] = [
   {
     id: "who",
     title: "Хто обробляє дані",

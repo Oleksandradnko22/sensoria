@@ -32,7 +32,6 @@ export async function acceptLegal(kind: "participant" | "author" | "health_data"
     p_opened_docs: openedDocs,
   });
   if (error) {
-    // eslint-disable-next-line no-console
     console.error("accept_legal failed:", error.code, error.message);
     const code = Object.keys(ERRORS).find((k) => error.message.includes(k));
     throw new Error(code ? ERRORS[code] : "Не вдалося зберегти згоду. Спробуйте ще раз.");
@@ -56,6 +55,20 @@ async function otpCall(body: Record<string, unknown>): Promise<{ to?: string }> 
 export const sendLegalOtp = (purpose: "author_agreement" | "author_paid_sales" = "author_agreement") => otpCall({ action: "send", purpose });
 export const verifyLegalOtp = (code: string, purpose: "author_agreement" | "author_paid_sales" = "author_agreement") =>
   otpCall({ action: "verify", purpose, code }).then(() => undefined);
+
+/** Withdraw an optional consent (health_data / marketing_email). */
+export async function withdrawConsent(document: "health_data" | "marketing_email"): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.rpc("withdraw_consent", { p_document: document });
+  if (error) throw new Error("Не вдалося змінити згоду. Спробуйте ще раз.");
+}
+
+/** Topics for the «Нові матеріали» email, picked by the participant (empty = all new materials). */
+export async function saveNewContentTopics(topics: string[]): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.rpc("set_new_content_topics", { p_topics: topics });
+  if (error) throw new Error("Не вдалося зберегти теми. Спробуйте ще раз.");
+}
 
 /** Ask the app to re-check consents (e.g. after the server answered consent_required). */
 export const requestConsentCheck = () => window.dispatchEvent(new Event("sensoria:consent-check"));

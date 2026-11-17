@@ -1203,10 +1203,6 @@ export class MonoError extends Error {
     this.code = code;
   }
 }
-const trimTitle = (s: string, n: number) => {
-  const t = s.replace(/\s+/g, " ").trim();
-  return t.length > n ? `${t.slice(0, n - 1)}…` : t;
-};
 
 /**
  * Sensoria's commission as monobank's `agentFeePercent`: the platform is an agent, not a split receiver
@@ -1222,6 +1218,9 @@ export function agentFeePercentOf(amountKop: number, sensoriaKop: number): numbe
  * splitReceiverId and keeps `agentFeePercent` of it for Sensoria. The parts must still add up to the price
  * exactly, otherwise nothing is built: money must never be lost or invented.
  */
+/** What the bank sees as the item: neutral, the code identifies the material (privacy-edits.md, П11). */
+export const NEUTRAL_ITEM_NAME = "Цифровий освітній матеріал Sensoria";
+
 export function buildSplitBasket(i: SplitInput): { amount: number; basketOrder: MonoBasketItem[]; agentFeePercent: number } {
   const all = [i.amountKop, i.authorKop, i.sensoriaKop];
   if (!all.every((n) => Number.isInteger(n) && n >= 0)) throw new MonoError("bad_amount", "Суми мають бути цілими невід'ємними числами (копійки).");
@@ -1231,9 +1230,9 @@ export function buildSplitBasket(i: SplitInput): { amount: number; basketOrder: 
   const agentFeePercent = agentFeePercentOf(i.amountKop, i.sensoriaKop);
   // the rounded percent must give back Sensoria's part within one kopeck
   if (Math.abs(Math.round((i.amountKop * agentFeePercent) / 100) - i.sensoriaKop) > 1) throw new MonoError("split_mismatch", "Комісію Sensoria не можна точно передати банку.");
-  const title = trimTitle(i.title || "Матеріал", 60);
+  // the bank never gets the material's title (it may reveal health information); the code identifies the item
   const basketOrder: MonoBasketItem[] = [
-    { name: title, qty: 1, sum: i.amountKop, total: i.amountKop, code: i.contentCode, splitReceiverId: i.authorReceiverId },
+    { name: NEUTRAL_ITEM_NAME, qty: 1, sum: i.amountKop, total: i.amountKop, code: i.contentCode, splitReceiverId: i.authorReceiverId },
   ];
   return { amount: i.amountKop, basketOrder, agentFeePercent };
 }
@@ -1249,7 +1248,8 @@ export function buildInvoiceBody(args: SplitInput & { reference: string; redirec
     ccy: 980,
     merchantPaymInfo: {
       reference: args.reference,
-      destination: trimTitle(`Оплата: ${args.title || "матеріал"}`, 100),
+      // neutral on purpose: the title may reveal health information to the bank and on the buyer's statement (privacy-edits.md, П11)
+      destination: `Оплата цифрового матеріалу Sensoria, замовлення № ${args.reference.replace(/-/g, "").slice(0, 8).toUpperCase()}`,
       basketOrder,
     },
     redirectUrl: args.redirectUrl,

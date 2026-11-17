@@ -41,6 +41,18 @@ import {
   type NotificationPrefs,
 } from "../../lib/notificationPrefs";
 import { isPasswordValid as isPasswordRuleValid, PASSWORD_HINT } from "../../utils/passwordRules";
+import { acceptLegal, saveNewContentTopics, withdrawConsent } from "../../lib/legalGate";
+import { PARTICIPANT_ITEMS } from "../../data/consentTexts";
+
+// the six themes of the catalog — picked by the person for the «Нові матеріали» email
+const TOPICS: { id: string; label: string }[] = [
+  { id: "stress", label: "Стрес" },
+  { id: "anxiety", label: "Тривожність" },
+  { id: "burnout", label: "Вигорання" },
+  { id: "relationships", label: "Стосунки" },
+  { id: "motivation", label: "Мотивація" },
+  { id: "selfEsteem", label: "Самооцінка" },
+];
 
 type Toggle = { id: string; label: string; hint: string; icon: IconName; email: boolean };
 
@@ -55,7 +67,7 @@ type Toggle = { id: string; label: string; hint: string; icon: IconName; email: 
 const initialNotifications: Toggle[] = [
   { id: "reply", label: "Відповідь автора на відгук", hint: "Лист, коли автор відповідає на ваш відгук.", icon: "comment", email: true },
   { id: "message", label: "Нове повідомлення від автора", hint: "Лист про нові повідомлення у вашій переписці з авторами.", icon: "mail", email: true },
-  { id: "newContent", label: "Нові матеріали", hint: "Дізнавайтеся першими про нові програми, гайди та медитації.", icon: "sparkle", email: false },
+  { id: "newContent", label: "Нові матеріали", hint: "Один лист на тиждень про нові програми, гайди та медитації. Відписатися можна в будь-якому листі.", icon: "sparkle", email: false },
 ];
 
 // 2FA setup shown as a dialog over the page (not squeezed into the card):
@@ -420,7 +432,21 @@ export default function ParticipantProfile({ onOpenMaterial }: { onOpenMaterial?
     setPrefError(null);
     setPrefBusy(id);
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, email: nextValue } : n)));
-    const ok = await saveNotificationPref(profile.id, id, { email: nextValue }, storedPrefs);
+    // «Нові матеріали» is the marketing_email consent itself (docs/consent-legal-spec.md, 4.5)
+    let consentOk = true;
+    if (id === "newContent") {
+      try {
+        if (nextValue) {
+          const item = PARTICIPANT_ITEMS.find((i) => i.key === "p5");
+          if (item) await acceptLegal("marketing_email", [item], 0, []);
+        } else {
+          await withdrawConsent("marketing_email");
+        }
+      } catch {
+        consentOk = false;
+      }
+    }
+    const ok = consentOk && (await saveNotificationPref(profile.id, id, { email: nextValue }, storedPrefs));
     if (ok) {
       setStoredPrefs((prev) => ({ ...prev, [id]: { email: nextValue } }));
     } else {
@@ -428,6 +454,24 @@ export default function ParticipantProfile({ onOpenMaterial }: { onOpenMaterial?
       setPrefError("Не вдалося зберегти налаштування. Спробуйте ще раз.");
     }
     setPrefBusy(null);
+  };
+
+  // «Мені цікаві теми» for the «Нові матеріали» email — chosen by the person, never derived from the test
+  const storedTopics = ((storedPrefs as unknown as { topics?: string[] }).topics ?? []).filter((t) => TOPICS.some((x) => x.id === t));
+  const [topicsBusy, setTopicsBusy] = useState(false);
+  const toggleTopic = async (id: string) => {
+    if (topicsBusy) return;
+    const next = storedTopics.includes(id) ? storedTopics.filter((t) => t !== id) : [...storedTopics, id];
+    setTopicsBusy(true);
+    setPrefError(null);
+    try {
+      await saveNewContentTopics(next);
+      setStoredPrefs((prev) => ({ ...prev, topics: next } as unknown as typeof prev));
+    } catch (e) {
+      setPrefError(e instanceof Error ? e.message : "Не вдалося зберегти теми.");
+    } finally {
+      setTopicsBusy(false);
+    }
   };
 
   // ── DATA EXPORT ────────────────────────────────────────────────
@@ -705,7 +749,7 @@ export default function ParticipantProfile({ onOpenMaterial }: { onOpenMaterial?
         )}
         {prefsState === "ready" && (
           <ul className="mt-3 divide-y divide-[#f1eefb]">
-            {notifications.map((n) => (
+            {notifications.flatMap((n) => [
               <li key={n.id} className="flex items-center gap-3 sm:gap-4 py-3">
                 <span aria-hidden="true" className="hidden sm:flex shrink-0 w-11 h-11 rounded-2xl bg-[#f1eeff] text-[#6d5bd0] items-center justify-center">
                   <Icon name={n.icon} size={18} />
@@ -721,8 +765,31 @@ export default function ParticipantProfile({ onOpenMaterial }: { onOpenMaterial?
                   disabled={prefBusy !== null}
                   onClick={() => toggleNotification(n.id)}
                 />
-              </li>
-            ))}
+              </li>,
+              ...(n.id === "newContent" && n.email ? [
+              <li key="topics" className="pb-4 sm:pl-[60px]">
+                <div className="text-[13px] font-semibold text-[#12172b]">Мені цікаві теми <span className="font-normal text-black/50">· необов’язково</span></div>
+                <div className="text-[12px] text-black/55">Якщо нічого не обрано, пишемо про всі нові матеріали.</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {TOPICS.map((t) => {
+                    const on = storedTopics.includes(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        aria-pressed={on}
+                        disabled={topicsBusy}
+                        onClick={() => toggleTopic(t.id)}
+                        className={`min-h-[36px] px-3 rounded-full text-[13px] font-semibold ring-1 transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] ${on ? "bg-[#eef0fd] text-[#4338ca] ring-[#c9cffa]" : "text-black/65 ring-[#e5e7f5] hover:bg-[#f6f7ff]"}`}
+                      >
+                        {t.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </li>,
+              ] : []),
+            ])}
             {/* always sent: they answer something the person asked for or protect the account */}
             <li className="flex items-center gap-3 sm:gap-4 py-3">
               <span aria-hidden="true" className="hidden sm:flex shrink-0 w-11 h-11 rounded-2xl bg-[#f1eeff] text-[#6d5bd0] items-center justify-center">

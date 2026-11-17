@@ -23,7 +23,7 @@ insert into public.legal_documents (document, version, text_hash, effective_from
   ('participant_agreement', '1.0', 'af03086c89cce9a717adbaeeb577cb49e08cfa6d4989d9cb2b47d41c7a10ac3f', now(), true),
   ('author_agreement',      '1.0', '9983c7a8e96a6207ff5c686a6dc5165d76d555e16bbab3d316bcbcfe73679a15', '2026-11-17', true),
   ('terms',                 '1.0', '3776794ce3c3e8ed88deed4c6546c4efd7f363100893a49593ac9936bdf2ef46', now(), true),
-  ('privacy',               '1.0', '96aa10184d4c45e46cd182152b56d81c217cf349f49fae61abffbbd43dedaba2', now(), true),
+  ('privacy',               '1.0', 'db2041d814dd6c621f201d2c9f1128a059bae9dff8b8d878b732b9389fb51a3e', now(), true),
   ('refunds',               '1.0', '46178c63f471f6e0571b1cc06ea531511569dd857e232d3a9ceddebe470be82b', now(), true)
 on conflict (document, version) do nothing;
 

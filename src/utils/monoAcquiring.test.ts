@@ -139,3 +139,11 @@ test("webhook signature: missing or broken input is simply false", async () => {
   assert.equal(await verifyWebhookSignature("{}", "not base64 !!", "also not a key"), false);
   assert.ok(spkiFromPem("-----BEGIN PUBLIC KEY-----\nQUJD\n-----END PUBLIC KEY-----").length === 3);
 });
+
+test("the payment purpose never carries the material's title (it may reveal health information)", () => {
+  const b = buildInvoiceBody({ ...base, title: "Як вийти з депресії", reference: "3f2a9c1e-0000-4000-8000-000000000000", redirectUrl: "https://a", webHookUrl: "https://b" });
+  assert.equal(b.merchantPaymInfo.destination, "Оплата цифрового матеріалу Sensoria, замовлення № 3F2A9C1E");
+  assert.ok(!b.merchantPaymInfo.destination.includes("депресії"));
+  assert.equal(b.merchantPaymInfo.basketOrder[0].name, "Цифровий освітній матеріал Sensoria");
+  assert.ok(!JSON.stringify(b).includes("депресії"));
+});

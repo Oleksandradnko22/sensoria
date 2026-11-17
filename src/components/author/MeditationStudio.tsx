@@ -31,6 +31,9 @@ type Props = {
   // uploads the finished file as the meditation's audio; returns an error text or null
   onDone: (file: File, info: { hasMusic: boolean }) => Promise<string | null>;
   onClose: () => void;
+  /** where «←» leads and what an unnamed recording is called (a program lesson says «До уроку» / «Урок без назви») */
+  backLabel?: string;
+  untitledLabel?: string;
 };
 
 const BTN = "inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 disabled:opacity-50";
@@ -70,7 +73,7 @@ const SCREEN_H = "lg:h-[min(640px,calc(100vh-150px))]";
 
 const layerSource = (c: BgChoice): BgSource | null => (c.id === "own" ? c.own : c.id ? findBackgroundTrack(c.id)?.url ?? null : null);
 
-export default function MeditationStudio({ title, transcript, maxChars, maxMinutes, store, onTranscriptChange, onDone, onClose }: Props) {
+export default function MeditationStudio({ title, transcript, maxChars, maxMinutes, store, onTranscriptChange, onDone, onClose, backLabel = "До медитації", untitledLabel = "Нова медитація" }: Props) {
   const [state, setState] = useState<StudioState>(store.current);
   const set = (patch: Partial<StudioState>) => setState((s) => ({ ...s, ...patch }));
   useEffect(() => { store.current = state; }, [state, store]);
@@ -413,10 +416,10 @@ export default function MeditationStudio({ title, transcript, maxChars, maxMinut
     <div role="dialog" aria-modal="true" aria-label="Студія запису медитації" className="fixed inset-0 z-[998] flex flex-col overflow-y-auto bg-[#f4f0ff] lg:overflow-hidden">
       <header className="shrink-0 border-b border-[#e4def9] bg-white/90 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[1560px] flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
-          <button type="button" onClick={() => { if (recording) void finishRec(false); onClose(); }} className={SECONDARY}><span aria-hidden="true">←</span> До медитації</button>
+          <button type="button" onClick={() => { if (recording) void finishRec(false); onClose(); }} className={SECONDARY}><span aria-hidden="true">←</span> {backLabel}</button>
           <div className="min-w-0 flex-1">
             <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#4a2fd0]">Студія запису</div>
-            <div className="truncate text-[15px] font-semibold text-[#1f1b4d]">{title.trim() || "Нова медитація"}</div>
+            <div className="truncate text-[15px] font-semibold text-[#1f1b4d]">{title.trim() || untitledLabel}</div>
           </div>
           {fragments.length > 0 && !editingText && (
             <div className="flex items-center gap-2 text-[13px] font-semibold text-[#2d2a5c]">
@@ -501,7 +504,7 @@ export default function MeditationStudio({ title, transcript, maxChars, maxMinut
           <section className={`${CARD} m-auto w-full max-w-[760px] p-7 text-center sm:p-12`}>
             <span aria-hidden="true" className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-[#efeaff] to-[#e2dafd] text-[#4a2fd0]"><Icon name="meditation" size={32} /></span>
             <h2 className="mt-5 text-[28px] font-semibold text-[#1f1b4d]">{result ? "Ваша медитація готова" : "Збираємо медитацію"}</h2>
-            <p className="mt-1.5 truncate text-[15px] text-black/55">{title.trim() || "Нова медитація"}</p>
+            <p className="mt-1.5 truncate text-[15px] text-black/55">{title.trim() || untitledLabel}</p>
             {progress && (
               <div className="mt-7" role="status">
                 <div className="h-2.5 overflow-hidden rounded-full bg-[#ece9fe]"><div className="h-full rounded-full bg-gradient-to-r from-[#5232f4] to-[#774eff] transition-all duration-300" style={{ width: `${Math.round(progress.share * 100)}%` }} /></div>

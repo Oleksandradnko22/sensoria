@@ -47,6 +47,8 @@ import { usesProfileIntro, withProfileIntro } from "../../utils/introVideoSource
 import { hasAcceptedAuthorAgreement, acceptAuthorAgreement } from "../../lib/consents";
 import AuthorAgreementDialog from "./AuthorAgreementDialog";
 import { emptyStudioState, type StudioState } from "../../utils/meditationStudio";
+import { toStaticBlocks } from "../../data/guideStatic";
+import { buildLessonGuidePdf } from "../../lib/guidePdfExport";
 // the studio (and its MP3 packer) is loaded only when an author opens it
 const MeditationStudio = lazy(() => import("./MeditationStudio"));
 
@@ -748,6 +750,69 @@ export default function AuthorCourseEditor({
     }
   };
 
+  // A lesson's audio or PDF can also be made in place: the meditation studio records the audio, the guide builder lays
+  // out the PDF. What was made is stored exactly like an uploaded file (audioUrl / fileUrl). The studio takes and the
+  // guide blocks are remembered by the file they produced while the editor is open, so «Створити в конструкторі»
+  // on the same lesson continues the work instead of starting over (they are not saved with the program).
+  const lessonMade = useRef(new Map<string, { studio?: { current: StudioState }; transcript?: string; blocks?: GuideContent }>());
+  const [lessonStudio, setLessonStudio] = useState<{ mi: number; ii: number; store: { current: StudioState } } | null>(null);
+  const [lessonTranscript, setLessonTranscript] = useState("");
+  const [lessonBuilder, setLessonBuilder] = useState<{ mi: number; ii: number } | null>(null);
+  const [lessonBlocks, setLessonBlocks] = useState<GuideContent>([]);
+  const lessonBlocksRef = useRef<GuideContent>([]);
+  const lessonItem = (mi: number, ii: number): AuthoredItem | undefined => modules[mi]?.items?.[ii];
+
+  const openLessonStudio = (mi: number, ii: number) => {
+    const made = lessonMade.current.get(lessonItem(mi, ii)?.audioUrl ?? "");
+    setLessonTranscript(made?.transcript ?? "");
+    setLessonStudio({ mi, ii, store: made?.studio ?? { current: emptyStudioState() } });
+  };
+  const saveLessonStudio = async (file: File): Promise<string | null> => {
+    if (!lessonStudio || !authorId) return "Не вдалося визначити автора — увійдіть ще раз.";
+    const { mi, ii, store } = lessonStudio;
+    try {
+      const url = await uploadLessonFile(file, `module-${mi}-item-${ii}-studio-${Date.now()}`);
+      const minutes = await audioMinutes(file);
+      lessonMade.current.set(url, { studio: store, transcript: lessonTranscript });
+      setItemErrors((p) => { const n = { ...p }; delete n[`${mi}:${ii}:audio`]; return n; });
+      updateItem(mi, ii, minutes ? { audioUrl: url, durationMinutes: minutes } : { audioUrl: url });
+      return null;
+    } catch {
+      return "Не вдалося зберегти запис. Перевірте з'єднання й спробуйте ще раз.";
+    }
+  };
+
+  const openLessonBuilder = (mi: number, ii: number) => {
+    const made = lessonMade.current.get(lessonItem(mi, ii)?.fileUrl ?? "");
+    const start = made?.blocks?.length ? made.blocks : starterBlocks();
+    lessonBlocksRef.current = start;
+    setLessonBlocks(start);
+    setLessonBuilder({ mi, ii });
+  };
+  const saveLessonBuilder = async (): Promise<string | null> => {
+    if (!lessonBuilder || !authorId) return "Не вдалося визначити автора — увійдіть ще раз.";
+    const { mi, ii } = lessonBuilder;
+    const blocks = lessonBlocksRef.current;
+    if (blocks.length === 0) return "Додайте хоча б один розділ.";
+    try {
+      // private pictures (paid program) are drawn through short-lived signed links
+      const paid = blocks.flatMap((b) => (b.type === "media" && isPaidFileRef(b.url) ? [b.url] : []));
+      const signed = paid.length > 0 ? await signPaidFileRefs(paid) : new Map<string, string>();
+      const drawn = blocks.map((b) => (b.type === "media" && isPaidFileRef(b.url) ? { ...b, url: signed.get(b.url) ?? "" } : b));
+      const title = lessonItem(mi, ii)?.title.trim() || "Матеріал уроку";
+      const { blob } = await buildLessonGuidePdf({ title, blocks: toStaticBlocks(drawn) });
+      const name = `${title.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "material"}.pdf`;
+      const file = new File([blob], name, { type: "application/pdf" });
+      const url = await uploadLessonFile(file, `module-${mi}-item-${ii}-guide-${Date.now()}`);
+      lessonMade.current.set(url, { blocks });
+      setItemErrors((p) => { const n = { ...p }; delete n[`${mi}:${ii}:file`]; return n; });
+      updateItem(mi, ii, { fileUrl: url, fileName: name, fileSizeLabel: fileSizeLabel(file.size) });
+      return null;
+    } catch {
+      return "Не вдалося створити PDF. Перевірте з'єднання й спробуйте ще раз.";
+    }
+  };
+
   // What only a guide or only a meditation has (saved with the material, and also used by the live «what is missing» list).
   const typeFields = (): Partial<AuthoredContent> => ({
     ...(type === "guide"
@@ -1369,6 +1434,39 @@ export default function AuthorCourseEditor({
             onClose={() => setStudioOpen(false)}
           />
         </Suspense>
+      )}
+      {lessonStudio && authorId && (
+        <Suspense fallback={<div role="status" className="fixed inset-0 z-[998] grid place-items-center bg-[#f4f0ff] text-[15px] text-[#4a2fd0]">Відкриваємо студію…</div>}>
+          <MeditationStudio
+            title={lessonItem(lessonStudio.mi, lessonStudio.ii)?.title ?? ""}
+            transcript={lessonTranscript}
+            maxChars={TRANSCRIPT_MAX_CHARS}
+            maxMinutes={MEDITATION_MAX_MINUTES}
+            store={lessonStudio.store}
+            onTranscriptChange={setLessonTranscript}
+            onDone={(file) => saveLessonStudio(file)}
+            onClose={() => setLessonStudio(null)}
+            backLabel="До уроку"
+            untitledLabel="Урок без назви"
+          />
+        </Suspense>
+      )}
+      {lessonBuilder && authorId && (
+        <GuideBuilder
+          title={lessonItem(lessonBuilder.mi, lessonBuilder.ii)?.title ?? ""}
+          blocks={lessonBlocks}
+          authorId={authorId}
+          contentId={draftId}
+          price={Number(price) || 0}
+          onImageUploaded={() => undefined}
+          onSave={saveLessonBuilder}
+          giftOptions={content.filter((c) => c.type === "meditation" && c.slug && c.id !== draftId).map((c) => ({ id: c.slug as string, title: c.title, published: c.status === "published" }))}
+          onChange={(next) => { lessonBlocksRef.current = next; setLessonBlocks(next); }}
+          onClose={() => setLessonBuilder(null)}
+          onDiscard={() => setLessonBuilder(null)}
+          backLabel="До уроку"
+          untitledLabel="Урок без назви"
+        />
       )}
       {builderOpen && authorId && (
         <GuideBuilder
@@ -2529,6 +2627,7 @@ export default function AuthorCourseEditor({
                     const areaCls = "w-full resize-none rounded-xl border border-[#d9d4f5] bg-white px-3 py-2.5 text-[14px] text-black placeholder:text-black/55 focus:border-[#5b3df5] focus:outline-none";
                     const bad = new Set(publishProblems.length > 0 ? lessonChecks(it).map((c) => c.code) : []);
                     const pillBtn = "inline-flex min-h-[44px] items-center justify-center rounded-full border border-[#d9d4f5] bg-white px-4 text-[13px] font-semibold text-[#4a2fd0] hover:bg-[#ece9fe]";
+                    const makeBtn = "inline-flex min-h-[44px] items-center justify-center rounded-full bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[13px] font-semibold text-white transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 focus-visible:ring-offset-2";
                     return (
                       <div key={ii} className={`${shown ? "" : "hidden"} rounded-2xl border border-[#d9d4f5] bg-white`}>
                         {expanded && (
@@ -2584,6 +2683,7 @@ export default function AuthorCourseEditor({
                                       {it.audioUrl ? "Замінити файл" : "Обрати файл"}
                                       <input type="file" accept="audio/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) handleItemAudioUpload(i, ii, file); }} />
                                     </label>
+                                    <button type="button" onClick={() => openLessonStudio(i, ii)} className={makeBtn}>Створити в конструкторі</button>
                                     {it.audioUrl && (
                                       <button type="button" onClick={() => updateItem(i, ii, { audioUrl: undefined, durationMinutes: undefined })} className="min-h-[44px] rounded-full px-3 text-[13px] font-semibold text-rose-700 hover:bg-rose-50">Прибрати</button>
                                     )}
@@ -2596,6 +2696,7 @@ export default function AuthorCourseEditor({
                                       {it.fileUrl ? "Замінити файл" : "Обрати файл"}
                                       <input type="file" accept=".pdf" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) handleItemFileUpload(i, ii, file); }} />
                                     </label>
+                                    <button type="button" onClick={() => openLessonBuilder(i, ii)} className={makeBtn}>Створити в конструкторі</button>
                                     {it.fileUrl && (
                                       <button type="button" onClick={() => updateItem(i, ii, { fileUrl: undefined, fileName: undefined, fileSizeLabel: undefined })} className="min-h-[44px] rounded-full px-3 text-[13px] font-semibold text-rose-700 hover:bg-rose-50">Прибрати</button>
                                     )}

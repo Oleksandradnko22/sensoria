@@ -246,3 +246,37 @@ export async function renderGuidePreviewPages(params: {
   }
   return out;
 }
+
+// A program lesson's PDF made in the guide builder (2026-11-17): the same A4 layout as a guide's PDF, but WITHOUT
+// any reader mark — it is stored as the lesson's file, and program files get the participant's watermark when they
+// are downloaded (protectedDownload.ts), exactly like an uploaded PDF.
+export async function buildLessonGuidePdf(params: {
+  title: string;
+  blocks: StaticBlock[];
+}): Promise<{ blob: Blob; pages: number; skipped: number }> {
+  if (document.fonts?.ready) await document.fonts.ready;
+  const scratch = document.createElement("canvas").getContext("2d");
+  if (!scratch) throw new Error("Canvas недоступний у цьому браузері.");
+  const measure: Measure = (text, size, bold) => {
+    scratch.font = fontOf(size, bold);
+    return scratch.measureText(text).width;
+  };
+  const { sizes, elements, failed } = await loadImages(params.blocks);
+  const pages = layoutGuidePdf({ title: params.title, blocks: withoutFailed(params.blocks, failed) }, measure, sizes);
+  const images: ImagePage[] = [];
+  for (const page of pages) {
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(PAGE_W * SCALE);
+    canvas.height = Math.round(PAGE_H * SCALE);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas недоступний у цьому браузері.");
+    ctx.scale(SCALE, SCALE);
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, PAGE_W, PAGE_H);
+    drawCommands(ctx, page, elements);
+    images.push({ jpeg: await canvasToJpeg(canvas), pxWidth: canvas.width, pxHeight: canvas.height });
+  }
+  const bytes = buildImagePdf(images, { pageWidth: PAGE_W, pageHeight: PAGE_H, title: params.title, producer: "Sensoria" });
+  return { blob: new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" }), pages: pages.length, skipped: failed.length };
+}

@@ -51,6 +51,9 @@ type Props = {
   // a paid guide keeps its pictures private; the editor is told about every uploaded picture so it can tidy up unused ones after saving
   price: number;
   onImageUploaded: (url: string) => void;
+  /** where «←» leads and what an unnamed guide is called (a program lesson's PDF says «До уроку» / «Урок без назви») */
+  backLabel?: string;
+  untitledLabel?: string;
 };
 
 const ICONS: Record<GuideBlockType, IconName> = {
@@ -607,7 +610,7 @@ function GuidePreview({ title, blocks, guideId, allowDownload }: { title: string
   );
 }
 
-export default function GuideBuilder({ title, blocks, onChange, onClose, onDiscard, authorId, contentId, giftOptions, onSave, livePublished = false, price, onImageUploaded, allowDownload = true }: Props) {
+export default function GuideBuilder({ title, blocks, onChange, onClose, onDiscard, authorId, contentId, giftOptions, onSave, livePublished = false, price, onImageUploaded, allowDownload = true, backLabel = "До гайду", untitledLabel = "Гайд без назви" }: Props) {
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   const [activeSec, setActiveSec] = useState(0);
   // index of the section waiting for "yes, delete" (null = none)
@@ -903,11 +906,11 @@ export default function GuideBuilder({ title, blocks, onChange, onClose, onDisca
       <header className="sticky top-0 z-10 border-b border-[#e4def9] bg-white/90 backdrop-blur">
         <div className={`mx-auto flex w-full flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8 ${mode === "edit" ? "max-w-[1320px]" : "max-w-[1100px]"}`}>
           <button type="button" onClick={back} aria-disabled={saving} title={locked ? "Є незаповнені блоки: можна вийти без збереження або зберегти лише заповнене" : "Зберегти гайд і повернутися"} className={`${SMALL_BTN} ${saving ? "opacity-50" : ""}`}>
-            <span aria-hidden="true" className="mr-1.5">←</span> До гайду
+            <span aria-hidden="true" className="mr-1.5">←</span> {backLabel}
           </button>
           <div className="min-w-0 flex-1">
             <div className="text-[16px] font-semibold leading-tight text-[#1f1b4d]">Конструктор гайду</div>
-            <div className="truncate text-[13px] text-black/60">{title.trim() || "Гайд без назви"}</div>
+            <div className="truncate text-[13px] text-black/60">{title.trim() || untitledLabel}</div>
           </div>
           <a href="https://youtu.be/ZLYGMK7Dz6o" target="_blank" rel="noopener noreferrer" aria-label="Відеоінструкція: як користуватися конструктором (відкриється в новій вкладці)" className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#d9d4f5] bg-[#f3efff] px-3 text-[14px] font-semibold text-[#4a2fd0] transition hover:bg-[#ece9fe] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 sm:px-4">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M10.5 9.3v5.4l4.5-2.7-4.5-2.7Z" /></svg>
@@ -933,7 +936,7 @@ export default function GuideBuilder({ title, blocks, onChange, onClose, onDisca
         {overview}
         <main className="mt-5 min-w-0">
           {mode === "preview" ? (
-            <GuidePreview title={title.trim() || "Гайд без назви"} blocks={blocks.map((b) => (b.type === "media" ? { ...b, url: shownUrl(b.url) } : b))} guideId={`preview-${contentId}`} allowDownload={allowDownload} />
+            <GuidePreview title={title.trim() || untitledLabel} blocks={blocks.map((b) => (b.type === "media" ? { ...b, url: shownUrl(b.url) } : b))} guideId={`preview-${contentId}`} allowDownload={allowDownload} />
           ) : (
             <>
               {blocks.length === 0 && <div className="mb-4 rounded-[22px] border border-dashed border-[#cfc6f5] bg-white/60 p-8 text-center text-[15px] text-black/60">Гайд поки порожній. Додайте перший розділ кнопкою «+ Розділ» зверху.</div>}

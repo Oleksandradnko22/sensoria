@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { acceptLegal, fetchMissingConsents, sendLegalOtp, verifyLegalOtp, type MissingConsent } from "../../lib/legalGate";
 import { logoutAccount } from "../../lib/auth";
+import { Icon } from "../ui/Icon";
 import { AUTHOR_ITEMS, HEALTH_HINT, OTP_TEXT, PARTICIPANT_ITEMS, type ConsentItem } from "../../data/consentTexts";
 
 // Release B consent screen (docs/consent-legal-spec.md, 2): after ANY sign-in (email, Google, new device, reload), the
@@ -73,7 +74,7 @@ export default function ConsentGate() {
   return <GateScreen kind={kind} missing={missing} onDone={() => void check()} />;
 }
 
-function GateScreen({ kind, missing, onDone }: { kind: "participant" | "author"; missing: MissingConsent[]; onDone: () => void }) {
+export function GateScreen({ kind, missing, onDone }: { kind: "participant" | "author"; missing: MissingConsent[]; onDone: () => void }) {
   const items = kind === "author" ? AUTHOR_ITEMS : PARTICIPANT_ITEMS;
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [opened, setOpened] = useState<string[]>([]);
@@ -153,22 +154,50 @@ function GateScreen({ kind, missing, onDone }: { kind: "participant" | "author";
 
   const wait = Math.max(0, Math.ceil((resendAt - now) / 1000));
 
+  const required = items.filter((i) => i.required);
+  const optional = items.filter((i) => !i.required);
+  const doneCount = required.filter((i) => checked[i.key]).length;
+
+  const itemRow = (it: ConsentItem) => (
+    <li key={it.key}>
+      <label className={`flex gap-3 items-start rounded-2xl px-4 py-2.5 cursor-pointer ring-1 transition-colors ${checked[it.key] ? "bg-[#eef0fd] ring-[#c9cffa]" : "bg-white ring-[#ece9f8] hover:bg-[#fafaff] hover:ring-[#d9d4f7]"}`}>
+        <input
+          type="checkbox"
+          checked={!!checked[it.key]}
+          onChange={(e) => setChecked((c) => ({ ...c, [it.key]: e.target.checked }))}
+          className="mt-[3px] h-[18px] w-[18px] shrink-0 accent-[#4338ca] cursor-pointer"
+        />
+        <span className="text-[14px] text-gray-800 leading-relaxed">
+          {it.text}
+          {it.key === "p4" && <span className="block mt-1 text-[13px] text-gray-500 leading-relaxed">{HEALTH_HINT}</span>}
+        </span>
+      </label>
+    </li>
+  );
+
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="gate-title" className="fixed inset-0 z-[1000] overflow-y-auto bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6]">
-      <div className="min-h-full flex items-start sm:items-center justify-center px-4 py-8 sm:py-12">
-        <div className="w-full max-w-2xl rounded-3xl bg-white text-[#0f172a] shadow-[0_20px_50px_-28px_rgba(15,23,100,0.55)] p-5 sm:p-8">
-          <p className="text-[13px] font-semibold tracking-[0.2em] text-[#4338ca]">SENSORIA</p>
-          <h1 id="gate-title" ref={titleRef} tabIndex={-1} className="mt-2 text-[24px] sm:text-[28px] font-bold leading-tight outline-none">
-            {kind === "author" ? "Договір з автором" : "Угода учасника"}
-          </h1>
-          <p className="mt-2 t-body text-gray-700">
-            {updates.length > 0 ? "Ми оновили умови. Перегляньте, що змінилося, і підтвердьте згоду, щоб продовжити." : "Перш ніж продовжити, ознайомтеся з умовами й підтвердьте згоду."}
-          </p>
+    <div role="dialog" aria-modal="true" aria-labelledby="gate-title" className="fixed inset-0 z-[1000] overflow-y-auto sensoria-scroll bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6]">
+      <div className="min-h-full flex items-center justify-center p-4 sm:p-8 lg:p-12">
+        <div className="w-full max-w-[1200px] rounded-[28px] bg-white text-[#0f172a] shadow-[0_24px_60px_-30px_rgba(15,23,100,0.6)] p-5 sm:p-7">
+          <div className="flex items-start gap-4">
+            <span aria-hidden="true" className="hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#3b6df0] to-[#7c5cf0] text-white">
+              <Icon name="shield" size={22} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[12px] font-semibold tracking-[0.2em] text-[#4338ca]">SENSORIA</p>
+              <h1 id="gate-title" ref={titleRef} tabIndex={-1} className="mt-1 text-[22px] sm:text-[26px] font-bold leading-tight outline-none">
+                {kind === "author" ? "Договір з автором" : "Угода учасника"}
+              </h1>
+              <p className="mt-1.5 text-[15px] text-gray-600 leading-relaxed">
+                {updates.length > 0 ? "Ми оновили умови. Перегляньте, що змінилося, і підтвердьте згоду, щоб продовжити." : "Перш ніж продовжити, ознайомтеся з умовами й підтвердьте згоду."}
+              </p>
+            </div>
+          </div>
 
           {updates.length > 0 && (
             <section aria-labelledby="gate-changes" className="mt-5 rounded-2xl bg-[#f6f7ff] ring-1 ring-[#e5e7f5] p-4">
               <h2 id="gate-changes" className="font-semibold text-[15px]">Що змінилося</h2>
-              <ul className="mt-2 list-disc pl-5 space-y-1 t-small text-gray-700">
+              <ul className="mt-2 list-disc pl-5 space-y-1 text-[14px] text-gray-700">
                 {updates.flatMap((u) => (u.changesSummary ?? "").split("\n").filter(Boolean)).map((line, i) => (
                   <li key={i}>{line}</li>
                 ))}
@@ -177,106 +206,112 @@ function GateScreen({ kind, missing, onDone }: { kind: "participant" | "author";
           )}
 
           <div className="mt-5">
-            <p className="t-small font-semibold text-gray-800">Документи (відкриваються в новій вкладці):</p>
+            <p className="text-[13px] font-semibold text-gray-500">Документи · відкриваються в новій вкладці</p>
             <ul className="mt-2 flex flex-wrap gap-2">
-              {DOCS[kind].map((d) => (
-                <li key={d.href}>
-                  <a
-                    href={d.href}
-                    target="_blank"
-                    rel="noopener"
-                    onClick={() => setOpened((o) => (o.includes(d.href) ? o : [...o, d.href]))}
-                    className="inline-flex items-center min-h-[40px] px-3 rounded-xl ring-1 ring-[#c9cffa] text-[#3b27a8] text-[14px] font-semibold hover:bg-[#f3f4ff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]"
-                  >
-                    {d.label}
-                  </a>
-                </li>
-              ))}
+              {DOCS[kind].map((d) => {
+                const seen = opened.includes(d.href);
+                return (
+                  <li key={d.href}>
+                    <a
+                      href={d.href}
+                      target="_blank"
+                      rel="noopener"
+                      onClick={() => setOpened((o) => (o.includes(d.href) ? o : [...o, d.href]))}
+                      className={`inline-flex items-center gap-2 min-h-[40px] px-3.5 rounded-xl text-[14px] font-semibold ring-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] ${seen ? "bg-[#eef0fd] text-[#4338ca] ring-[#c9cffa]" : "text-[#3b27a8] ring-[#d9d4f7] hover:bg-[#f3f4ff]"}`}
+                    >
+                      <Icon name={seen ? "check" : "note"} size={16} />
+                      {d.label}
+                    </a>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
-          {step === "items" ? (
-            <>
-              <fieldset className="mt-6">
-                <legend className="sr-only">Згоди</legend>
-                <ul className="space-y-3">
-                  {items.map((it) => (
-                    <li key={it.key}>
-                      <label className={`flex gap-3 items-start rounded-2xl p-3 cursor-pointer ring-1 transition ${checked[it.key] ? "bg-[#eef0fd] ring-[#c9cffa]" : "ring-[#ece9f8] hover:bg-[#fafaff]"}`}>
-                        <input
-                          type="checkbox"
-                          checked={!!checked[it.key]}
-                          onChange={(e) => setChecked((c) => ({ ...c, [it.key]: e.target.checked }))}
-                          className="mt-1 h-5 w-5 shrink-0 accent-[#4338ca]"
-                        />
-                        <span className="t-small text-gray-800 leading-relaxed">
-                          {it.text}
-                          <span className={`ml-1.5 whitespace-nowrap text-[12px] font-semibold ${it.required ? "text-[#4338ca]" : "text-gray-500"}`}>
-                            {it.required ? "обов’язково" : "за бажанням"}
-                          </span>
-                          {it.key === "p4" && <span className="block mt-1.5 text-[13px] text-gray-600">{HEALTH_HINT}</span>}
-                        </span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              </fieldset>
-              {error && <p role="alert" className="mt-4 t-small text-red-700">{error}</p>}
-              <button
-                type="button"
-                onClick={submitItems}
-                disabled={!allRequired || busy}
-                className="mt-6 w-full min-h-[48px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2"
-              >
-                {busy ? "Зберігаємо…" : kind === "author" ? "Надіслати код на пошту" : "Продовжити"}
-              </button>
-            </>
-          ) : (
-            <form
-              className="mt-6"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void submitCode();
-              }}
-            >
-              <p className="t-small text-gray-800 leading-relaxed">{OTP_TEXT.replace("{{email автора}}", email || "вашу пошту")}</p>
-              <label htmlFor="gate-code" className="mt-4 block t-small font-semibold text-gray-800">Код з листа</label>
-              <input
-                id="gate-code"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                className="mt-1.5 w-full sm:w-48 min-h-[48px] rounded-xl ring-1 ring-[#c9cffa] px-4 text-[22px] tracking-[0.3em] tabular-nums focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]"
-              />
-              {error && <p role="alert" className="mt-3 t-small text-red-700">{error}</p>}
-              <div className="mt-5 flex flex-wrap gap-3">
-                <button
-                  type="submit"
-                  disabled={code.length !== 6 || busy}
-                  className="min-h-[48px] px-6 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2"
-                >
-                  {busy ? "Перевіряємо…" : "Підписати договір"}
-                </button>
+          <div className="mt-5">
+            {step === "items" ? (
+              <>
+                <fieldset>
+                  <legend className="text-[13px] font-semibold text-gray-500">Обов’язкові</legend>
+                  <ul className="mt-2 space-y-2">{required.map(itemRow)}</ul>
+                </fieldset>
+                {optional.length > 0 && (
+                  <fieldset className="mt-4">
+                    <legend className="text-[13px] font-semibold text-gray-500">За бажанням</legend>
+                    <ul className="mt-2 space-y-2">{optional.map(itemRow)}</ul>
+                  </fieldset>
+                )}
+                {error && <p role="alert" className="mt-4 text-[14px] text-red-700">{error}</p>}
                 <button
                   type="button"
-                  onClick={resend}
-                  disabled={wait > 0 || busy}
-                  className="min-h-[48px] px-4 rounded-xl ring-1 ring-[#c9cffa] text-[#3b27a8] font-semibold hover:bg-[#f3f4ff] disabled:opacity-50 disabled:cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]"
+                  onClick={submitItems}
+                  disabled={!allRequired || busy}
+                  className="mt-5 w-full min-h-[50px] rounded-2xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[15px] font-semibold shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] hover:opacity-95 disabled:opacity-45 disabled:shadow-none disabled:cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2"
                 >
-                  {wait > 0 ? `Надіслати ще раз (${wait} с)` : "Надіслати ще раз"}
+                  {busy
+                    ? "Зберігаємо…"
+                    : !allRequired
+                      ? `Відмітьте обов’язкові пункти · ${doneCount} з ${required.length}`
+                      : kind === "author"
+                        ? "Надіслати код на пошту"
+                        : "Продовжити"}
                 </button>
-                <button type="button" onClick={() => { setStep("items"); setCode(""); setError(null); }} className="min-h-[48px] px-2 text-[#3b27a8] font-semibold underline underline-offset-4">
-                  Назад
-                </button>
-              </div>
-            </form>
-          )}
+              </>
+            ) : (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void submitCode();
+                }}
+                className="rounded-2xl bg-[#f6f7ff] ring-1 ring-[#e5e7f5] p-5"
+              >
+                <div className="flex items-start gap-3">
+                  <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#4338ca] ring-1 ring-[#e5e7f5]">
+                    <Icon name="mail" size={18} />
+                  </span>
+                  <p className="text-[14px] text-gray-800 leading-relaxed">{OTP_TEXT.replace("{{email автора}}", email || "вашу пошту")}</p>
+                </div>
+                <label htmlFor="gate-code" className="mt-4 block text-[13px] font-semibold text-gray-500">Код з листа</label>
+                <input
+                  id="gate-code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  className="mt-1.5 w-full sm:w-56 min-h-[52px] rounded-xl bg-white ring-1 ring-[#c9cffa] px-4 text-[24px] text-center tracking-[0.4em] tabular-nums focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]"
+                />
+                {error && <p role="alert" className="mt-3 text-[14px] text-red-700">{error}</p>}
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={code.length !== 6 || busy}
+                    className="min-h-[48px] px-6 rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white font-semibold hover:opacity-95 disabled:opacity-45 disabled:cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2"
+                  >
+                    {busy ? "Перевіряємо…" : "Підписати договір"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resend}
+                    disabled={wait > 0 || busy}
+                    className="min-h-[48px] px-4 rounded-xl bg-white ring-1 ring-[#c9cffa] text-[#3b27a8] font-semibold hover:bg-[#f3f4ff] disabled:opacity-50 disabled:cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]"
+                  >
+                    {wait > 0 ? `Надіслати ще раз (${wait} с)` : "Надіслати ще раз"}
+                  </button>
+                  <button type="button" onClick={() => { setStep("items"); setCode(""); setError(null); }} className="min-h-[48px] px-2 text-[#3b27a8] font-semibold hover:underline underline-offset-4">
+                    Назад
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
 
-          <div className="mt-8 pt-5 border-t border-[#e5e7f5] flex flex-wrap items-center justify-between gap-3 t-small text-gray-600">
-            <span>Не погоджуєтеся? Ви можете вийти з акаунта або видалити його в «Профілі» після згоди. У кризовій ситуації телефонуйте 112.</span>
-            <button type="button" onClick={leave} disabled={busy} className="min-h-[40px] px-3 rounded-xl text-[#3b27a8] font-semibold hover:bg-[#f3f4ff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]">
+          <div className="mt-5 pt-4 border-t border-[#ece9f8] flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <p className="flex items-center gap-2 text-[13px] text-gray-500">
+              {kind === "participant" && <Icon name="lifebuoy" size={16} className="shrink-0 text-[#7c5cf0]" />}
+              {kind === "participant" ? "У кризовій ситуації телефонуйте 112. Не погоджуєтеся — можна вийти з акаунта." : "Не погоджуєтеся — можна вийти з акаунта."}
+            </p>
+            <button type="button" onClick={leave} disabled={busy} className="min-h-[40px] px-3 -mr-3 rounded-xl text-[14px] text-[#3b27a8] font-semibold hover:bg-[#f3f4ff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]">
               Вийти з акаунта
             </button>
           </div>

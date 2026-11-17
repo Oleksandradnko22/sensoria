@@ -104,7 +104,7 @@ export default function LegalLayout({ title, lead, metaTitle, metaDescription, s
           </BrandSelect>
         </div>
 
-        <nav aria-label="Зміст" className="hidden lg:block sticky top-6 rounded-2xl bg-white/10 border border-white/20 p-4 max-h-[calc(100vh-3rem)] overflow-y-auto sensoria-scroll-light">
+        <nav aria-label="Зміст" className="hidden lg:block sticky top-6 rounded-2xl bg-white/10 border border-white/20 p-4 max-h-[calc(100vh-3rem)] overflow-y-auto">
           <ol className="space-y-0.5">
             {sections.map((s, i) => (
               <li key={s.id}>

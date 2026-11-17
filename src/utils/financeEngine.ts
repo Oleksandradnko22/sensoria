@@ -319,10 +319,60 @@ export function pickSaleSource(attributedAt: string | null, purchasedAt: string,
 export const commissionFor = (s: Settings, source: SaleSource = "catalog"): number =>
   source === "referral" ? s.referralCommissionBps : s.commissionBps;
 
-export function splitAmount(amountKop: Kop, s: Settings, source: SaleSource = "catalog"): { authorKop: Kop; sensoriaKop: Kop } {
+export function splitAmount(amountKop: Kop, s: Settings, source: SaleSource = "catalog", listKop: Kop = amountKop): { authorKop: Kop; sensoriaKop: Kop } {
   assertKop(amountKop, "Сума");
-  const sensoriaKop = Math.floor((amountKop * commissionFor(s, source) + 5000) / 10000);
+  assertKop(listKop, "Ціна");
+  // the tariff is on the author's list price; an author's promo discount comes out of the author's part only (offer, Б33)
+  // Sensoria's tariff is fixed: exactly this share of the list price, never more or less (promoQuote picks the
+  // amount so the bank's two-decimal agentFeePercent pays exactly this)
+  const sensoriaKop = Math.floor((listKop * commissionFor(s, source) + 5000) / 10000);
+  if (sensoriaKop > amountKop) throw new FinanceError("bad_amount", "Тариф Sensoria більший за сплачену суму.");
   return { authorKop: amountKop - sensoriaKop, sensoriaKop };
+}
+
+/** The highest discount an author's promo code may give (offer, Б33). */
+export const MAX_PROMO_PERCENT = 50;
+/** Below ~80 ₴ the bank's two-decimal percent cannot always pay the fixed tariff exactly: promo codes start at 100 ₴. */
+export const MIN_PROMO_PRICE_KOP = 10000;
+
+/**
+ * An author's promo code (offer, Б33): the buyer pays the list price minus the discount; it counts as the author's
+ * referral (15%), and the 15% is taken from the LIST price, so the whole discount is on the author.
+ * 1000 ₴, −10% → pays 900 ₴: Sensoria 150 ₴, author 750 ₴.
+ */
+export function promoQuote(listKop: Kop, percent: number, s: Settings): { listKop: Kop; discountKop: Kop; amountKop: Kop; authorKop: Kop; sensoriaKop: Kop } {
+  assertKop(listKop, "Ціна");
+  if (listKop <= 0) throw new FinanceError("free", "Промокод не застосовується до безкоштовного матеріалу.");
+  if (listKop < MIN_PROMO_PRICE_KOP) throw new FinanceError("promo_min", "Промокод діє на матеріали від 100 ₴.");
+  if (!Number.isInteger(percent) || percent < 1 || percent > MAX_PROMO_PERCENT) {
+    throw new FinanceError("promo_percent", `Знижка за промокодом — від 1 до ${MAX_PROMO_PERCENT}%.`);
+  }
+  const promised = listKop - Math.min(Math.round((listKop * percent) / 100), Math.floor((listKop * MAX_PROMO_PERCENT) / 100));
+  const sensoriaKop = splitAmount(promised, s, "referral", listKop).sensoriaKop; // exactly 15 % of the list price
+  const amountKop = exactAgentAmount(promised, sensoriaKop);
+  const authorKop = amountKop - sensoriaKop;
+  if (authorKop <= 0) throw new FinanceError("promo_percent", "Знижка не залишає автору частки.");
+  return { listKop, discountKop: listKop - amountKop, amountKop, authorKop, sensoriaKop };
+}
+
+/**
+ * monobank pays Sensoria `agentFeePercent` (two decimals) of the amount. With a discount, the fixed tariff is not a
+ * two-decimal percent of the promised amount (150 of 900 ₴ = 16.666…%), so the amount is lowered by a few kopecks
+ * to the highest one where the bank's percent gives the tariff EXACTLY (rounded or truncated to the kopeck):
+ * the tariff never changes, the buyer pays at most what the code promised, the kopecks come from the author's part.
+ */
+export function exactAgentAmount(promisedKop: Kop, sensoriaKop: Kop): Kop {
+  if (sensoriaKop <= 0) return promisedKop;
+  // the smallest two-decimal percent that reaches the tariff at the promised amount keeps the extra kopecks smallest
+  const basis = Math.ceil((sensoriaKop * 10000) / promisedKop); // agentFeePercent × 100, e.g. 1667 = 16.67 %
+  const span = Math.ceil(promisedKop / Math.max(1, basis - 1)) + 2; // one percent step moves the amount by ≈ amount / basis
+  for (const b of [basis, basis + 1, basis + 2]) {
+    for (let a = promisedKop; a > promisedKop - span && a > sensoriaKop; a -= 1) {
+      const fee = a * b; // the bank's share × 10000
+      if (fee >= sensoriaKop * 10000 && fee < sensoriaKop * 10000 + 5000 && Math.round((sensoriaKop * 10000) / a) === b) return a;
+    }
+  }
+  throw new FinanceError("promo_percent", "Цю знижку не можна точно передати банку. Оберіть інший відсоток.");
 }
 
 /**
@@ -461,6 +511,9 @@ export type PurchaseInput = {
   contentId?: string | null;
   contentTitle?: string | null;
   source?: SaleSource; // where the buyer came from; defaults to the catalog rate
+  /** the author's list price when a promo code lowered amountKop (the tariff is on this; offer, Б33) */
+  listKop?: Kop | null;
+  promoCodeId?: string | null;
 };
 
 /**
@@ -485,7 +538,8 @@ export function planPaymentReceived(args: {
   const { settings: s, now, account, debts, purchase, paymentId, reserveId } = args;
   checkSettings(s);
   if (purchase.amountKop <= 0) throw new FinanceError("free_order", "Безкоштовне замовлення не створює фінансових операцій.");
-  const { authorKop, sensoriaKop } = splitAmount(purchase.amountKop, s, purchase.source);
+  const listKop = purchase.listKop != null && purchase.listKop > purchase.amountKop ? purchase.listKop : purchase.amountKop;
+  const { authorKop, sensoriaKop } = splitAmount(purchase.amountKop, s, purchase.source, listKop);
   // Split at source (monobank agentFeePercent): the bank takes its fee out of each receiver's own share, so
   // Sensoria's cost is only the fee on its commission; the author's fee is between the author and the bank.
   // Without the split Sensoria receives the whole payment and pays the whole fee.
@@ -566,6 +620,8 @@ export function planPaymentReceived(args: {
       sale_source: purchase.source ?? "catalog",
       author_kop: authorKop,
       sensoria_kop: sensoriaKop,
+      // only on promo sales, so a database without the promo columns keeps working for ordinary ones
+      ...(listKop > purchase.amountKop ? { list_kop: listKop, discount_kop: listKop - purchase.amountKop, promo_code_id: purchase.promoCodeId ?? null } : {}),
       pending_kop: split ? 0 : net - reserve,
       hold_until: split ? now : addDays(now, s.holdDays),
       split_author_kop: split ? net : null,

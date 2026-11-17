@@ -8,6 +8,7 @@ import { buildReferralLink } from "../../utils/referral";
 import { fetchAuthorContent } from "../../lib/authorPublic";
 import { supabase } from "../../lib/supabaseClient";
 import type { AuthorContentItem } from "../../utils/authorProfileView";
+import AuthorPromoCodes from "./AuthorPromoCodes";
 
 const KIND: Record<string, string> = { program: "Програма", guide: "Гайд", meditation: "Медитація" };
 
@@ -124,6 +125,8 @@ export default function AuthorPromotion() {
           </ul>
         )}
       </section>
+
+      {me && <AuthorPromoCodes authorId={me.id} />}
 
       {/* how to share well */}
       <section className="grid gap-3 sm:grid-cols-3">

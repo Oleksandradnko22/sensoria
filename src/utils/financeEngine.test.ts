@@ -26,6 +26,9 @@ import {
   planRelease,
   projectionMismatch,
   splitAmount,
+  promoQuote,
+  MIN_PROMO_PRICE_KOP,
+  MAX_PROMO_PERCENT,
   type AccountState,
   type DebtState,
   type Line,
@@ -34,6 +37,7 @@ import {
   type ReserveState,
   type Settings,
 } from "./financeEngine.ts";
+import { agentFeePercentOf, buildSplitBasket } from "./monoAcquiring.ts";
 
 // ── a tiny in-memory "database" that applies plans like finance_apply does ──
 
@@ -104,11 +108,11 @@ class World {
   debtList() { return [...this.debts.values()]; }
 
   /** a confirmed payment of `kop` kopecks */
-  pay(kop: number, now = T0, purchaseId = this.id("purchase")) {
+  pay(kop: number, now = T0, purchaseId = this.id("purchase"), extra: Partial<Parameters<typeof planPaymentReceived>[0]["purchase"]> = {}) {
     const paymentId = this.id("pay");
     this.apply(planPaymentReceived({
       settings: this.settings, now, account: this.account, debts: this.debtList(),
-      purchase: { purchaseId, authorId: AUTHOR, buyerId: "buyer-1", amountKop: kop },
+      purchase: { purchaseId, authorId: AUTHOR, buyerId: "buyer-1", amountKop: kop, ...extra },
       paymentId, reserveId: this.id("res"), externalReference: "TEST", mode: "test",
     }));
     return paymentId;
@@ -704,4 +708,88 @@ test("pickSaleSource: referral only for a record made before the purchase and in
   assert.equal(pickSaleSource("2026-10-10T12:00:00Z", buy), "catalog"); // 31 days
   assert.equal(pickSaleSource("2026-11-11T12:00:00Z", buy), "catalog"); // click after the purchase
   assert.equal(pickSaleSource("garbage", buy), "catalog");
+});
+
+// ── author promo codes (offer Б33, spec 11.1) ──
+test("promo: 1000 ₴ −10% → Sensoria gets EXACTLY 150 ₴; the buyer pays at most 900 ₴", () => {
+  const q = promoQuote(100000, 10, DEFAULT_SETTINGS);
+  assert.equal(q.sensoriaKop, 15000);
+  assert.ok(q.amountKop <= 90000 && q.amountKop > 89900, `paid ${q.amountKop}`);
+  assert.equal(q.authorKop, q.amountKop - 15000);
+  assert.equal(q.discountKop, 100000 - q.amountKop);
+  // the bank's two-decimal percent gives back exactly 150.00 ₴ — rounded or truncated
+  const pct = agentFeePercentOf(q.amountKop, q.sensoriaKop);
+  const fee = (q.amountKop * Math.round(pct * 100)) / 10000;
+  assert.equal(Math.round(fee), 15000);
+  assert.equal(Math.floor(fee), 15000);
+  const basket = buildSplitBasket({ amountKop: q.amountKop, authorKop: q.authorKop, sensoriaKop: q.sensoriaKop, title: "t", contentCode: "c", authorReceiverId: "r" });
+  assert.equal(basket.agentFeePercent, pct);
+});
+
+test("promo: the tariff is exactly 15 % of the list price for every price and every 1–50 %", () => {
+  for (const list of [10000, 10001, 33333, 45000, 99999, 100000, 123457, 999999, 2500000, 9999999]) {
+    for (let pct = 1; pct <= MAX_PROMO_PERCENT; pct++) {
+      const q = promoQuote(list, pct, DEFAULT_SETTINGS);
+      const exact = Math.floor((list * 1500 + 5000) / 10000);
+      assert.equal(q.sensoriaKop, exact, `${list} −${pct}%`);
+      const promised = list - Math.min(Math.round((list * pct) / 100), Math.floor(list / 2));
+      assert.ok(q.amountKop <= promised, `buyer never pays more than promised: ${list} −${pct}%`);
+      assert.ok(promised - q.amountKop <= Math.ceil(promised * 0.0007), `extra discount under 0.07 % of the price: ${list} −${pct}%`);
+      assert.equal(q.authorKop + q.sensoriaKop, q.amountKop);
+      const fee = (q.amountKop * Math.round(agentFeePercentOf(q.amountKop, q.sensoriaKop) * 100)) / 10000;
+      assert.equal(Math.floor(fee), exact, `bank truncates: ${list} −${pct}%`);
+      assert.equal(Math.round(fee), exact, `bank rounds: ${list} −${pct}%`);
+      buildSplitBasket({ amountKop: q.amountKop, authorKop: q.authorKop, sensoriaKop: q.sensoriaKop, title: "t", contentCode: "c", authorReceiverId: "r" });
+    }
+  }
+});
+
+test("promo: the discount is capped at 50 %, more is refused; codes start at 100 ₴", () => {
+  assert.equal(MAX_PROMO_PERCENT, 50);
+  assert.equal(MIN_PROMO_PRICE_KOP, 10000);
+  assert.deepEqual(promoQuote(100000, 50, DEFAULT_SETTINGS), { listKop: 100000, discountKop: 50000, amountKop: 50000, authorKop: 35000, sensoriaKop: 15000 }); // 30 % exact
+  assert.throws(() => promoQuote(100000, 60, DEFAULT_SETTINGS), (e: unknown) => e instanceof FinanceError && e.code === "promo_percent");
+  assert.throws(() => promoQuote(100000, 0, DEFAULT_SETTINGS), (e: unknown) => e instanceof FinanceError && e.code === "promo_percent");
+  assert.throws(() => promoQuote(100000, 12.5, DEFAULT_SETTINGS), (e: unknown) => e instanceof FinanceError && e.code === "promo_percent");
+  assert.throws(() => promoQuote(9999, 10, DEFAULT_SETTINGS), (e: unknown) => e instanceof FinanceError && e.code === "promo_min");
+});
+
+test("promo sale: the books freeze exactly 150 ₴ for Sensoria and keep the list price and the discount", () => {
+  const q = promoQuote(100000, 10, DEFAULT_SETTINGS);
+  const plan = planPaymentReceived({
+    settings: { ...DEFAULT_SETTINGS, splitAtSource: 1 }, now: T0, account: new World().account, debts: [],
+    purchase: { purchaseId: "p-promo", authorId: AUTHOR, buyerId: "b", amountKop: q.amountKop, source: "referral", listKop: 100000, promoCodeId: "promo-1" },
+    paymentId: "pay-promo", reserveId: "res-promo", externalReference: "T", mode: "test",
+  });
+  const row = plan.payments[0].row as Record<string, unknown>;
+  assert.equal(row.amount_kop, q.amountKop);
+  assert.equal(row.sensoria_kop, 15000);
+  assert.equal(row.author_kop, q.authorKop);
+  assert.equal(row.list_kop, 100000);
+  assert.equal(row.discount_kop, q.discountKop);
+  assert.equal(row.promo_code_id, "promo-1");
+  assert.equal(conservationGap(plan.lines), 0);
+});
+
+test("promo sale: a full refund returns what was paid, Sensoria's 150 ₴ and the author's part as in the payment", () => {
+  const q = promoQuote(100000, 10, DEFAULT_SETTINGS);
+  const w = new World();
+  w.settings = { ...DEFAULT_SETTINGS, splitAtSource: 1 };
+  const p = w.pay(q.amountKop, T0, w.id("purchase"), { source: "referral", listKop: 100000 });
+  const plan = w.refund(p, q.amountKop);
+  const cashOut = plan.lines.find((l: Line) => l.type === "REFUND" && l.account === "cash_out");
+  assert.equal(cashOut?.delta, q.amountKop);
+  assert.equal(cashOut?.authorShare, q.authorKop);
+  assert.equal(cashOut?.sensoriaShare, 15000);
+  assert.equal(w.account.debt, 0);
+});
+
+test("an ordinary sale has no promo columns (works before the promo migration)", () => {
+  const plan = planPaymentReceived({
+    settings: DEFAULT_SETTINGS, now: T0, account: new World().account, debts: [],
+    purchase: { purchaseId: "p-plain", authorId: AUTHOR, buyerId: "b", amountKop: 100000 },
+    paymentId: "pay-plain", reserveId: "res-plain", externalReference: "T", mode: "test",
+  });
+  const row = plan.payments[0].row as Record<string, unknown>;
+  assert.equal("list_kop" in row, false);
 });

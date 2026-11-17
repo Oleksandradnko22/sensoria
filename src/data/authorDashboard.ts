@@ -513,9 +513,9 @@ export const analyticsOverview = {
   ],
 };
 
-// Promo codes deduct from the AUTHOR's own earnings, never from the
-// platform's commission — the commission is fixed regardless of any
-// discount. Every code also needs a declared reason (so the platform's
+// Promo codes (offer Б33): a code counts as the author's referral — Sensoria's
+// tariff is 15 % of the price WITHOUT the discount, so the discount is the
+// author's own. Every code also needs a declared reason (so the platform's
 // managers can see why it exists — e.g. an Instagram collab — instead
 // of an unexplained discount), a hard max-uses cap (no more unlimited
 // codes), and there's a cap on how many an author can have active at
@@ -530,7 +530,7 @@ export const PROMO_REASONS = [
 ] as const;
 
 export const MAX_ACTIVE_PROMO_CODES = 5;
-export const MAX_PROMO_DISCOUNT_PERCENT = 30;
+export const MAX_PROMO_DISCOUNT_PERCENT = 50;
 
 export type PromoCode = {
   code: string;
@@ -663,7 +663,7 @@ export const authorFaqCategories: FaqCategory[] = [
       },
       {
         q: "За чий рахунок діють знижки за промокодами?",
-        a: "Знижка списується з вашої винагороди як автора — комісія платформи завжди залишається незмінною.",
+        a: "Знижку за промокодом ви надаєте за свій рахунок: тариф Sensoria — 15% від ціни без знижки, решта сплаченої суми — ваша. Наприклад: ціна 1000 ₴, промокод −10%, покупець платить 900 ₴, Sensoria — 150 ₴, вам — 750 ₴. Знижка — не більше 50%.",
       },
     ],
   },

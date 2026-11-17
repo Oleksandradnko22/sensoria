@@ -4,6 +4,7 @@
 // «Квитанція» downloads a PDF at once. The refund request (the existing 14-day flow) is one quiet link in «Проблема з
 // оплатою?», shown only while some purchase is still inside the window: no reminders elsewhere.
 import { useEffect, useRef, useState } from "react";
+import BrandSelect from "../ui/BrandSelect";
 import { createPortal } from "react-dom";
 import { Icon } from "../ui/Icon";
 import FilterPills from "./FilterPills";
@@ -398,11 +399,11 @@ function RefundDialog({ items, onClose }: { items: PurchaseView[]; onClose: () =
             {items.length > 1 ? (
               <label className="text-[13px] font-semibold text-[#2d2a5c]">
                 Покупка
-                <select value={pickedId} onChange={(e) => setPickedId(e.target.value)} className={`${input} mt-1`}>
+                <BrandSelect aria-label="Покупка" value={pickedId} onChange={(e) => setPickedId(e.target.value)} className={`${input} mt-1`}>
                   {items.map((i) => (
                     <option key={i.id} value={i.id}>{`${i.title} · ${formatAbsoluteDate(i.date)} · ${formatAmount(i.amount)}`}</option>
                   ))}
-                </select>
+                </BrandSelect>
               </label>
             ) : (
               <div className="rounded-xl bg-[#faf9ff] px-4 py-3 text-[14px] ring-1 ring-[#efeafd]">

@@ -14,7 +14,7 @@
 // header  x-cron-secret: <CRON_SECRET>.
 //
 // Actions (POST { action, ... }):
-//   buyer   (own JWT):  monoCheckout, monoStatus     (+ webhook: POST ?hook=mono, signed by the bank)
+//   buyer   (own JWT):  monoCheckout (+ promoCode), promoQuote, monoStatus     (+ webhook: POST ?hook=mono, signed by the bank)
 //   author  (own JWT):  touchActivity, requestPayout, markNotificationsRead
 //   admin   (2FA, owner): overview, authors, author, confirmPayment, refund,
 //                         markDisputed, repayDebt, setStatus, payoutConfirm,
@@ -426,6 +426,37 @@ interface MonoRow {
   amount_kop: number; author_kop: number; sensoria_kop: number; sale_source: SaleSource;
   mono_invoice_id: string | null; page_url: string | null; status: string; mono_modified: string | null;
   mode: "test" | "live";
+  list_kop?: number | null; discount_kop?: number | null; promo_code_id?: string | null;
+}
+
+/** An author's promo code valid for this material right now (offer Б33). Only the author's own codes count. */
+async function findPromo(code: unknown, content: { id: string; author_id: string }) {
+  const c = String(code ?? "").trim().toUpperCase();
+  if (!c) return null;
+  if (!/^[A-Z0-9]{3,20}$/.test(c)) throw new FinanceError("promo_invalid", "Промокод недійсний для цього матеріалу.");
+  const { data: rows, error } = await admin.from("author_promo_codes")
+    .select("id, discount_percent, content_id, max_uses, uses, active, expires_at")
+    .eq("author_id", content.author_id).eq("code", c).limit(1);
+  if (error) throw new FinanceError("promo_invalid", "Промокоди поки не працюють.");
+  const r = rows?.[0];
+  const ok = r && r.active && (r.content_id == null || r.content_id === content.id) && Number(r.uses) < Number(r.max_uses)
+    && (!r.expires_at || Date.parse(r.expires_at as string) > Date.now());
+  if (!ok) throw new FinanceError("promo_invalid", "Промокод недійсний для цього матеріалу.");
+  return { id: r.id as string, percent: Number(r.discount_percent) };
+}
+
+/** Price, discount and amount to pay for the cart, before the buyer goes to the bank (nothing is created). */
+async function promoQuoteFor(payload: Record<string, unknown>) {
+  const contentId = String(payload.contentId ?? "");
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contentId);
+  const { data: content } = await admin.from("content").select("id, author_id, price, status")
+    .eq(isUuid ? "id" : "slug", contentId).maybeSingle();
+  if (!content || content.status !== "published") throw new FinanceError("not_for_sale", "Цей матеріал недоступний для купівлі.");
+  const listKop = Math.round(Number(content.price) * 100);
+  const promo = await findPromo(payload.promoCode, content as { id: string; author_id: string });
+  if (!promo) return { listKop, discountKop: 0, amountKop: listKop };
+  const q = promoQuote(listKop, promo.percent, await loadSettings());
+  return { listKop, discountKop: q.discountKop, amountKop: q.amountKop, percent: promo.percent };
 }
 
 async function monoCheckout(userId: string, payload: Record<string, unknown>) {
@@ -440,8 +471,13 @@ async function monoCheckout(userId: string, payload: Record<string, unknown>) {
   if (!content || content.status !== "published") throw new FinanceError("not_for_sale", "Цей матеріал недоступний для купівлі.");
   if (content.sale_status && !["published", "restored"].includes(content.sale_status)) throw new FinanceError("not_for_sale", "Продаж цього матеріалу тимчасово призупинено.");
   if (content.author_id === userId) throw new FinanceError("own_content", "Власний матеріал купувати не потрібно.");
-  const amountKop = Math.round(Number(content.price) * 100);
-  if (!Number.isFinite(amountKop) || amountKop <= 0) throw new FinanceError("free", "Цей матеріал безкоштовний: оплата не потрібна.");
+  const listKop = Math.round(Number(content.price) * 100);
+  if (!Number.isFinite(listKop) || listKop <= 0) throw new FinanceError("free", "Цей матеріал безкоштовний: оплата не потрібна.");
+  // an author's promo code: checked and priced only here, never from the client's numbers (offer Б33)
+  const promo = await findPromo(payload.promoCode, content as { id: string; author_id: string });
+  const settingsForPromo = promo ? await loadSettings() : null;
+  const quote = promo && settingsForPromo ? promoQuote(listKop, promo.percent, settingsForPromo) : null;
+  const amountKop = quote ? quote.amountKop : listKop;
   const { data: owned } = await admin.from("purchases").select("id").eq("participant_id", userId).eq("content_id", content.id).eq("status", "completed").limit(1);
   if (owned?.length) throw new FinanceError("already_bought", "Ви вже придбали цей матеріал.");
 
@@ -460,8 +496,9 @@ async function monoCheckout(userId: string, payload: Record<string, unknown>) {
   if (mode === "live" && !receiverId) throw new FinanceError("author_not_connected", "Автор ще не підключив прийом оплат. Спробуйте пізніше.");
   // referral rate only on the server's own record of the buyer's click (never from the client)
   const { data: attr } = await admin.from("referral_attributions").select("created_at").eq("buyer_id", userId).eq("author_id", content.author_id).maybeSingle();
-  const source = pickSaleSource(attr?.created_at ?? null, nowIso());
-  const { authorKop, sensoriaKop } = splitAmount(amountKop, settings, source);
+  // a promo code is the author's own referral: 15 % of the list price (offer Б33)
+  const source = quote ? "referral" : pickSaleSource(attr?.created_at ?? null, nowIso());
+  const { authorKop, sensoriaKop } = quote ? quote : splitAmount(amountKop, settings, source);
 
   const ref = uuid();
   const requested = String(payload.origin ?? "");
@@ -476,6 +513,7 @@ async function monoCheckout(userId: string, payload: Record<string, unknown>) {
   const { error: insErr } = await admin.from("mono_invoices").insert({
     id: ref, buyer_id: userId, content_id: content.id, author_id: content.author_id,
     amount_kop: amountKop, author_kop: authorKop, sensoria_kop: sensoriaKop, sale_source: source, mode,
+    ...(quote && promo ? { list_kop: listKop, discount_kop: quote.discountKop, promo_code_id: promo.id } : {}),
   });
   if (insErr) throw new Error(insErr.message);
   try {
@@ -506,7 +544,7 @@ async function recordPaid(row: MonoRow, p: Record<string, unknown>) {
     if (aErr) throw new Error(aErr.message);
   }
   const settings = await loadSettings();
-  const expected = splitAmount(row.amount_kop, settings, row.sale_source);
+  const expected = splitAmount(row.amount_kop, settings, row.sale_source, Number(row.list_kop ?? row.amount_kop));
   if (expected.authorKop !== Number(row.author_kop)) {
     // settings changed between the invoice and the payment: the bank already split by the invoice, so the books need a human look
     await admin.from("finance_audit_log").insert({
@@ -518,11 +556,18 @@ async function recordPaid(row: MonoRow, p: Record<string, unknown>) {
     const [account, debts] = await Promise.all([loadAccount(row.author_id), loadDebts(row.author_id)]);
     return planPaymentReceived({
       settings, now: nowIso(), account, debts,
-      purchase: { purchaseId: row.id, authorId: row.author_id, buyerId: row.buyer_id, amountKop: row.amount_kop, contentId: row.content_id, contentTitle: content?.title ?? "", source: row.sale_source },
+      purchase: {
+        purchaseId: row.id, authorId: row.author_id, buyerId: row.buyer_id, amountKop: row.amount_kop, contentId: row.content_id, contentTitle: content?.title ?? "", source: row.sale_source,
+        listKop: row.list_kop ?? null, promoCodeId: row.promo_code_id ?? null,
+      },
       paymentId: uuid(), reserveId: uuid(), externalReference: String(p.invoiceId ?? row.mono_invoice_id ?? "").slice(0, 120), mode: row.mode,
       bankFeeKop: bankFeeKop(p.paymentInfo),
     });
-  }, null).catch((e) => {
+  }, null).then(async (r) => {
+    // a promo code is used up only by a confirmed payment (once: a duplicate never gets here)
+    if (row.promo_code_id) await admin.rpc("increment_promo_use", { p_id: row.promo_code_id });
+    return r;
+  }).catch((e) => {
     if (e instanceof FinanceError && e.code === "duplicate") return null; // the same payment was already recorded
     throw e;
   });
@@ -665,6 +710,10 @@ Deno.serve(async (req) => {
     if (action === "monoCheckout") {
       if (!prof) return json({ error: "Не авторизовано." }, 401);
       return json({ ok: true, ...(await monoCheckout(user.id, payload)) });
+    }
+    if (action === "promoQuote") {
+      if (!prof) return json({ error: "Не авторизовано." }, 401);
+      return json({ ok: true, ...(await promoQuoteFor(payload)) });
     }
     if (action === "monoStatus") {
       if (!prof) return json({ error: "Не авторизовано." }, 401);

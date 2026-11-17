@@ -48,6 +48,9 @@ export type FinanceSale = {
   commissionBps: number;
   // which card paid (monobank paymentInfo.country): the bank's fee is 1.3 % for Ukrainian, 2 % for foreign; null = unknown
   cardOrigin?: "ua" | "foreign" | null;
+  /** promo sales only: the author's price before the discount, and the discount (priceKop is what was paid) */
+  listKop?: number | null;
+  discountKop?: number | null;
 };
 export type FinanceTerms = {
   commissionBps: number;
@@ -97,6 +100,9 @@ async function fetchSales(): Promise<{ data: SaleRow[] | null }> {
     const r = await supabase!.from("finance_payments").select(cols).order("confirmed_at", { ascending: false }).limit(500);
     return { data: r.data as SaleRow[] | null, error: r.error };
   };
+  // promo columns arrive with promo-codes.sql, card_origin with mono-migration.sql; older databases load without them
+  const full = await q(`${SALE_COLS}, card_origin, list_kop, discount_kop`);
+  if (!full.error) return full;
   const withCard = await q(`${SALE_COLS}, card_origin`);
   return withCard.error ? await q(SALE_COLS) : withCard;
 }
@@ -145,6 +151,8 @@ export async function fetchMyFinance(): Promise<MyFinance | null> {
       holdUntil: p.hold_until, disputed: !!p.disputed,
       source: p.sale_source === "referral" ? "referral" : "catalog", commissionBps: Number(p.commission_bps ?? (p.sale_source === "referral" ? 1500 : 3000)),
       cardOrigin: p.card_origin === "ua" || p.card_origin === "foreign" ? p.card_origin : null,
+      listKop: p.list_kop != null ? Number(p.list_kop) : null,
+      discountKop: p.discount_kop != null ? Number(p.discount_kop) : null,
     })),
     nextReleaseAt: held.data?.[0]?.hold_until ?? null,
     nextReserveReleaseAt: reserves.data?.[0]?.release_at ?? null,
@@ -194,8 +202,12 @@ export const requestMonoConnection = (v: { ipn: string; legalName: string }) =>
 export const markFinanceNotificationsRead = () => callFinance<{ ok: true }>({ action: "markNotificationsRead" });
 
 // ── paying a material on monobank (the server decides the amount and the split; the browser only names the material) ──
-export const startMonoCheckout = (contentId: string) =>
-  callFinance<{ ok: true; pageUrl: string; ref: string }>({ action: "monoCheckout", contentId, origin: window.location.origin });
+export const startMonoCheckout = (contentId: string, promoCode?: string) =>
+  callFinance<{ ok: true; pageUrl: string; ref: string }>({ action: "monoCheckout", contentId, origin: window.location.origin, ...(promoCode ? { promoCode } : {}) });
+/** The author's promo code for one material: the server checks it and prices it (offer Б33). */
+export type PromoQuote = { listKop: number; discountKop: number; amountKop: number; percent?: number };
+export const fetchPromoQuote = (contentId: string, promoCode: string) =>
+  callFinance<{ ok: true } & PromoQuote>({ action: "promoQuote", contentId, promoCode });
 export const fetchMonoStatus = (pay: string) =>
   callFinance<{ ok: true; status: string; purchaseId: string | null; contentId: string }>({ action: "monoStatus", ref: pay });
 export { callFinance };

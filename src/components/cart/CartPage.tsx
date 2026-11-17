@@ -2,7 +2,7 @@ import { Fragment, useEffect, useId, useMemo, useState, type ReactNode } from "r
 import Footer from "../Footer";
 import { useCart } from "../../lib/cartStore";
 import { acquireContent } from "../../lib/acquired";
-import { startMonoCheckout } from "../../lib/finance";
+import { fetchPromoQuote, startMonoCheckout, type PromoQuote } from "../../lib/finance";
 import { isBankPageUrl } from "../../utils/payment";
 import ProgramCover from "../ProgramCover";
 import MaterialVisual from "../author/public/MaterialVisual";
@@ -198,6 +198,11 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
   const owned = useMemo(() => new Set(lines.filter((l) => ownedKeys.has(cartKey(l.entry))).map((l) => cartKey(l.entry))), [lines, ownedKeys]);
   const [paying, setPaying] = useState<string | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
+  // an author's promo code: checked and priced on the server for each paid material in the cart (offer Б33)
+  const [promoInput, setPromoInput] = useState("");
+  const [promo, setPromo] = useState<{ code: string; quotes: Record<string, PromoQuote> } | null>(null);
+  const [promoBusy, setPromoBusy] = useState(false);
+  const [promoMsg, setPromoMsg] = useState<string | null>(null);
 
   // A material that no longer exists is dropped, but only once the real catalog has loaded.
   useEffect(() => {
@@ -215,6 +220,28 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
   const payable = inOrder.filter((l) => !isFreePrice(l.item.price));
   const free = inOrder.filter((l) => isFreePrice(l.item.price));
   const totals = cartTotals(payable);
+  const quoteFor = (item: CatalogItem) => promo?.quotes[item.id];
+  const discountTotal = payable.reduce((n, l) => n + (quoteFor(l.item)?.discountKop ?? 0), 0) / 100;
+  const priceLabel = (item: CatalogItem) => {
+    const q = quoteFor(item);
+    return q ? `${(q.amountKop / 100).toLocaleString("uk-UA")} ₴` : formatPrice(item.price);
+  };
+  const applyPromo = async () => {
+    const code = promoInput.trim().toUpperCase();
+    if (!code) return;
+    if (!userId || !isParticipant) return onRequireLogin();
+    setPromoBusy(true);
+    setPromoMsg(null);
+    const results = await Promise.allSettled(payable.map((l) => fetchPromoQuote(l.item.id, code)));
+    const quotes: Record<string, PromoQuote> = {};
+    results.forEach((r, n) => {
+      if (r.status === "fulfilled" && r.value.discountKop > 0) quotes[payable[n].item.id] = r.value;
+    });
+    const count = Object.keys(quotes).length;
+    setPromo(count ? { code, quotes } : null);
+    setPromoMsg(count ? `Промокод застосовано: ${count === 1 ? "1 матеріал" : `${count} матеріали`}.` : "Промокод недійсний для матеріалів у кошику.");
+    setPromoBusy(false);
+  };
   const unpriced = cartTotals(inOrder).unpriced;
 
   // Paid: one material = one payment on monobank's page. The server fixes the price and the split; the browser only names the material.
@@ -227,7 +254,7 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
     setPaying(item.id);
     setPayError(null);
     try {
-      const r = await startMonoCheckout(item.id);
+      const r = await startMonoCheckout(item.id, quoteFor(item) ? promo?.code : undefined);
       if (!isBankPageUrl(r.pageUrl)) throw new Error("Банк повернув неочікуване посилання. Спробуйте пізніше.");
       window.location.assign(r.pageUrl);
     } catch (e) {
@@ -343,10 +370,49 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                       <span className="text-slate-500">Платні матеріали:</span>
                       <span className="font-medium">{payable.length}</span>
                     </div>
+                    {discountTotal > 0 && (
+                      <>
+                        <div className="mt-3 flex items-center justify-between">
+                          <span className="text-slate-500">Ціна:</span>
+                          <span className="font-medium">{totals.paidTotal.toLocaleString("uk-UA")} ₴</span>
+                        </div>
+                        <div className="mt-1.5 flex items-center justify-between">
+                          <span className="text-slate-500">Знижка за промокодом автора:</span>
+                          <span className="font-medium text-[#4338ca]">−{discountTotal.toLocaleString("uk-UA")} ₴</span>
+                        </div>
+                      </>
+                    )}
                     <div className="mt-3 flex items-baseline justify-between">
                       <span className="text-slate-500">До сплати:</span>
-                      <span className="text-[26px] font-bold leading-none">{totals.paidTotal.toLocaleString("uk-UA")} ₴</span>
+                      <span className="text-[26px] font-bold leading-none">{(totals.paidTotal - discountTotal).toLocaleString("uk-UA")} ₴</span>
                     </div>
+                    <form
+                      className="mt-4"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void applyPromo();
+                      }}
+                    >
+                      <label htmlFor="cart-promo" className="text-[13px] font-semibold text-slate-600">Промокод автора</label>
+                      <div className="mt-1.5 flex gap-2">
+                        <input
+                          id="cart-promo"
+                          value={promoInput}
+                          onChange={(e) => setPromoInput(e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 20))}
+                          autoComplete="off"
+                          placeholder="Наприклад, STRESS20"
+                          className="min-h-[44px] min-w-0 flex-1 rounded-[14px] bg-white px-3.5 text-[15px] uppercase tracking-wide ring-1 ring-[#d9d4f7] placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]"
+                        />
+                        <button
+                          type="submit"
+                          disabled={promoBusy || !promoInput.trim()}
+                          className="min-h-[44px] shrink-0 rounded-[14px] bg-white px-4 text-[14px] font-semibold text-[#3b27a8] ring-1 ring-[#c9cffa] hover:bg-[#f3f4ff] disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]"
+                        >
+                          {promoBusy ? "Перевіряємо…" : "Застосувати"}
+                        </button>
+                      </div>
+                      {promoMsg && <p role="status" className={`mt-2 text-[13px] ${promo ? "text-[#4338ca]" : "text-red-700"}`}>{promoMsg}</p>}
+                    </form>
                   </div>
                 )}
 
@@ -370,7 +436,7 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                                 aria-label={`Оплатити: ${l.item.title}`}
                                 className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[14px] font-semibold text-white transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2 disabled:opacity-60"
                               >
-                                {paying === l.item.id ? "Зачекайте…" : `Оплатити · ${formatPrice(l.item.price)}`}
+                                {paying === l.item.id ? "Зачекайте…" : `Оплатити · ${priceLabel(l.item)}`}
                               </button>
                             </li>
                           ))}

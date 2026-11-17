@@ -65,3 +65,14 @@ test("month report: only that month, a totals row, Excel-friendly", () => {
   assert.ok(lines[1].includes('"Гайд; «Тиша»"'));
   assert.ok(lines[2].startsWith("Разом;"));
 });
+
+test("month report: a promo sale shows the price, the discount and the paid amount as the taxable income", () => {
+  const sale = { title: "Програма", priceKop: 90000, listKop: 100000, discountKop: 10000, authorKop: 75006, refundedKop: 0, authorRefundedKop: 0, source: "referral" as const, commissionBps: 1500, confirmedAt: "2026-11-03T10:00:00Z", cardOrigin: "ua" as const };
+  const lines = monthReportCsv([sale], "2026-11").slice(1).split("\n");
+  const head = lines[0].split(";");
+  const row = lines[1].split(";");
+  assert.equal(row[head.indexOf("Ціна, ₴")], "1000,00");
+  assert.equal(row[head.indexOf("Знижка за промокодом, ₴")], "100,00");
+  assert.equal(row[head.indexOf("Оплачено = дохід для податкового обліку, ₴")], "900,00");
+  assert.equal(row[head.indexOf("Покупець прийшов")], "Ваш промокод");
+});

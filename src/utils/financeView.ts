@@ -211,18 +211,20 @@ export function creditDateEstimate(confirmedAt: string): string {
 }
 
 /** Month report for the author's accountant: the full price is the taxable income (accounting-model.md, 3.1). */
-export function monthReportCsv(sales: (SaleLike & { cardOrigin?: CardOrigin; commissionBps: number; creditedAt?: string | null; bankFeeKop?: number | null })[], month: string): string {
+export function monthReportCsv(sales: (SaleLike & { cardOrigin?: CardOrigin; commissionBps: number; creditedAt?: string | null; bankFeeKop?: number | null; listKop?: number | null; discountKop?: number | null })[], month: string): string {
   const rows = sales.filter((s) => s.confirmedAt.slice(0, 7) === month).sort((a, b) => a.confirmedAt.localeCompare(b.confirmedAt));
   const fee = (s: (typeof rows)[number]) => (s.bankFeeKop != null ? s.bankFeeKop : authorBankFeeKop(s));
   const head = [
-    "Дата оплати (чек)", "Дата зарахування", "Матеріал", "Покупець прийшов", "Ціна = дохід для податкового обліку, ₴", "Ваша ставка", "Ваша частка, ₴", "Картка",
+    "Дата оплати (чек)", "Дата зарахування", "Матеріал", "Покупець прийшов", "Ціна, ₴", "Знижка за промокодом, ₴", "Оплачено = дохід для податкового обліку, ₴", "Ваша ставка", "Ваша частка, ₴", "Картка",
     "Комісія банку з вашої частки, ₴", "Джерело комісії", "Повернено покупцю (ваша частка), ₴", "На ваш рахунок, ₴",
   ];
   const lines = rows.map((s) => [
     new Date(s.confirmedAt).toLocaleDateString("uk-UA"),
     s.creditedAt ? new Date(s.creditedAt).toLocaleDateString("uk-UA") : `${creditDateEstimate(s.confirmedAt)} (орієнтовно)`,
     s.title,
-    s.source === "referral" ? "За вашим посиланням" : "Через Sensoria",
+    s.discountKop ? "Ваш промокод" : s.source === "referral" ? "За вашим посиланням" : "Через Sensoria",
+    money(s.listKop ?? s.priceKop),
+    money(s.discountKop ?? 0),
     money(s.priceKop),
     `${(10000 - s.commissionBps) / 100} %`,
     money(s.authorKop),
@@ -233,6 +235,6 @@ export function monthReportCsv(sales: (SaleLike & { cardOrigin?: CardOrigin; com
     money(s.authorKop - fee(s) - s.authorRefundedKop),
   ]);
   const sum = (f: (s: (typeof rows)[number]) => number) => money(rows.reduce((n, s) => n + f(s), 0));
-  const total = ["Разом", "", "", "", sum((s) => s.priceKop), "", sum((s) => s.authorKop), "", sum(fee), "", sum((s) => s.authorRefundedKop), sum((s) => s.authorKop - fee(s) - s.authorRefundedKop)];
+  const total = ["Разом", "", "", "", sum((s) => s.listKop ?? s.priceKop), sum((s) => s.discountKop ?? 0), sum((s) => s.priceKop), "", sum((s) => s.authorKop), "", sum(fee), "", sum((s) => s.authorRefundedKop), sum((s) => s.authorKop - fee(s) - s.authorRefundedKop)];
   return "\uFEFF" + [head, ...lines, total].map((r) => r.map(csvCell).join(";")).join("\n");
 }

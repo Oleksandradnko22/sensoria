@@ -21,10 +21,10 @@ create policy "anyone reads legal documents" on public.legal_documents for selec
 -- Поточні редакції (хеші станом на 17.11.2026). Нова редакція: вставити рядок, у старої зняти is_current.
 insert into public.legal_documents (document, version, text_hash, effective_from, is_current) values
   ('participant_agreement', '1.0', 'af03086c89cce9a717adbaeeb577cb49e08cfa6d4989d9cb2b47d41c7a10ac3f', now(), true),
-  ('author_agreement',      '1.0', 'c2eaf91e87d62106668cbf652a5d5a290b0a4cf081e4d4db3647975d696f223c', '2026-11-17', true),
-  ('terms',                 '1.0', '35df3bb942e736d95fb5bcdb01e4c64203c939971c1a9952b317bbd1dfb9b8ea', now(), true),
-  ('privacy',               '1.0', 'cf379324215bb6168d926b4046808f56fcd91fe1c6486ea8a421846c1a16b0cf', now(), true),
-  ('refunds',               '1.0', 'f892379ebac491ccec953064109245b9c5756a0e49a0758e778de8219b0fafbc', now(), true)
+  ('author_agreement',      '1.0', '9983c7a8e96a6207ff5c686a6dc5165d76d555e16bbab3d316bcbcfe73679a15', '2026-11-17', true),
+  ('terms',                 '1.0', '3c2ea8963664c6a89494dcd656dc198e5ff22eda36671f2c18971db644fa9e6a', now(), true),
+  ('privacy',               '1.0', '96aa10184d4c45e46cd182152b56d81c217cf349f49fae61abffbbd43dedaba2', now(), true),
+  ('refunds',               '1.0', '46178c63f471f6e0571b1cc06ea531511569dd857e232d3a9ceddebe470be82b', now(), true)
 on conflict (document, version) do nothing;
 
 -- ─── 2. Розширення legal_consents ───────────────────────────────────────────
@@ -169,8 +169,8 @@ begin
   if p_kind = 'participant' then
     if not (keys @> array['p1', 'p2', 'p3']) then raise exception 'missing_required'; end if;
     docs := array['participant_agreement', 'terms', 'refunds', 'privacy', 'age_18', 'not_medical'];
-    if 'p4' = any (keys) then docs := docs || 'health_data'; end if;
-    if 'p5' = any (keys) then docs := docs || 'marketing_email'; end if;
+    if 'p4' = any (keys) then docs := docs || 'health_data'::text; end if;
+    if 'p5' = any (keys) then docs := docs || 'marketing_email'::text; end if;
   elsif p_kind = 'author' then
     if not (keys @> array['a1', 'a2', 'a3', 'a4', 'a5']) then raise exception 'missing_required'; end if;
     if (select role from profiles where id = uid) <> 'author' then raise exception 'not_author'; end if;

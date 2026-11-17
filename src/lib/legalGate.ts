@@ -32,6 +32,8 @@ export async function acceptLegal(kind: "participant" | "author" | "health_data"
     p_opened_docs: openedDocs,
   });
   if (error) {
+    // eslint-disable-next-line no-console
+    console.error("accept_legal failed:", error.code, error.message);
     const code = Object.keys(ERRORS).find((k) => error.message.includes(k));
     throw new Error(code ? ERRORS[code] : "Не вдалося зберегти згоду. Спробуйте ще раз.");
   }

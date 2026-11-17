@@ -24,7 +24,7 @@ export default function RelatedDocs({ onOpenTerms, onOpenPrivacy, onOpenRefunds,
           <li><button type="button" onClick={onOpenPrivacy} className={btn}>Політика конфіденційності</button></li>
         )}
         {current !== "refunds" && (
-          <li><button type="button" onClick={onOpenRefunds} className={btn}>Політика повернення коштів</button></li>
+          <li><button type="button" onClick={onOpenRefunds} className={btn}>Правила повернення коштів</button></li>
         )}
         {current !== "participant" && (
           <li><a href="/participant-agreement" className={btn}>Угода учасника</a></li>

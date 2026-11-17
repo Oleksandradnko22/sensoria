@@ -51,10 +51,10 @@ Deno.serve(async (req) => {
       const resendKey = Deno.env.get("RESEND_API_KEY");
       if (!resendKey) return json({ error: "mail_not_configured", message: "Пошта не налаштована." }, 500);
       const code = newCode();
-      const { error: insErr } = await admin.from("legal_otp").insert({
+      const { data: otpRow, error: insErr } = await admin.from("legal_otp").insert({
         user_id: user.id, purpose, code_hash: await sha256(`${user.id}:${code}`), sent_to: user.email,
         expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
-      });
+      }).select("id").single();
       if (insErr) throw insErr;
       const what = purpose === "author_paid_sales" ? "підтвердження умов платних продажів" : "підписання договору з автором";
       const res = await fetch("https://api.resend.com/emails", {
@@ -67,7 +67,13 @@ Deno.serve(async (req) => {
           text: `Ваш код для ${what} на Sensoria: ${code}\n\nКод дійсний 10 хвилин. Введення коду є підписанням договору одноразовим ідентифікатором.\nЯкщо ви не запитували код, просто проігноруйте цей лист.`,
         }),
       });
-      if (!res.ok) return json({ error: "mail_failed", message: "Не вдалося надіслати лист. Спробуйте ще раз." }, 502);
+      if (!res.ok) {
+        // a failed send must not start the 60-second wait
+        await admin.from("legal_otp").delete().eq("id", otpRow.id);
+        const detail = await res.text().catch(() => "");
+        console.error("legal-otp: Resend failed", res.status, detail);
+        return json({ error: "mail_failed", message: "Не вдалося надіслати лист. Спробуйте ще раз.", detail: `${res.status} ${detail.slice(0, 300)}` }, 502);
+      }
       return json({ sent: true, to: user.email });
     }
 

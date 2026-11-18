@@ -8,9 +8,11 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 export function buildFinance() {
   const engine = readFileSync(join(root, "src/utils/financeEngine.ts"), "utf8");
   const mono = readFileSync(join(root, "src/utils/monoAcquiring.ts"), "utf8");
+  const fiscal = readFileSync(join(root, "src/utils/fiscalReceipts.ts"), "utf8");
   const handler = readFileSync(join(root, "scripts/finance-handler.ts"), "utf8");
-  if (!handler.includes("// @@ENGINE@@") || !handler.includes("// @@MONO@@")) throw new Error("marker missing in finance-handler.ts");
+  if (!handler.includes("// @@ENGINE@@") || !handler.includes("// @@MONO@@") || !handler.includes("// @@FISCAL@@")) throw new Error("marker missing in finance-handler.ts");
   return handler
+    .replace("// @@FISCAL@@", `// ── fiscal receipts (src/utils/fiscalReceipts.ts) ─────────────────────────\n${fiscal}\n// ── /fiscal receipts ──────────────────────────────────────────────────────`)
     .replace("// @@ENGINE@@", `// ── engine (src/utils/financeEngine.ts) ───────────────────────────────────\n${engine}\n// ── /engine ───────────────────────────────────────────────────────────────`)
     .replace("// @@MONO@@", `// ── monobank core (src/utils/monoAcquiring.ts) ────────────────────────────\n${mono}\n// ── /monobank core ────────────────────────────────────────────────────────`);
 }

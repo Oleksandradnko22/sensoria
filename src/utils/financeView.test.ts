@@ -77,3 +77,16 @@ test("month report: a promo sale shows the price, the discount and the paid amou
   assert.equal(row[head.indexOf("Оплачено = дохід для податкового обліку, ₴")], "900,00");
   assert.equal(row[head.indexOf("Покупець прийшов")], "Ваш промокод");
 });
+
+test("month report register: 1000 = 300 + 13 + 687; a payment at 23:50 on 31.03 credited 01.04 is «Різні квартали»", () => {
+  const sale = { title: "Т", priceKop: 100000, authorKop: 70000, refundedKop: 0, authorRefundedKop: 0, source: "catalog" as const, commissionBps: 3000, confirmedAt: "2026-03-31T20:50:00Z", creditedAt: "2026-04-01T07:00:00Z", cardOrigin: "ua" as const };
+  const lines = monthReportCsv([sale], "2026-03").slice(1).split("\n");
+  const head = lines[0].split(";");
+  const row = lines[1].split(";");
+  const col = (name: string) => row[head.indexOf(name)];
+  assert.equal(col("Сплачено Покупцем, ₴"), "1000,00");
+  assert.equal(col("Тариф, спрямовано Банком на рахунок Sensoria, ₴"), "300,00");
+  assert.equal(col("Комісія Банку, ₴"), "13,00");
+  assert.equal(col("Зараховано Автору, ₴"), "687,00");
+  assert.ok(col("Квартал").startsWith("Різні квартали"));
+});

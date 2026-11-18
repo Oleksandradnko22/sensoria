@@ -197,6 +197,10 @@ export const saveBankAccount = (v: { iban: string; bankName: string; holderName:
   callFinance<{ ok: true; status: string; unchanged?: boolean }>({ action: "saveBankAccount", ...v });
 export type MonoConnection = { status: "none" | "requested" | "active" | "disabled"; ipnLast4: string | null; legalName: string | null; updatedAt: string | null };
 export const fetchMonoConnection = () => callFinance<{ ok: true } & MonoConnection>({ action: "monoConnection" });
+/** The author's cash register for fiscal receipts (ТЗ 3.4): the key and PIN go to the server only (Vault). */
+export type PrroStatus = { status: "none" | "pending" | "active" | "error" | "disabled"; lastError: string | null; updatedAt: string | null };
+export const fetchPrroStatus = () => callFinance<{ ok: true } & PrroStatus>({ action: "prroStatus" });
+export const connectPrro = (v: { licenseKey: string; pin: string }) => callFinance<{ ok: true; status: string }>({ action: "connectPrro", ...v });
 export const requestMonoConnection = (v: { ipn: string; legalName: string }) =>
   callFinance<{ ok: true; status: string; unchanged?: boolean }>({ action: "requestMonoConnection", ...v });
 export const markFinanceNotificationsRead = () => callFinance<{ ok: true }>({ action: "markNotificationsRead" });

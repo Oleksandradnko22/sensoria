@@ -100,6 +100,10 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
       const { data: pc } = supabase
         ? await supabase.from("purchase_consents").select("seller_legal_name, seller_code_masked, consent_text").eq("invoice_id", p.id).maybeSingle()
         : { data: null };
+      // the seller's fiscal receipt (formed from the author's PRRO right after the payment)
+      const { data: fr } = supabase
+        ? await supabase.from("fiscal_receipts").select("receipt_url, fiscal_code, status").eq("invoice_id", p.id).eq("issuer", "author").eq("kind", "sale").maybeSingle()
+        : { data: null };
       const lines: [string, string][] = [
         ["Номер покупки", number],
         ["Дата й час", `${formatAbsoluteDate(p.date)}, ${fmtTime(p.date)}`],
@@ -112,6 +116,7 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
         ["Спосіб оплати", "Картка, через monobank"],
         ["Статус", STATUS_LABEL[p.status]],
         ["Сума", formatAmount(p.amount)],
+        ["Фіскальний чек продавця", fr?.status === "done" && fr.receipt_url ? `${fr.fiscal_code ? `№ ${fr.fiscal_code} · ` : ""}${fr.receipt_url}` : "надійде на вашу пошту після формування"],
       ];
       await downloadReceiptPdf(
         lines,

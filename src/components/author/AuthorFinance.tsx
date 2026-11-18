@@ -7,6 +7,7 @@ import { useSession } from "../../context/SessionContext";
 import { supabase } from "../../lib/supabaseClient";
 import { acceptLegal, sendLegalOtp, verifyLegalOtp } from "../../lib/legalGate";
 import { AUTHOR_PAID_ITEM, OTP_TEXT } from "../../data/consentTexts";
+import { connectPrro, fetchPrroStatus, type PrroStatus } from "../../lib/finance";
 import { fetchMonoConnection, fetchMyFinance, markFinanceNotificationsRead, requestMonoConnection, touchFinanceActivity, type FinanceSale, type MonoConnection, type MyFinance } from "../../lib/finance";
 import { STATUS_LABEL, type HistoryRow, authorBankFeeKop, financeTotals, historyRows, incomeByMaterial, isFullyRefunded, monthReportCsv, monthlyIncome, priceBreakdown, statusExplanation, toAccountKop, uahFromKop } from "../../utils/financeView";
 import { buildReferralLink } from "../../utils/referral";
@@ -256,6 +257,7 @@ export default function AuthorFinance() {
           )}
 
           <MonoConnectCard />
+          <PrroCard />
         </>
       )}
 
@@ -697,6 +699,88 @@ function MonoConnectCard() {
         </div>
       ) : (
         conn && <button type="button" onClick={() => { setLegalName(conn.legalName ?? ""); setIpn(""); setEditing(true); }} className="mt-4 inline-flex min-h-[44px] items-center rounded-xl bg-[#f1eeff] px-4 text-[14px] font-semibold text-[#5b4bd0] hover:bg-[#e7e1ff]">{status === "none" ? "Підключити ФОП" : "Змінити дані"}</button>
+      )}
+    </section>
+  );
+}
+
+// «Каса для чеків»: the author's own PRRO in Checkbox. The receipt for the full price goes to the buyer from it,
+// formed by Sensoria right after the bank confirms the payment. Only the register's license key and the cashier's PIN
+// are accepted (the cashier key is the author's PRRO seal, form 5-ПРРО); the author's personal key is never asked.
+function PrroCard() {
+  const [st, setSt] = useState<PrroStatus | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [licenseKey, setLicenseKey] = useState("");
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const load = async () => {
+    try {
+      setSt(await fetchPrroStatus());
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    }
+  };
+  useEffect(() => { void load(); }, []);
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await connectPrro({ licenseKey: licenseKey.trim(), pin });
+      setEditing(false);
+      setLicenseKey("");
+      setPin("");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не вдалося підключити касу.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const input = "min-h-[46px] w-full rounded-xl border border-[#d9d4f5] bg-[#faf9ff] px-4 text-[14px] focus:border-[#5b3df5] focus:bg-white focus:outline-none";
+  const status = st?.status ?? "none";
+  return (
+    <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-prro">
+      <div className="flex items-center gap-3">
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#7a68e0]"><Icon name="note" size={20} /></span>
+        <div>
+          <h2 id="fin-prro" className="text-[20px] font-bold text-[#12172b]">Каса для чеків (ПРРО)</h2>
+          <p className="text-[13px] text-black/55">Ви — продавець: покупцю видається фіскальний чек з вашої каси на повну суму оплати. Sensoria формує його автоматично.</p>
+        </div>
+      </div>
+      {failed && <p className="mt-4 rounded-2xl bg-[#faf9ff] px-4 py-3 text-[14px] text-black/60">Не вдалося завантажити стан каси. Оновіть сторінку пізніше.</p>}
+      {!failed && st && !editing && (
+        <>
+          {status === "active" && <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-[14px] text-emerald-900">Касу підключено. Чеки покупцям формуються автоматично після оплати.</div>}
+          {status === "error" && <div className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-[14px] text-rose-900">Каса не приймає дані доступу. Перевірте ключ і PIN у кабінеті Checkbox і підключіть ще раз.</div>}
+          {status === "none" && (
+            <div className="mt-4 rounded-2xl bg-[#faf9ff] px-4 py-3 text-[14px] text-black/65">
+              Без каси платні матеріали не можна купити. Що потрібно зробити один раз:
+              <ol className="mt-2 list-decimal space-y-1 pl-5 text-[13px] text-black/55">
+                <li>Зареєструйте господарську одиницю «інтернет-магазин» (форма 20-ОПП).</li>
+                <li>Зареєструйте ПРРО в Checkbox (форма 1-ПРРО).</li>
+                <li>Оформіть електронну печатку для ПРРО й зареєструйте її як ключ касира (форма 5-ПРРО).</li>
+                <li>Вкажіть тут ключ ліцензії каси й PIN касира з кабінету Checkbox.</li>
+              </ol>
+            </div>
+          )}
+        </>
+      )}
+      {editing ? (
+        <div className="mt-4 grid gap-3">
+          <label className="text-[13px] font-semibold text-[#2d2a5c]">Ключ ліцензії каси<input value={licenseKey} onChange={(e) => setLicenseKey(e.target.value)} autoComplete="off" className={`${input} mt-1`} /></label>
+          <label className="text-[13px] font-semibold text-[#2d2a5c]">PIN касира<input type="password" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" autoComplete="off" className={`${input} mt-1 max-w-[220px]`} /></label>
+          <p className="text-[12px] text-black/50">Дані зберігаються лише на сервері в зашифрованому сховищі й потрібні тільки для чеків за вашими продажами на Sensoria. Особистий ключ КЕП не потрібен і не приймається.</p>
+          {error && <p role="alert" className="text-[13px] text-rose-700">{error}</p>}
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={() => void save()} disabled={busy || licenseKey.trim().length < 10 || pin.length < 4} className="min-h-[46px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-5 text-[14px] font-semibold text-white hover:opacity-95 disabled:opacity-60">{busy ? "Перевіряємо касу…" : "Підключити касу"}</button>
+            <button type="button" onClick={() => { setEditing(false); setError(null); }} className="min-h-[46px] rounded-xl px-4 text-[14px] font-semibold text-black/55 hover:text-black">Скасувати</button>
+          </div>
+        </div>
+      ) : (
+        st && <button type="button" onClick={() => setEditing(true)} className="mt-4 inline-flex min-h-[44px] items-center rounded-xl bg-[#f1eeff] px-4 text-[14px] font-semibold text-[#5b4bd0] hover:bg-[#e7e1ff]">{status === "active" ? "Змінити дані каси" : "Підключити касу"}</button>
       )}
     </section>
   );

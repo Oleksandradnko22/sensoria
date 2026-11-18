@@ -1423,6 +1423,232 @@ export async function verifyWebhookSignature(rawBody: string, xSign: string | nu
 
 // ── /monobank core ────────────────────────────────────────────────────────
 
+// ── fiscal receipts (src/utils/fiscalReceipts.ts) ─────────────────────────
+// Fiscal receipts (ПРРО): pure helpers, no network and no secrets. Copied into the finance Edge Function
+// by scripts/build-finance.mjs and covered by unit tests.
+//
+// Model (docs/legal/internal/accountant-dps-review-2026-11-18.md, В1 і В3):
+//  * the AUTHOR is the seller: a receipt on the author's PRRO for the FULL amount the buyer paid, to the buyer;
+//    a promo-code discount is a discount line, so the receipt equals the bank's amount to the kopeck;
+//  * SENSORIA, until a tax consultation (ІПК) says otherwise, also fiscalizes its own tariff on its own PRRO
+//    (flag finance_settings.sensoria_fee_fiscal): a receipt for the tariff, to the AUTHOR (the customer of the service);
+//  * a refund gives a return receipt for each sale receipt;
+//  * a receipt is formed right after the bank confirms the payment. No "next working day": the cash service's
+//    offline mode covers outages, the queue only retries.
+
+export type FiscalIssuer = "author" | "sensoria";
+export type FiscalKind = "sale" | "return";
+
+export class FiscalError extends Error {
+  code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.code = code;
+  }
+}
+
+/** Card details a receipt needs for a card payment, as monobank gives them in `paymentInfo`. */
+export interface CardDetails {
+  maskedPan: string | null;
+  approvalCode: string | null;
+  rrn: string | null;
+  paymentSystem: string | null;
+  tranId: string | null;
+}
+
+export const ACQUIRER_NAME = "АТ «УНІВЕРСАЛ БАНК»";
+
+const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : typeof v === "number" ? String(v) : null);
+
+export function cardDetailsOf(paymentInfo: unknown): CardDetails {
+  const p = (paymentInfo ?? {}) as Record<string, unknown>;
+  return { maskedPan: str(p.maskedPan), approvalCode: str(p.approvalCode), rrn: str(p.rrn), paymentSystem: str(p.paymentSystem), tranId: str(p.tranId) };
+}
+
+/** A receipt for a card payment must carry the card mask and an authorization reference. */
+export const cardComplete = (c: CardDetails) => !!c.maskedPan && !!(c.approvalCode || c.rrn);
+
+/** 8 upper-case characters of an id: the same order code the bank shows in `destination`. */
+export const code8 = (id: string) => id.replace(/-/g, "").slice(0, 8).toUpperCase();
+
+/** Neutral on purpose: a title may reveal health information; the code identifies the material. */
+export const authorItemName = (contentId: string) => `Доступ до цифрового освітнього матеріалу, код ${code8(contentId)}`;
+export const sensoriaItemName = (invoiceId: string) => `Послуги технічного характеру Платформи Sensoria за замовленням № ${code8(invoiceId)}`;
+
+export interface ReceiptDraft {
+  issuer: FiscalIssuer;
+  kind: FiscalKind;
+  /** who gets the receipt: the buyer (author's sale) or the author (Sensoria's tariff) */
+  deliverTo: "buyer" | "author";
+  itemCode: string;
+  itemName: string;
+  /** price of the item before the discount, kopecks */
+  priceKop: number;
+  discountKop: number;
+  /** what the receipt says was paid / returned: priceKop − discountKop */
+  amountKop: number;
+}
+
+export interface ReceiptInput {
+  kind: FiscalKind;
+  invoiceId: string;
+  contentId: string;
+  /** the price without the promo discount (null/undefined: no discount) */
+  listKop?: number | null;
+  /** what the bank charged */
+  amountKop: number;
+  /** Sensoria's tariff in this payment */
+  sensoriaKop: number;
+  /** finance_settings.sensoria_fee_fiscal */
+  feeFiscal: boolean;
+}
+
+const isKop = (n: number) => Number.isInteger(n) && n >= 0;
+
+/** The receipts one payment (or its full refund) needs. Never invents money: every check fails loudly. */
+export function plannedReceipts(i: ReceiptInput): ReceiptDraft[] {
+  const listKop = i.listKop ?? i.amountKop;
+  if (![listKop, i.amountKop, i.sensoriaKop].every(isKop)) throw new FiscalError("bad_amount", "Суми мають бути цілими невід'ємними числами (копійки).");
+  if (i.amountKop <= 0) throw new FiscalError("bad_amount", "Сума чека має бути більшою за нуль.");
+  if (listKop < i.amountKop) throw new FiscalError("bad_amount", "Ціна без знижки менша за сплачену суму.");
+  if (i.sensoriaKop > i.amountKop) throw new FiscalError("bad_amount", "Тариф Sensoria більший за суму оплати.");
+  if (!i.invoiceId || !i.contentId) throw new FiscalError("bad_input", "Немає ідентифікатора замовлення або матеріалу.");
+  const out: ReceiptDraft[] = [
+    {
+      issuer: "author", kind: i.kind, deliverTo: "buyer", itemCode: code8(i.contentId), itemName: authorItemName(i.contentId),
+      // the discount is the list price minus what the bank really charged (rounding of agentFeePercent goes to the buyer)
+      priceKop: listKop, discountKop: listKop - i.amountKop, amountKop: i.amountKop,
+    },
+  ];
+  if (i.feeFiscal && i.sensoriaKop > 0) {
+    out.push({
+      issuer: "sensoria", kind: i.kind, deliverTo: "author", itemCode: `S${code8(i.invoiceId)}`, itemName: sensoriaItemName(i.invoiceId),
+      priceKop: i.sensoriaKop, discountKop: 0, amountKop: i.sensoriaKop,
+    });
+  }
+  return out;
+}
+
+// ── Checkbox (checkbox.ua) ──────────────────────────────────────────────────
+// Body for POST /api/v1/receipts/sell. Quantity is in thousandths (1000 = 1 pc).
+// Звірити назви полів платежу карткою й повернення з документацією Checkbox перед підключенням каси.
+
+export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { email?: string | null; relatedReceiptId?: string | null } = {}) {
+  if (d.priceKop - d.discountKop !== d.amountKop) throw new FiscalError("bad_amount", "Сума чека не збігається з ціною та знижкою.");
+  if (d.kind === "return" && !opts.relatedReceiptId) throw new FiscalError("no_related", "Чек повернення потребує фіскального чека продажу.");
+  const good = {
+    good: { code: d.itemCode, name: d.itemName, price: d.priceKop },
+    quantity: 1000,
+    ...(d.kind === "return" ? { is_return: true } : {}),
+    ...(d.discountKop > 0 ? { discounts: [{ type: "DISCOUNT", mode: "VALUE", value: d.discountKop, name: "Знижка" }] } : {}),
+  };
+  return {
+    goods: [good],
+    payments: [{
+      type: "CASHLESS",
+      value: d.amountKop,
+      label: "Картка",
+      card_mask: card.maskedPan,
+      auth_code: card.approvalCode,
+      rrn: card.rrn,
+      payment_system: card.paymentSystem,
+      bank_name: ACQUIRER_NAME,
+    }],
+    ...(opts.relatedReceiptId ? { related_receipt_id: opts.relatedReceiptId } : {}),
+    ...(opts.email ? { delivery: { email: opts.email } } : {}),
+  };
+}
+
+// ── retries ────────────────────────────────────────────────────────────────
+
+/** Pauses between attempts, minutes. After the last one the receipt is `failed` and the admin is alerted. */
+export const RETRY_MINUTES = [1, 5, 15, 60, 180, 360] as const;
+/** An unsent receipt older than this raises an admin alert (the cash service's offline mode should have taken it). */
+export const ALERT_AFTER_MINUTES = 60;
+
+export function nextAttemptAt(attempts: number, nowIso: string): string | null {
+  const m = RETRY_MINUTES[attempts];
+  return m === undefined ? null : new Date(Date.parse(nowIso) + m * 60_000).toISOString();
+}
+
+// ── sending order ──────────────────────────────────────────────────────────
+
+export interface QueuedReceipt { id: string; invoiceId: string; issuer: FiscalIssuer; kind: FiscalKind; status: "pending" | "done" | "failed"; nextAttemptAt: string }
+
+/**
+ * Which pending receipts may go now: the author's receipt first, Sensoria's after it; a return only after the
+ * matching sale receipt is done (it must name the sale's fiscal receipt).
+ */
+export function sendable(all: QueuedReceipt[], nowIso: string): QueuedReceipt[] {
+  const done = new Set(all.filter((r) => r.status === "done").map((r) => `${r.invoiceId}|${r.issuer}|${r.kind}`));
+  const now = Date.parse(nowIso);
+  return all
+    .filter((r) => r.status === "pending" && Date.parse(r.nextAttemptAt) <= now)
+    .filter((r) => r.issuer === "author" || done.has(`${r.invoiceId}|author|${r.kind}`))
+    .filter((r) => r.kind === "sale" || done.has(`${r.invoiceId}|${r.issuer}|sale`))
+    .sort((a, b) => (a.issuer === b.issuer ? 0 : a.issuer === "author" ? -1 : 1));
+}
+
+// ── Checkbox client ────────────────────────────────────────────────────────
+// docs: https://api.checkbox.in.ua/api/redoc — the cashier signs in with the cash register's license key + PIN,
+// a shift is opened if needed, then the receipt is sent. Field names are to be confirmed on a test cash register.
+
+export type FetchLike = (url: string, init: { method: string; headers: Record<string, string>; body?: string }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown>; text: () => Promise<string> }>;
+export interface CheckboxCreds { licenseKey: string; pin: string }
+export interface CheckboxResult { providerReceiptId: string; fiscalCode: string | null; receiptUrl: string }
+
+export const CHECKBOX_API = "https://api.checkbox.in.ua";
+export const checkboxReceiptUrl = (id: string) => `https://check.checkbox.ua/${id}`;
+
+export function checkboxClient(creds: CheckboxCreds, fetchFn: FetchLike, base = CHECKBOX_API) {
+  const head = (token?: string): Record<string, string> => ({
+    "Content-Type": "application/json",
+    "X-License-Key": creds.licenseKey,
+    "X-Client-Name": "Sensoria",
+    "X-Client-Version": "1.0",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  });
+  const call = async (path: string, method: string, token?: string, body?: unknown) => {
+    const res = await fetchFn(`${base}${path}`, { method, headers: head(token), ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
+    if (!res.ok) {
+      const t = (await res.text().catch(() => "")).slice(0, 300);
+      throw new FiscalError(res.status === 401 || res.status === 403 ? "prro_auth" : "prro_error", `Каса відповіла ${res.status}: ${t}`);
+    }
+    return (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  };
+  return {
+    async signIn(): Promise<string> {
+      const r = await call("/api/v1/cashier/signinPinCode", "POST", undefined, { pin_code: creds.pin });
+      const token = typeof r.access_token === "string" ? r.access_token : "";
+      if (!token) throw new FiscalError("prro_auth", "Каса не видала токен касира: перевірте ключ ліцензії й PIN.");
+      return token;
+    },
+    /** Opens a shift if there is none open. */
+    async ensureShift(token: string): Promise<void> {
+      const cur = await call("/api/v1/cashier/shift", "GET", token).catch(() => null);
+      const status = cur && typeof cur.status === "string" ? cur.status : null;
+      if (status === "OPENED" || status === "OPENING") return;
+      await call("/api/v1/shifts", "POST", token, {});
+    },
+    async sell(token: string, body: unknown): Promise<CheckboxResult> {
+      const r = await call("/api/v1/receipts/sell", "POST", token, body);
+      const id = typeof r.id === "string" ? r.id : "";
+      if (!id) throw new FiscalError("prro_error", "Каса не повернула номер чека.");
+      return { providerReceiptId: id, fiscalCode: typeof r.fiscal_code === "string" ? r.fiscal_code : null, receiptUrl: checkboxReceiptUrl(id) };
+    },
+  };
+}
+
+/** One receipt end to end: sign in, make sure a shift is open, send. */
+export async function sendViaCheckbox(creds: CheckboxCreds, body: unknown, fetchFn: FetchLike, base = CHECKBOX_API): Promise<CheckboxResult> {
+  const c = checkboxClient(creds, fetchFn, base);
+  const token = await c.signIn();
+  await c.ensureShift(token);
+  return c.sell(token, body);
+}
+
+// ── /fiscal receipts ──────────────────────────────────────────────────────
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
@@ -1605,7 +1831,7 @@ async function runJobs() {
   const settings = await loadSettings();
   const now = nowIso();
   const res = { released: 0, inactivity: 0, autoPayouts: 0, distributed: 0, emails: { sent: 0, skipped: 0, failed: 0 },
-    mono: null as { checked: number; changed: number } | null, monoStatement: null as { items: number; fixed: number; unknown: number } | null, errors: [] as string[] };
+    mono: null as { checked: number; changed: number } | null, monoStatement: null as { items: number; fixed: number; unknown: number } | null, fiscalQueued: 0, errors: [] as string[] };
 
   // 1) holds and reserves that expired
   const authors = new Set<string>();
@@ -1695,6 +1921,13 @@ async function runJobs() {
     } catch (e) {
       res.errors.push(`mono statement: ${e instanceof Error ? e.message : e}`);
     }
+  }
+
+  // 6) fiscal receipts: queue what a webhook could not (the sender to the cash service comes with the PRRO connection)
+  try {
+    res.fiscalQueued = await fiscalRequeueMissing();
+  } catch (e) {
+    res.errors.push(`fiscal queue: ${e instanceof Error ? e.message : e}`);
   }
 
   res.emails = await sendPendingEmails();
@@ -1920,6 +2153,11 @@ async function monoCheckout(userId: string, payload: Record<string, unknown>, cl
   // live: a paid sale needs the author's FOP connected to the split; the test token has no split at all
   const receiverId = rcv?.status === "active" ? String(rcv.receiver_id ?? "") : "";
   if (mode === "live" && !receiverId) throw new FinanceError("author_not_connected", "Автор ще не підключив прийом оплат. Спробуйте пізніше.");
+  if (mode === "live") {
+    // the author's receipt is issued on the author's own PRRO: no register — no paid sale (ТЗ 3.4)
+    const { data: af } = await admin.from("author_fiscal").select("status").eq("author_id", content.author_id).maybeSingle();
+    if (af?.status !== "active") throw new FinanceError("author_no_prro", "Автор ще не підключив касу для чеків. Спробуйте пізніше.");
+  }
   // referral rate only on the server's own record of the buyer's click (never from the client)
   const { data: attr } = await admin.from("referral_attributions").select("created_at").eq("buyer_id", userId).eq("author_id", content.author_id).maybeSingle();
   // a promo code is the author's own referral: 15 % of the list price (offer Б33)
@@ -2039,6 +2277,156 @@ async function recordReversal(row: MonoRow) {
   await revokePaidAccess(row.id);
 }
 
+// ── fiscal receipts (ПРРО) ──────────────────────────────────────────────────
+// The receipts of a payment go to a queue (fiscal_receipts); the sender to the cash service runs from runJobs.
+// docs/legal/internal/accountant-dps-review-2026-11-18.md, В1 і В3.
+
+/** Idempotent: one receipt per invoice, issuer and kind. A return mirrors the sale receipts that exist. */
+async function enqueueReceipts(row: MonoRow, kind: FiscalKind): Promise<number> {
+  const [{ data: s }, { data: inv }, { data: sales }] = await Promise.all([
+    admin.from("finance_settings").select("sensoria_fee_fiscal").eq("id", 1).single(),
+    admin.from("mono_invoices").select("payment_info").eq("id", row.id).single(),
+    admin.from("fiscal_receipts").select("issuer").eq("invoice_id", row.id).eq("kind", "sale"),
+  ]);
+  const feeFiscal = kind === "sale" ? s?.sensoria_fee_fiscal !== false : (sales ?? []).some((r) => r.issuer === "sensoria");
+  const drafts = plannedReceipts({
+    kind, invoiceId: row.id, contentId: row.content_id, listKop: row.list_kop ?? null,
+    amountKop: Number(row.amount_kop), sensoriaKop: Number(row.sensoria_kop), feeFiscal,
+  });
+  const card = cardDetailsOf(inv?.payment_info);
+  const rows = drafts.map((d) => ({
+    invoice_id: row.id, author_id: row.author_id, issuer: d.issuer, kind: d.kind, deliver_to: d.deliverTo, item_code: d.itemCode,
+    item_name: d.itemName, price_kop: d.priceKop, discount_kop: d.discountKop, amount_kop: d.amountKop, card, mode: row.mode,
+  }));
+  const { error } = await admin.from("fiscal_receipts").upsert(rows, { onConflict: "invoice_id,issuer,kind", ignoreDuplicates: true });
+  if (error) throw new Error(error.message);
+  return rows.length;
+}
+
+/** Never blocks the payment or the refund: a failure is logged, and runJobs re-queues what is missing. */
+async function queueReceipts(row: MonoRow, kind: FiscalKind) {
+  try {
+    await enqueueReceipts(row, kind);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("fiscal enqueue", row.id, kind, msg);
+    await admin.from("finance_audit_log").insert({
+      administrator_id: null, action: "fiscal_enqueue_failed", entity_type: "payment", entity_id: row.id, reason: `${kind}: ${msg}`.slice(0, 500),
+    });
+  }
+}
+
+// ── sending to the cash service (Checkbox) ──
+// Sensoria's register: secrets SENSORIA_PRRO_LICENSE_KEY / SENSORIA_PRRO_PIN. An author's register: a Vault secret,
+// read by author_fiscal_secret() (supabase/author-prro.sql). Test mode sends only to CHECKBOX_TEST_API_URL (the
+// cash service's test environment); without it test receipts wait in the queue.
+
+async function fiscalCredsFor(issuer: FiscalIssuer, authorId: string): Promise<CheckboxCreds | null> {
+  if (issuer === "sensoria") {
+    const licenseKey = Deno.env.get("SENSORIA_PRRO_LICENSE_KEY") ?? "";
+    const pin = Deno.env.get("SENSORIA_PRRO_PIN") ?? "";
+    return licenseKey && pin ? { licenseKey, pin } : null;
+  }
+  const { data: af } = await admin.from("author_fiscal").select("status").eq("author_id", authorId).maybeSingle();
+  if (af?.status !== "active") return null;
+  const { data: sec, error } = await admin.rpc("author_fiscal_secret", { p_author: authorId });
+  if (error || !sec) return null;
+  const v = (typeof sec === "string" ? JSON.parse(sec) : sec) as { licenseKey?: string; pin?: string };
+  return v.licenseKey && v.pin ? { licenseKey: v.licenseKey, pin: v.pin } : null;
+}
+
+async function fiscalAlert(title: string, details: string) {
+  await admin.from("admin_alert_outbox").insert({ kind: "fiscal", title, details: details.slice(0, 1000), urgent: true }).then(() => {}, () => {});
+}
+
+/** Sends due receipts in the right order. Returns how many were fiscalized. */
+async function fiscalSendDue(onlyInvoice?: string): Promise<{ sent: number; failed: number; waiting: number }> {
+  const out = { sent: 0, failed: 0, waiting: 0 };
+  let q = admin.from("fiscal_receipts").select("*").eq("status", "pending").lte("next_attempt_at", nowIso()).order("created_at").limit(50);
+  if (onlyInvoice) q = q.eq("invoice_id", onlyInvoice);
+  const { data: due, error } = await q;
+  if (error || !due?.length) return out;
+  const invIds = [...new Set(due.map((r) => r.invoice_id as string))];
+  const { data: allRows } = await admin.from("fiscal_receipts").select("*").in("invoice_id", invIds);
+  const rows = allRows ?? due;
+  const queued: QueuedReceipt[] = rows.map((r) => ({ id: r.id, invoiceId: r.invoice_id, issuer: r.issuer, kind: r.kind, status: r.status, nextAttemptAt: r.next_attempt_at }));
+  // the order holds across one run: a return waits for its sale, Sensoria's receipt for the author's
+  for (const pass of [0, 1, 2]) {
+    void pass;
+    const ready = sendable(queued, nowIso());
+    if (!ready.length) break;
+    for (const qr of ready) {
+      const r = rows.find((x) => x.id === qr.id)!;
+      const { data: inv } = await admin.from("mono_invoices").select("buyer_id, author_id, mode, payment_info").eq("id", r.invoice_id).single();
+      const live = inv?.mode === "live";
+      const base = live ? CHECKBOX_API : Deno.env.get("CHECKBOX_TEST_API_URL") ?? "";
+      const creds = base ? await fiscalCredsFor(r.issuer, r.author_id) : null;
+      if (!base || !creds) {
+        out.waiting += 1;
+        qr.status = "failed"; // not this run (kept pending in the database)
+        await admin.from("fiscal_receipts").update({ last_error: !base ? "Тестова каса не налаштована" : r.issuer === "sensoria" ? "ПРРО Sensoria не підключено" : "ПРРО автора не підключено" }).eq("id", r.id);
+        continue;
+      }
+      const card = cardDetailsOf(inv?.payment_info);
+      if (!cardComplete(card)) {
+        await admin.from("fiscal_receipts").update({ status: "failed", last_error: "Банк не передав дані картки для чека" }).eq("id", r.id);
+        qr.status = "failed";
+        out.failed += 1;
+        await fiscalAlert("Чек не сформовано", `Замовлення ${r.invoice_id}: немає даних картки від банку.`);
+        continue;
+      }
+      const to = r.deliver_to === "buyer" ? inv?.buyer_id : r.author_id;
+      const { data: who } = to ? await admin.from("profiles").select("email").eq("id", to).maybeSingle() : { data: null };
+      const related = r.kind === "return" ? rows.find((x) => x.invoice_id === r.invoice_id && x.issuer === r.issuer && x.kind === "sale")?.provider_receipt_id : null;
+      try {
+        const draft: ReceiptDraft = { issuer: r.issuer, kind: r.kind, deliverTo: r.deliver_to, itemCode: r.item_code, itemName: r.item_name, priceKop: Number(r.price_kop), discountKop: Number(r.discount_kop), amountKop: Number(r.amount_kop) };
+        const res = await sendViaCheckbox(creds, checkboxReceiptBody(draft, card, { email: who?.email ?? null, relatedReceiptId: related ?? null }), fetch as unknown as FetchLike, base);
+        await admin.from("fiscal_receipts").update({
+          status: "done", provider_receipt_id: res.providerReceiptId, fiscal_code: res.fiscalCode, receipt_url: res.receiptUrl, done_at: nowIso(), last_error: null, attempts: Number(r.attempts) + 1,
+        }).eq("id", r.id);
+        qr.status = "done";
+        r.status = "done";
+        r.provider_receipt_id = res.providerReceiptId;
+        out.sent += 1;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        const attempts = Number(r.attempts) + 1;
+        const next = nextAttemptAt(attempts - 1, nowIso()); // 1st failure → +1 min, 2nd → +5 min, …
+        await admin.from("fiscal_receipts").update(next ? { attempts, next_attempt_at: next, last_error: msg.slice(0, 500) } : { attempts, status: "failed", last_error: msg.slice(0, 500) }).eq("id", r.id);
+        qr.status = "failed";
+        if (!next) {
+          out.failed += 1;
+          await fiscalAlert("Чек не сформовано", `Замовлення ${r.invoice_id} (${r.issuer}, ${r.kind}): ${msg}`);
+        }
+      }
+    }
+  }
+  // unsent for over an hour → the admin hears about it (the cash service's offline mode should have taken it)
+  // once per receipt: only those that crossed the hour since the previous tick (the tick runs every 5 minutes)
+  const old = new Date(Date.now() - ALERT_AFTER_MINUTES * 60_000).toISOString();
+  const older = new Date(Date.now() - (ALERT_AFTER_MINUTES + 5) * 60_000).toISOString();
+  const { data: stale } = await admin.from("fiscal_receipts").select("id, invoice_id").eq("status", "pending").lt("created_at", old).gte("created_at", older).limit(20);
+  if (stale?.length && !onlyInvoice) await fiscalAlert("Чеки не сформовано понад годину", `${stale.length} чек(и) чекають: ${stale.map((x) => x.invoice_id).join(", ")}`);
+  return out;
+}
+
+/** Paid or refunded invoices of the last 7 days whose receipts are not in the queue (e.g. the webhook ran before the migration). */
+async function fiscalRequeueMissing(): Promise<number> {
+  const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const { data: invs, error } = await admin.from("mono_invoices").select("*").in("status", ["success", "reversed"]).gte("updated_at", since).limit(500);
+  if (error) throw new Error(error.message);
+  if (!invs?.length) return 0;
+  const { data: have, error: hErr } = await admin.from("fiscal_receipts").select("invoice_id, kind").eq("issuer", "author").in("invoice_id", invs.map((r) => r.id));
+  if (hErr) throw new Error(hErr.message);
+  const seen = new Set((have ?? []).map((r) => `${r.invoice_id}:${r.kind}`));
+  let n = 0;
+  for (const row of invs as MonoRow[]) {
+    if (!seen.has(`${row.id}:sale`)) n += await enqueueReceipts(row, "sale");
+    if (row.status === "reversed" && !seen.has(`${row.id}:return`)) n += await enqueueReceipts(row, "return");
+  }
+  return n;
+}
+
 /** One place for webhooks and status checks. Throws on a real failure so that the bank retries the webhook. */
 async function applyMonoStatus(row: MonoRow, p: Record<string, unknown>): Promise<{ applied: boolean; reason?: string }> {
   const status = parseStatus(p.status);
@@ -2052,10 +2440,18 @@ async function applyMonoStatus(row: MonoRow, p: Record<string, unknown>): Promis
   const effect = effectOf(status);
   if (effect === "paid") {
     await admin.from("mono_invoices").update({ card_origin: cardOrigin(p.paymentInfo), bank_fee_kop: bankFeeKop(p.paymentInfo) }).eq("id", row.id);
+    // separate update: until fiscal-migration.sql runs the column is missing, and that must not lose card_origin above
+    await admin.from("mono_invoices").update({ payment_info: p.paymentInfo ?? null }).eq("id", row.id);
     await recordPaid(row, p);
     await admin.from("finance_payments").update({ card_origin: cardOrigin(p.paymentInfo) }).eq("purchase_id", row.id);
+    await queueReceipts(row, "sale");
+    await fiscalSendDue(row.id).catch((e) => console.error("fiscal send", row.id, e));
   }
-  if (effect === "reversed") await recordReversal(row);
+  if (effect === "reversed") {
+    await recordReversal(row);
+    await queueReceipts(row, "return");
+    await fiscalSendDue(row.id).catch((e) => console.error("fiscal send", row.id, e));
+  }
   await admin.from("mono_invoices").update({ status, mono_modified: modified ?? row.mono_modified, updated_at: nowIso() }).eq("id", row.id);
   return { applied: true };
 }
@@ -2129,6 +2525,12 @@ Deno.serve(async (req) => {
       if (!secret || req.headers.get("x-cron-secret") !== secret) return json({ error: "forbidden" }, 403);
       return json(await runJobs());
     }
+    // every few minutes: retries of fiscal receipts (1 / 5 / 15 / 60 / 180 / 360 min)
+    if (action === "fiscalTick") {
+      const secret = Deno.env.get("CRON_SECRET");
+      if (!secret || req.headers.get("x-cron-secret") !== secret) return json({ error: "forbidden" }, 403);
+      return json({ ok: true, ...(await fiscalSendDue()) });
+    }
 
     // ── who is calling ──
     const authHeader = req.headers.get("Authorization");
@@ -2160,6 +2562,33 @@ Deno.serve(async (req) => {
     }
 
     // ── an author's own actions ──
+    if (action === "prroStatus" || action === "connectPrro") {
+      if (prof?.role !== "author") return json({ error: "Лише для авторів." }, 403);
+      if (action === "prroStatus") {
+        const { data: af } = await admin.from("author_fiscal").select("status, last_error, updated_at").eq("author_id", user.id).maybeSingle();
+        return json({ ok: true, status: af?.status ?? "none", lastError: af?.last_error ?? null, updatedAt: af?.updated_at ?? null });
+      }
+      const licenseKey = String(payload.licenseKey ?? "").trim();
+      const pin = String(payload.pin ?? "").replace(/\s+/g, "");
+      if (licenseKey.length < 10) throw new FinanceError("bad_license", "Вкажіть ключ ліцензії каси з кабінету Checkbox.");
+      if (!/^\d{4,10}$/.test(pin)) throw new FinanceError("bad_pin", "PIN касира — 4–10 цифр.");
+      const { data: cfg } = await admin.from("finance_settings").select("mode").eq("id", 1).single();
+      const base = cfg?.mode === "live" ? CHECKBOX_API : Deno.env.get("CHECKBOX_TEST_API_URL") ?? CHECKBOX_API;
+      // a test sign-in: the key and PIN must really open the author's register
+      let status = "active";
+      let err: string | null = null;
+      try {
+        await checkboxClient({ licenseKey, pin }, fetch as unknown as FetchLike, base).signIn();
+      } catch (e) {
+        status = "error";
+        err = e instanceof Error ? e.message.slice(0, 300) : "Не вдалося увійти в касу.";
+      }
+      const { error: sErr } = await admin.rpc("author_fiscal_store", { p_author: user.id, p_license: licenseKey, p_pin: pin, p_status: status, p_error: err });
+      if (sErr) throw new FinanceError("prro_store", "Каси поки не підключаються. Спробуйте пізніше.");
+      if (status !== "active") throw new FinanceError("prro_auth", "Каса не прийняла ключ або PIN. Перевірте дані в кабінеті Checkbox.");
+      return json({ ok: true, status });
+    }
+
     if (action === "touchActivity" || action === "requestPayout" || action === "markNotificationsRead" || action === "saveBankAccount" || action === "monoConnection" || action === "requestMonoConnection") {
       if (prof?.role !== "author") return json({ error: "Лише для авторів." }, 403);
       const settings = await loadSettings();

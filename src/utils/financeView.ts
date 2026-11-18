@@ -1,3 +1,4 @@
+import { differentQuarters, kyivQuarter, registerRow } from "./taxRegister.ts";
 // Presentation helpers for the author's «Фінанси» page and the admin panel.
 // Pure functions, no I/O (tested in financeView.test.ts).
 
@@ -209,6 +210,11 @@ const money = (kop: number) => (kop / 100).toFixed(2).replace(".", ",");
 
 /** The author's sales report for one month (`yyyy-mm`), as CSV for Excel (semicolons, BOM). */
 /** Bank credits the author's share the next day; until the bank statement is matched, the credit date is that estimate. */
+/** The same estimate as an ISO time, for the quarter check. */
+export function creditDateIsoEstimate(confirmedAt: string): string {
+  return new Date(Date.parse(confirmedAt) + 86_400_000).toISOString();
+}
+
 export function creditDateEstimate(confirmedAt: string): string {
   const d = new Date(confirmedAt);
   d.setDate(d.getDate() + 1);
@@ -218,28 +224,38 @@ export function creditDateEstimate(confirmedAt: string): string {
 /** Month report for the author's accountant: the full price is the taxable income (accounting-model.md, 3.1). */
 export function monthReportCsv(sales: (SaleLike & { cardOrigin?: CardOrigin; commissionBps: number; creditedAt?: string | null; bankFeeKop?: number | null; listKop?: number | null; discountKop?: number | null })[], month: string): string {
   const rows = sales.filter((s) => s.confirmedAt.slice(0, 7) === month).sort((a, b) => a.confirmedAt.localeCompare(b.confirmedAt));
-  const fee = (s: (typeof rows)[number]) => (s.bankFeeKop != null ? s.bankFeeKop : authorBankFeeKop(s));
+  // the register of one payment: paid = tariff directed to Sensoria + the bank's fee + credited to the author (В2)
+  const reg = (s: (typeof rows)[number]) =>
+    registerRow({ paidKop: s.priceKop, tariffKop: s.priceKop - s.authorKop, bankFeeKop: s.bankFeeKop ?? null, cardForeign: s.cardOrigin === "foreign" });
+  const credited = (s: (typeof rows)[number]) => s.creditedAt ?? creditDateIsoEstimate(s.confirmedAt);
   const head = [
-    "Дата оплати (чек)", "Дата зарахування", "Матеріал", "Покупець прийшов", "Ціна, ₴", "Знижка за промокодом, ₴", "Оплачено = дохід для податкового обліку, ₴", "Ваша ставка", "Ваша частка, ₴", "Картка",
-    "Комісія банку (з усієї оплати, з вашої частки), ₴", "Джерело комісії", "Повернено покупцю (ваша частка), ₴", "На ваш рахунок, ₴",
+    "Дата оплати (чек)", "Дата зарахування", "Квартал", "Матеріал", "Покупець прийшов", "Ціна, ₴", "Знижка за промокодом, ₴", "Оплачено = дохід для податкового обліку, ₴",
+    "Сплачено Покупцем, ₴", "Тариф, спрямовано Банком на рахунок Sensoria, ₴", "Комісія Банку, ₴", "Джерело комісії", "Зараховано Автору, ₴", "Картка", "Повернено покупцю (ваша частка), ₴",
   ];
-  const lines = rows.map((s) => [
-    new Date(s.confirmedAt).toLocaleDateString("uk-UA"),
-    s.creditedAt ? new Date(s.creditedAt).toLocaleDateString("uk-UA") : `${creditDateEstimate(s.confirmedAt)} (орієнтовно)`,
-    s.title,
-    s.discountKop ? "Ваш промокод" : s.source === "referral" ? "За вашим посиланням" : "Через Sensoria",
-    money(s.listKop ?? s.priceKop),
-    money(s.discountKop ?? 0),
-    money(s.priceKop),
-    `${(10000 - s.commissionBps) / 100} %`,
-    money(s.authorKop),
-    s.cardOrigin === "foreign" ? "Іноземна (2 %)" : s.cardOrigin === "ua" ? "Українська (1,3 %)" : "Невідомо (1,3 %)",
-    money(fee(s)),
-    s.bankFeeKop != null ? "Дані банку" : "Оцінка (банк ще не повідомив)",
-    money(s.authorRefundedKop),
-    money(s.authorKop - fee(s) - s.authorRefundedKop),
-  ]);
+  const lines = rows.map((s) => {
+    const r = reg(s);
+    return [
+      new Date(s.confirmedAt).toLocaleDateString("uk-UA"),
+      s.creditedAt ? new Date(s.creditedAt).toLocaleDateString("uk-UA") : `${creditDateEstimate(s.confirmedAt)} (орієнтовно)`,
+      differentQuarters(s.confirmedAt, credited(s)) ? `Різні квартали (${kyivQuarter(s.confirmedAt)} / ${kyivQuarter(credited(s))})` : kyivQuarter(s.confirmedAt),
+      s.title,
+      s.discountKop ? "Ваш промокод" : s.source === "referral" ? "За вашим посиланням" : "Через Sensoria",
+      money(s.listKop ?? s.priceKop),
+      money(s.discountKop ?? 0),
+      money(s.priceKop),
+      money(r.paidKop),
+      money(r.tariffKop),
+      money(r.bankFeeKop),
+      r.bankFeeEstimated ? "Оцінка (банк ще не повідомив)" : "Дані банку",
+      money(r.creditedToAuthorKop),
+      s.cardOrigin === "foreign" ? "Іноземна (2 %)" : s.cardOrigin === "ua" ? "Українська (1,3 %)" : "Невідомо (1,3 %)",
+      money(s.authorRefundedKop),
+    ];
+  });
   const sum = (f: (s: (typeof rows)[number]) => number) => money(rows.reduce((n, s) => n + f(s), 0));
-  const total = ["Разом", "", "", "", sum((s) => s.listKop ?? s.priceKop), sum((s) => s.discountKop ?? 0), sum((s) => s.priceKop), "", sum((s) => s.authorKop), "", sum(fee), "", sum((s) => s.authorRefundedKop), sum((s) => s.authorKop - fee(s) - s.authorRefundedKop)];
+  const total = [
+    "Разом", "", "", "", "", sum((s) => s.listKop ?? s.priceKop), sum((s) => s.discountKop ?? 0), sum((s) => s.priceKop),
+    sum((s) => reg(s).paidKop), sum((s) => reg(s).tariffKop), sum((s) => reg(s).bankFeeKop), "", sum((s) => reg(s).creditedToAuthorKop), "", sum((s) => s.authorRefundedKop),
+  ];
   return "\uFEFF" + [head, ...lines, total].map((r) => r.map(csvCell).join(";")).join("\n");
 }

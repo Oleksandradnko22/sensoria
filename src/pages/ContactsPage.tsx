@@ -189,7 +189,8 @@ export default function ContactsPage({ onOpenParticipantDashboard, onOpenAuthorD
     },
     {
       title: "Екстрена допомога",
-      text: "Sensoria не замінює роботу з психологом і не є екстреною службою. Якщо вам потрібна негайна підтримка, зверніться до фахівця або місцевих служб допомоги.",
+      text: "Sensoria не замінює роботу з психологом і не є екстреною службою. Якщо вам потрібна негайна підтримка, телефонуйте 112 або відкрийте сторінку «Допомога в кризі».",
+      link: { label: "Допомога в кризі", href: "/crisis-help" },
       icon: (
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...line}>
           <circle cx="12" cy="12" r="9" />
@@ -318,6 +319,17 @@ export default function ContactsPage({ onOpenParticipantDashboard, onOpenAuthorD
             </li>
           ))}
         </ul>
+      </section>
+
+      {/* the operator — the e-commerce law wants it easy to find, not only inside the documents */}
+      <section aria-labelledby="c-operator" className="relative mt-10 sm:mt-14 pt-8 border-t border-white/20">
+        <h2 id="c-operator" className="t-h3 mb-3">Оператор платформи</h2>
+        <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4 t-small text-white">
+          <div><dt className="text-white/70">Оператор платформи Sensoria</dt><dd className="mt-0.5 font-medium">{LEGAL.operatorName}, РНОКПП {LEGAL.registration}</dd></div>
+          <div><dt className="text-white/70">Місцезнаходження</dt><dd className="mt-0.5 font-medium">{LEGAL.address}</dd></div>
+          <div><dt className="text-white/70">Адреса для листування</dt><dd className="mt-0.5 font-medium">{LEGAL.mailingAddress}</dd></div>
+          <div><dt className="text-white/70">Електронна пошта</dt><dd className="mt-0.5 font-medium break-all"><a href={`mailto:${LEGAL.email}`} className="underline underline-offset-4">{LEGAL.email}</a></dd></div>
+        </dl>
       </section>
     </main>
   );

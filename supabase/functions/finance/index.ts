@@ -1656,6 +1656,261 @@ export async function sendViaCheckbox(creds: CheckboxCreds, body: unknown, fetch
 
 // ── /fiscal receipts ──────────────────────────────────────────────────────
 
+// ── tax registers and acts (src/utils/taxRegister.ts) ─────────────────────
+// Registers for the accountant (docs/legal/internal/accountant-dps-review-2026-11-18.md, В2, В4, В5, В7, В9, В10).
+// Pure functions, integer kopecks only. Amounts come from the bank's data; an estimate only while the bank is silent.
+//
+// One payment: the buyer pays; the bank directs the tariff to Sensoria's account, keeps its fee and credits the rest
+// to the author:  paid = tariff + bank fee + credited to the author  (to the kopeck).
+
+export type Source = "catalog" | "referral";
+
+export interface RegisterInput {
+  paidKop: number; // what the buyer paid (the bank's amount)
+  tariffKop: number; // directed by the bank to Sensoria
+  bankFeeKop?: number | null; // from the bank; null → estimated
+  cardForeign?: boolean;
+}
+
+export interface RegisterRow {
+  paidKop: number;
+  tariffKop: number;
+  bankFeeKop: number;
+  bankFeeEstimated: boolean;
+  creditedToAuthorKop: number;
+}
+
+/** The bank's fee: 1.3 % (Ukrainian card) / 2 % (foreign) of the WHOLE payment, out of the author's part (monobank). */
+export const estimatedBankFeeKop = (paidKop: number, foreign = false) => Math.round((paidKop * (foreign ? 200 : 130)) / 10000);
+
+export function registerRow(i: RegisterInput): RegisterRow {
+  const ok = (n: number) => Number.isInteger(n) && n >= 0;
+  if (!ok(i.paidKop) || !ok(i.tariffKop)) throw new Error("Суми мають бути цілими невід'ємними копійками.");
+  const estimated = i.bankFeeKop == null;
+  const fee = estimated ? estimatedBankFeeKop(i.paidKop, i.cardForeign) : (i.bankFeeKop as number);
+  if (!ok(fee)) throw new Error("Комісія банку має бути цілими копійками.");
+  const credited = i.paidKop - i.tariffKop - fee;
+  if (credited < 0) throw new Error("Тариф і комісія більші за сплачену суму.");
+  return { paidKop: i.paidKop, tariffKop: i.tariffKop, bankFeeKop: fee, bankFeeEstimated: estimated, creditedToAuthorKop: credited };
+}
+
+// ── dates and quarters (Kyiv time) ─────────────────────────────────────────
+
+const KYIV = "Europe/Kyiv";
+
+/** "2026-04-01" — the calendar day in Kyiv. */
+export function kyivDay(iso: string): string {
+  const p = new Intl.DateTimeFormat("en-CA", { timeZone: KYIV, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(iso));
+  const get = (t: string) => p.find((x) => x.type === t)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+/** "2026-Q2" in Kyiv time. */
+export function kyivQuarter(iso: string): string {
+  const [y, m] = kyivDay(iso).split("-").map(Number);
+  return `${y}-Q${Math.floor((m - 1) / 3) + 1}`;
+}
+
+/** The payment (receipt date) and the crediting fall into different quarters: the accountant must look. */
+export const differentQuarters = (paidAt: string, creditedAt: string | null | undefined) =>
+  !!creditedAt && kyivQuarter(paidAt) !== kyivQuarter(creditedAt);
+
+// ── the monthly act of Sensoria's services (В7) ────────────────────────────
+
+export interface ActSale { tariffKop: number; source: Source; paidKop: number; bankFeeKop: number }
+export interface ActRefund { tariffKop: number }
+export interface ActLine { count: number; sumKop: number }
+
+/** Lines kept apart — no "net": (1) 30 %, (2) 15 %, (3) returned tariff; for reference — payments and the bank's fee. */
+export function monthlyAct(sales: ActSale[], refunds: ActRefund[]) {
+  const line = (xs: { tariffKop: number }[]): ActLine => ({ count: xs.length, sumKop: xs.reduce((n, x) => n + x.tariffKop, 0) });
+  return {
+    tariff30: line(sales.filter((s) => s.source === "catalog")),
+    tariff15: line(sales.filter((s) => s.source === "referral")),
+    returnedTariff: line(refunds),
+    reference: {
+      paymentsKop: sales.reduce((n, s) => n + s.paidKop, 0),
+      bankFeeKop: sales.reduce((n, s) => n + s.bankFeeKop, 0),
+    },
+  };
+}
+
+// ── Sensoria's income book (В10): by the day the tariff reached the account ──
+
+export interface BookEntry { creditedAt: string; tariffKop: number; kind: "income" | "refund"; paidAt?: string }
+
+/** Day → income (credited tariffs) and refunds (−), Kyiv days, sorted. */
+export function incomeBook(entries: BookEntry[]) {
+  const days = new Map<string, { incomeKop: number; refundKop: number }>();
+  for (const e of entries) {
+    const d = kyivDay(e.creditedAt);
+    const cur = days.get(d) ?? { incomeKop: 0, refundKop: 0 };
+    if (e.kind === "income") cur.incomeKop += e.tariffKop;
+    else cur.refundKop += e.tariffKop;
+    days.set(d, cur);
+  }
+  return [...days.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, v]) => ({ day, ...v, totalKop: v.incomeKop - v.refundKop }));
+}
+
+export function quarterIncomeKop(entries: BookEntry[], quarter: string): number {
+  return entries.filter((e) => kyivQuarter(e.creditedAt) === quarter).reduce((n, e) => n + (e.kind === "income" ? e.tariffKop : -e.tariffKop), 0);
+}
+
+/** A refund booked in a later quarter than its payment (the accountant decides how to show it, В5). */
+export const refundOfEarlierQuarter = (paidAt: string, refundedAt: string) => kyivQuarter(refundedAt) !== kyivQuarter(paidAt);
+
+// ── limits (В9, В10) ───────────────────────────────────────────────────────
+
+/** Single tax, group 3, 2026: 1 167 minimum wages × 8 647 ₴. */
+export const GROUP3_LIMIT_2026_KOP = 1_009_104_900;
+
+export function limitLevel(incomeKop: number, limitKop = GROUP3_LIMIT_2026_KOP): "ok" | "warn80" | "warn95" | "over" {
+  if (incomeKop > limitKop) return "over";
+  // thresholds in whole hryvnias, as the accountant states them: 80 % = 8 072 839 ₴
+  const at = (share: number) => Math.floor((limitKop * share) / 100) * 100;
+  if (incomeKop >= at(0.95)) return "warn95";
+  if (incomeKop >= at(0.8)) return "warn80";
+  return "ok";
+}
+
+/** VAT watch: tariffs credited over the last 12 months — warnings at 800 000 ₴ and 1 000 000 ₴. */
+export function vatLevel(rolling12Kop: number): "ok" | "warn800k" | "warn1m" {
+  if (rolling12Kop >= 100_000_000) return "warn1m";
+  if (rolling12Kop >= 80_000_000) return "warn800k";
+  return "ok";
+}
+
+export function rolling12Kop(entries: BookEntry[], nowIso: string): number {
+  const from = new Date(nowIso);
+  from.setUTCFullYear(from.getUTCFullYear() - 1);
+  return entries
+    .filter((e) => Date.parse(e.creditedAt) > from.getTime() && Date.parse(e.creditedAt) <= Date.parse(nowIso))
+    .reduce((n, e) => n + (e.kind === "income" ? e.tariffKop : -e.tariffKop), 0);
+}
+
+// ── working days (Б39: 5 working days; Б38: 5 working days to object) ─────
+
+/** "2026-11-20" + n working days (Saturdays and Sundays skipped; public holidays are not tracked yet). */
+export function addWorkingDays(day: string, n: number, holidays: ReadonlySet<string> = new Set()): string {
+  const d = new Date(`${day}T12:00:00Z`);
+  let left = n;
+  while (left > 0) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const wd = d.getUTCDay();
+    if (wd !== 0 && wd !== 6 && !holidays.has(d.toISOString().slice(0, 10))) left -= 1;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+// ── an amount in words (Ukrainian), for the act ─────────────────────────────
+
+const ONES_M = ["", "один", "два", "три", "чотири", "п'ять", "шість", "сім", "вісім", "дев'ять"];
+const ONES_F = ["", "одна", "дві", "три", "чотири", "п'ять", "шість", "сім", "вісім", "дев'ять"];
+const TEENS = ["десять", "одинадцять", "дванадцять", "тринадцять", "чотирнадцять", "п'ятнадцять", "шістнадцять", "сімнадцять", "вісімнадцять", "дев'ятнадцять"];
+const TENS = ["", "", "двадцять", "тридцять", "сорок", "п'ятдесят", "шістдесят", "сімдесят", "вісімдесят", "дев'яносто"];
+const HUNDREDS = ["", "сто", "двісті", "триста", "чотириста", "п'ятсот", "шістсот", "сімсот", "вісімсот", "дев'ятсот"];
+
+const plural = (n: number, one: string, few: string, many: string) => {
+  const t = n % 100;
+  if (t >= 11 && t <= 14) return many;
+  const u = n % 10;
+  return u === 1 ? one : u >= 2 && u <= 4 ? few : many;
+};
+
+function triad(n: number, feminine: boolean): string {
+  const h = Math.floor(n / 100), t = Math.floor((n % 100) / 10), u = n % 10;
+  const out = [HUNDREDS[h]];
+  if (t === 1) out.push(TEENS[u]);
+  else out.push(TENS[t], (feminine ? ONES_F : ONES_M)[u]);
+  return out.filter(Boolean).join(" ");
+}
+
+/** 30000 → «триста гривень 00 копійок». */
+export function uahInWords(kop: number): string {
+  if (!Number.isInteger(kop) || kop < 0) throw new Error("Сума має бути цілими копійками.");
+  const uah = Math.floor(kop / 100), k = kop % 100;
+  const parts: string[] = [];
+  const millions = Math.floor(uah / 1_000_000), thousands = Math.floor((uah % 1_000_000) / 1000), rest = uah % 1000;
+  if (millions) parts.push(triad(millions, false), plural(millions, "мільйон", "мільйони", "мільйонів"));
+  if (thousands) parts.push(triad(thousands, true), plural(thousands, "тисяча", "тисячі", "тисяч"));
+  if (rest || !parts.length) parts.push(rest ? triad(rest, true) : "нуль");
+  parts.push(plural(uah, "гривня", "гривні", "гривень"));
+  return `${parts.filter(Boolean).join(" ")} ${String(k).padStart(2, "0")} ${plural(k, "копійка", "копійки", "копійок")}`;
+}
+
+// ── the act data (В7) ───────────────────────────────────────────────────────
+
+export interface ActOrder {
+  purchaseId: string;
+  contentId: string;
+  paidAt: string;
+  creditedAt: string | null;
+  listKop: number;
+  discountKop: number;
+  paidKop: number;
+  source: "catalog" | "referral" | "promo";
+  tariffBps: number;
+  tariffKop: number;
+  bankFeeKop: number;
+  fiscalNo: string | null;
+  status: "paid" | "refunded" | "chargeback";
+  refundedAt: string | null;
+  returnFiscalNo: string | null;
+}
+
+const actCode8 = (id: string) => id.replace(/-/g, "").slice(0, 8).toUpperCase();
+
+/**
+ * The act for one author and month: services for successful orders of the month (30 % and 15 % apart), the tariff
+ * returned in the month (refunds and tariffs repaid after a lost chargeback) — never netted; payments and the bank's
+ * fee only for reference. `orders` — orders paid in the month; `returnedTariffs` — tariff sums returned in the month.
+ */
+export function buildAct(p: { period: string; authorId: string; orders: ActOrder[]; returnedTariffs: { purchaseId: string; tariffKop: number }[] }) {
+  // every order paid in the month is a service rendered (line 1/2), even if refunded later the same month: the refund is
+  // line 3, never netted (accountant's example: 3 payments + 1 refund → line 1: 3 / 900, line 3: 1 / 300)
+  const ok = p.orders;
+  const sum = (xs: { tariffKop: number }[]) => xs.reduce((n, x) => n + x.tariffKop, 0);
+  const l30 = ok.filter((o) => o.tariffBps === 3000);
+  const l15 = ok.filter((o) => o.tariffBps === 1500);
+  const servicesKop = sum(l30) + sum(l15);
+  const returnedKop = sum(p.returnedTariffs);
+  return {
+    number: `S-${p.period.replace("-", "")}-${actCode8(p.authorId)}`,
+    period: p.period,
+    lines: {
+      tariff30: { count: l30.length, sumKop: sum(l30) },
+      tariff15: { count: l15.length, sumKop: sum(l15) },
+      returned: { count: p.returnedTariffs.length, sumKop: returnedKop },
+    },
+    servicesKop,
+    servicesInWords: uahInWords(servicesKop),
+    returnedKop,
+    returnedInWords: uahInWords(returnedKop),
+    reference: { paymentsKop: ok.reduce((n, o) => n + o.paidKop, 0), bankFeeKop: ok.reduce((n, o) => n + o.bankFeeKop, 0) },
+    register: p.orders.map((o, i) => ({
+      n: i + 1,
+      order: actCode8(o.purchaseId),
+      paidAt: o.paidAt,
+      creditedAt: o.creditedAt,
+      material: actCode8(o.contentId),
+      fiscalNo: o.fiscalNo,
+      listKop: o.listKop,
+      discountKop: o.discountKop,
+      paidKop: o.paidKop,
+      source: o.source,
+      tariffPct: o.tariffBps / 100,
+      tariffKop: o.tariffKop,
+      bankFeeKop: o.bankFeeKop,
+      creditedToAuthorKop: o.paidKop - o.tariffKop - o.bankFeeKop,
+      status: o.status,
+      refundedAt: o.refundedAt,
+      returnFiscalNo: o.returnFiscalNo,
+    })),
+  };
+}
+
+// ── /tax registers ────────────────────────────────────────────────────────
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
@@ -1928,6 +2183,14 @@ async function runJobs() {
     } catch (e) {
       res.errors.push(`mono statement: ${e instanceof Error ? e.message : e}`);
     }
+  }
+
+  // 5b) monthly acts (Б38) and their silent acceptance
+  try {
+    const acts = await runActs();
+    (res as Record<string, unknown>).acts = acts;
+  } catch (e) {
+    res.errors.push(`acts: ${e instanceof Error ? e.message : e}`);
   }
 
   // 6) fiscal receipts: queue what a webhook could not (the sender to the cash service comes with the PRRO connection)
@@ -2341,6 +2604,120 @@ async function queueReceipts(row: MonoRow, kind: FiscalKind) {
   }
 }
 
+
+// ── acts (Б38) ──────────────────────────────────────────────────────────────
+
+/** Kyiv calendar month as a UTC range: "2026-11" → [2026-10-31T22:00Z, 2026-11-30T22:00Z). */
+function kyivMonthRange(period: string): { from: string; to: string } {
+  const [y, m] = period.split("-").map(Number);
+  // Kyiv is UTC+2 in winter and UTC+3 in summer: the offset at noon UTC on the 1st of the month
+  const off = (yy: number, mm: number) => {
+    const h = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", hour: "2-digit", hourCycle: "h23" }).format(new Date(Date.UTC(yy, mm - 1, 1, 12))));
+    return h - 12;
+  };
+  const ny = m === 12 ? y + 1 : y, nm = m === 12 ? 1 : m + 1;
+  return {
+    from: new Date(Date.UTC(y, m - 1, 1) - off(y, m) * 3_600_000).toISOString(),
+    to: new Date(Date.UTC(ny, nm - 1, 1) - off(ny, nm) * 3_600_000).toISOString(),
+  };
+}
+
+/** Working days skip weekends and the dates in business_holidays (empty while martial law makes holidays working days). */
+async function workingDaysFrom(day: string, n: number): Promise<string> {
+  const { data } = await admin.from("business_holidays").select("day").gte("day", day).limit(60);
+  return addWorkingDays(day, n, new Set((data ?? []).map((r) => String(r.day))));
+}
+
+/** The customer's details as of the act's date — a primary document keeps them, later changes do not rewrite it. */
+async function actCustomerOf(authorId: string) {
+  const [{ data: r }, { data: d }] = await Promise.all([
+    admin.from("author_mono_receivers").select("legal_name, ipn").eq("author_id", authorId).maybeSingle(),
+    admin.from("author_details").select("tax_system, vat_payer").eq("profile_id", authorId).maybeSingle(),
+  ]);
+  return { legalName: r?.legal_name ?? null, code: r?.ipn ? String(r.ipn) : null, taxSystem: d?.tax_system ?? null, vatPayer: !!d?.vat_payer };
+}
+
+async function actDataFor(authorId: string, period: string) {
+  const { from, to } = kyivMonthRange(period);
+  const { data: pays } = await admin.from("finance_payments").select("*").eq("author_id", authorId).gte("confirmed_at", from).lt("confirmed_at", to);
+  const list = pays ?? [];
+  const ids = list.map((x) => x.purchase_id);
+  const [{ data: invs }, { data: rec }, { data: refunds }, { data: tasks }] = await Promise.all([
+    ids.length ? admin.from("mono_invoices").select("id, payment_info, bank_fee_kop, list_kop, discount_kop, promo_code_id").in("id", ids) : Promise.resolve({ data: [] }),
+    ids.length ? admin.from("fiscal_receipts").select("invoice_id, kind, fiscal_code").eq("issuer", "author").in("invoice_id", ids) : Promise.resolve({ data: [] }),
+    admin.from("finance_refunds").select("order_id, sensoria_share_kop, created_at").eq("author_id", authorId).gte("created_at", from).lt("created_at", to),
+    admin.from("tariff_refund_tasks").select("purchase_id, amount_kop, paid_at").eq("author_id", authorId).eq("status", "paid").gte("paid_at", from).lt("paid_at", to),
+  ]);
+  // deno-lint-ignore no-explicit-any
+  const inv = new Map<string, any>((invs ?? []).map((r: { id: string }) => [r.id, r]));
+  const fno = (id: string, kind: string) => (rec ?? []).find((r) => r.invoice_id === id && r.kind === kind)?.fiscal_code ?? null;
+  const orders: ActOrder[] = list.map((x) => {
+    const i = inv.get(x.purchase_id) ?? {};
+    const tariff = agentFeeKopOf(i.payment_info) ?? Number(x.sensoria_kop);
+    const fee = i.bank_fee_kop != null ? Number(i.bank_fee_kop) : estimatedBankFeeKop(Number(x.amount_kop), x.card_origin === "foreign");
+    const refunded = Number(x.refunded_kop) >= Number(x.amount_kop);
+    return {
+      purchaseId: x.purchase_id, contentId: x.content_id ?? x.purchase_id, paidAt: x.confirmed_at, creditedAt: null,
+      listKop: Number(i.list_kop ?? x.amount_kop), discountKop: Number(i.discount_kop ?? 0), paidKop: Number(x.amount_kop),
+      source: i.promo_code_id ? "promo" : x.sale_source === "referral" ? "referral" : "catalog",
+      tariffBps: Number(x.commission_bps), tariffKop: tariff, bankFeeKop: fee, fiscalNo: fno(x.purchase_id, "sale"),
+      status: x.dispute_outcome === "lost" ? "chargeback" : refunded ? "refunded" : "paid",
+      refundedAt: refunded ? x.dispute_closed_at ?? x.updated_at ?? null : null, returnFiscalNo: fno(x.purchase_id, "return"),
+    };
+  });
+  // (б) the tariff returned this month: by the bank with a refund, or repaid by Sensoria after a lost chargeback
+  const returned = [
+    ...(refunds ?? []).filter((r) => Number(r.sensoria_share_kop) > 0).map((r) => ({ purchaseId: r.order_id, tariffKop: Number(r.sensoria_share_kop) })),
+    ...(tasks ?? []).map((t) => ({ purchaseId: t.purchase_id, tariffKop: Number(t.amount_kop) })),
+  ];
+  return { ...buildAct({ period, authorId, orders, returnedTariffs: returned }), customer: await actCustomerOf(authorId) };
+}
+
+/** Days 1–5 of a month: drafts of the acts for the previous month (Sensoria signs each with КЕП and uploads it — only then
+ *  is it placed for the author, see actSigned); after 5 working days without an answer — accepted silently. */
+async function runActs(): Promise<{ issued: number; silent: number }> {
+  const out = { issued: 0, silent: 0 };
+  const today = kyivDay(nowIso());
+  const [y, m, d] = today.split("-").map(Number);
+  if (d <= 5) {
+    const prev = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+    const { from, to } = kyivMonthRange(prev);
+    const { data: who } = await admin.from("finance_payments").select("author_id").gte("confirmed_at", from).lt("confirmed_at", to).limit(5000);
+    const { data: who2 } = await admin.from("finance_refunds").select("author_id").gte("created_at", from).lt("created_at", to).limit(5000);
+    const authors = [...new Set([...(who ?? []), ...(who2 ?? [])].map((r) => r.author_id as string))];
+    for (const a of authors) {
+      const { data: have } = await admin.from("service_acts").select("id").eq("author_id", a).eq("period", prev).maybeSingle();
+      if (have) continue;
+      const act = await actDataFor(a, prev);
+      const { error } = await admin.from("service_acts").insert({ author_id: a, period: prev, number: act.number, data: act, status: "draft", accept_until: today });
+      if (!error) out.issued += 1;
+    }
+    if (out.issued) await admin.from("admin_alert_outbox").insert({ kind: "acts_to_sign", title: "Акти до підпису КЕП", urgent: false, details: `Акти за ${prev}: ${out.issued}. Завантажте PDF в адмінці «Фінанси», підпишіть на id.gov.ua і завантажте підписані файли.` }).then(() => {}, () => {});
+  }
+  const { data: silent } = await admin.from("service_acts").update({ status: "accepted_silent", decided_at: nowIso() }).eq("status", "issued").lt("accept_until", today).select("id");
+  out.silent = silent?.length ?? 0;
+  return out;
+}
+
+// signed acts: id.gov.ua gives .p7s (the PDF inside) or an ASiC container; a signed PDF is accepted too
+const ACTS_BUCKET = "service-acts";
+const ACT_FILE_EXT = ["p7s", "asice", "asics", "pdf"];
+async function actUploadSlot(actId: string, who: "operator" | "author", fileName: string) {
+  const ext = (fileName.split(".").pop() ?? "").toLowerCase();
+  if (!ACT_FILE_EXT.includes(ext)) throw new FinanceError("bad_act_file", "Завантажте файл, підписаний на id.gov.ua: .p7s, .asice, .asics або .pdf.");
+  const path = `${actId}/${who}-${Date.now()}.${ext}`;
+  const { data, error } = await admin.storage.from(ACTS_BUCKET).createSignedUploadUrl(path);
+  if (error || !data) throw new FinanceError("act_upload", "Не вдалося підготувати завантаження. Спробуйте пізніше.");
+  return { path, token: data.token };
+}
+/** The client says it uploaded `path`: it must be this act's own slot and really be in the bucket. */
+async function actUploadedPath(actId: string, who: "operator" | "author", path: string): Promise<string> {
+  if (!new RegExp(`^${actId}/${who}-\\d+\\.(${ACT_FILE_EXT.join("|")})$`).test(path)) throw new FinanceError("bad_act_file", "Файл не знайдено.");
+  const { data } = await admin.storage.from(ACTS_BUCKET).list(actId, { search: path.split("/")[1] });
+  if (!data?.some((f) => `${actId}/${f.name}` === path)) throw new FinanceError("bad_act_file", "Файл не завантажився. Спробуйте ще раз.");
+  return path;
+}
+
 // monobank's webhook addresses (bank, 18.11.2026)
 const MONO_WEBHOOK_IPS = ["3.123.182.27", "63.180.143.70"];
 
@@ -2600,6 +2977,52 @@ Deno.serve(async (req) => {
     }
 
     // ── an author's own actions ──
+    if (["taxProfile", "setTaxProfile", "myActs", "actDecision", "actFile", "actAuthorUploadUrl", "actAuthorSigned"].includes(action)) {
+      if (prof?.role !== "author") return json({ error: "Лише для авторів." }, 403);
+      if (action === "taxProfile") {
+        const { data } = await admin.from("author_details").select("tax_system, vat_payer, tax_profile_updated_at").eq("profile_id", user.id).maybeSingle();
+        return json({ ok: true, taxSystem: data?.tax_system ?? null, vatPayer: !!data?.vat_payer, updatedAt: data?.tax_profile_updated_at ?? null });
+      }
+      if (action === "setTaxProfile") {
+        const sys = String(payload.taxSystem ?? "");
+        if (!["fop2", "fop3", "fop_general", "tov3", "tov_general"].includes(sys)) throw new FinanceError("bad_tax_system", "Оберіть систему оподаткування.");
+        const { error } = await admin.from("author_details").update({ tax_system: sys, vat_payer: !!payload.vatPayer, tax_profile_updated_at: nowIso() }).eq("profile_id", user.id);
+        if (error) throw new FinanceError("tax_profile", "Не вдалося зберегти. Спробуйте пізніше.");
+        return json({ ok: true });
+      }
+      if (action === "myActs") {
+        const { data } = await admin.from("service_acts").select("id, period, number, data, issued_at, accept_until, status, decided_at, objection, operator_signed_at, author_signed_at")
+          .eq("author_id", user.id).neq("status", "draft").order("period", { ascending: false }).limit(24);
+        return json({ ok: true, acts: data ?? [] });
+      }
+      if (action === "actFile") {
+        const which = payload.which === "author" ? "author" : "operator";
+        const { data: a } = await admin.from("service_acts").select("operator_signed_path, author_signed_path").eq("id", String(payload.actId)).eq("author_id", user.id).neq("status", "draft").maybeSingle();
+        const path = which === "author" ? a?.author_signed_path : a?.operator_signed_path;
+        if (!path) throw new FinanceError("no_act_file", "Підписаного файлу ще немає.");
+        const { data: url } = await admin.storage.from(ACTS_BUCKET).createSignedUrl(path, 120, { download: true });
+        if (!url?.signedUrl) throw new FinanceError("act_file", "Не вдалося відкрити файл. Спробуйте пізніше.");
+        return json({ ok: true, url: url.signedUrl });
+      }
+      if (action === "actAuthorUploadUrl" || action === "actAuthorSigned") {
+        const { data: a } = await admin.from("service_acts").select("id, number, status, author_signed_path").eq("id", String(payload.actId)).eq("author_id", user.id)
+          .in("status", ["issued", "accepted", "accepted_silent", "signed"]).maybeSingle();
+        if (!a) throw new FinanceError("act_closed", "Акт недоступний для підписання.");
+        if (action === "actAuthorUploadUrl") return json({ ok: true, ...(await actUploadSlot(a.id, "author", String(payload.fileName ?? ""))) });
+        const path = await actUploadedPath(a.id, "author", String(payload.path ?? ""));
+        await admin.from("service_acts").update({ author_signed_path: path, author_signed_at: nowIso(), status: "signed", decided_at: nowIso() }).eq("id", a.id);
+        return json({ ok: true });
+      }
+      const decision = payload.decision === "object" ? "object" : "accept";
+      const objection = String(payload.objection ?? "").trim().slice(0, 2000);
+      if (decision === "object" && objection.length < 10) throw new FinanceError("no_objection", "Опишіть заперечення (не менше 10 символів).");
+      const { data: act } = await admin.from("service_acts").update(decision === "accept" ? { status: "accepted", decided_at: nowIso() } : { status: "objected", decided_at: nowIso(), objection })
+        .eq("id", String(payload.actId)).eq("author_id", user.id).eq("status", "issued").select("id, number").maybeSingle();
+      if (!act) throw new FinanceError("act_closed", "Цей акт уже прийнято або строк для заперечень минув.");
+      if (decision === "object") await admin.from("admin_alert_outbox").insert({ kind: "act_objection", title: "Заперечення до акта", urgent: false, details: `Акт ${act.number}: ${objection}` }).then(() => {}, () => {});
+      return json({ ok: true });
+    }
+
     if (action === "prroStatus" || action === "connectPrro") {
       if (prof?.role !== "author") return json({ error: "Лише для авторів." }, 403);
       if (action === "prroStatus") {
@@ -2868,6 +3291,115 @@ Deno.serve(async (req) => {
         await revokePaidAccess(after.purchase_id as string);
       }
       await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: `refund_${kind}`, entity_type: "payment", entity_id: pay.id, reason, previous_value: null, new_value: { key: plan?.key } });
+      return json({ ok: true });
+    }
+
+    // Б39 / В6: the dispute is closed by the bank's letter
+    if (action === "closeDispute") {
+      if (!reason) throw new FinanceError("reason_required", "Вкажіть причину (номер листа банку).");
+      const outcome = payload.outcome === "lost" ? "lost" : "won";
+      const debitedFrom = payload.debitedFrom === "author_full" ? "author_full" : "proportional";
+      const debitedAt = /^\d{4}-\d{2}-\d{2}$/.test(String(payload.debitedAt ?? "")) ? String(payload.debitedAt) : kyivDay(nowIso());
+      const { data: pay } = await admin.from("finance_payments").select("*").eq("id", String(payload.paymentId)).single();
+      if (!pay) throw new FinanceError("no_payment", "Платіж не знайдено.");
+      if (outcome === "won") {
+        await admin.from("finance_payments").update({ disputed: false, dispute_outcome: "won", dispute_closed_at: nowIso() }).eq("id", pay.id);
+        await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: "dispute_won", entity_type: "payment", entity_id: pay.id, reason });
+        return json({ ok: true });
+      }
+      // lost: the buyer got the money back — books as a chargeback, access ends, return receipts
+      await applyWithRetry(async () => {
+        const [account, fresh, reserveRows] = await Promise.all([
+          loadAccount(pay.author_id),
+          admin.from("finance_payments").select("*").eq("id", pay.id).single(),
+          admin.from("refund_reserves").select("*").eq("payment_id", pay.id).limit(1),
+        ]);
+        const payment = toPayment(fresh.data);
+        const amountKop = payment.amountKop - payment.refundedKop;
+        if (amountKop <= 0) return null;
+        return planRefund({
+          now: nowIso(), account, payment, reserve: reserveRows.data?.[0] ? toReserve(reserveRows.data[0]) : null,
+          refundId: uuid(), debtId: uuid(), idempotencyKey: `chargeback:${pay.id}`, amountKop, kind: "chargeback", reason,
+        });
+      }, user.id).catch((e) => {
+        if (e instanceof FinanceError && e.code === "duplicate") return null;
+        throw e;
+      });
+      await admin.from("finance_payments").update({ disputed: false, dispute_outcome: "lost", dispute_debited_from: debitedFrom, dispute_closed_at: nowIso() }).eq("id", pay.id);
+      await revokePaidAccess(pay.purchase_id);
+      const { data: row } = await admin.from("mono_invoices").select("*").eq("id", pay.purchase_id).maybeSingle();
+      if (row) {
+        await queueReceipts(row as MonoRow, "return");
+        await fiscalSendDue(row.id).catch((e) => console.error("fiscal send", row.id, e));
+      }
+      // the bank took everything from the author: Sensoria repays its tariff within 5 working days, a separate payment
+      if (debitedFrom === "author_full") {
+        const tariff = agentFeeKopOf(row?.payment_info) ?? Number(pay.sensoria_kop);
+        const due = await workingDaysFrom(debitedAt, 5);
+        await admin.from("tariff_refund_tasks").upsert(
+          { payment_id: pay.id, purchase_id: pay.purchase_id, author_id: pay.author_id, amount_kop: tariff, debited_at: debitedAt, due_date: due },
+          { onConflict: "payment_id", ignoreDuplicates: true },
+        );
+        await admin.from("admin_alert_outbox").insert({ kind: "tariff_refund", title: "Повернути тариф Автору", urgent: true, details: `Програний чарджбек, замовлення ${String(pay.purchase_id).slice(0, 8)}: перерахуйте автору ${(tariff / 100).toFixed(2)} ₴ до ${due} окремим платежем.` }).then(() => {}, () => {});
+      }
+      await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: "dispute_lost", entity_type: "payment", entity_id: pay.id, reason, new_value: { debitedFrom, debitedAt } });
+      return json({ ok: true });
+    }
+    if (action === "tariffTasks") {
+      const { data } = await admin.from("tariff_refund_tasks").select("*").eq("status", "open").order("due_date");
+      const ids = [...new Set((data ?? []).map((t) => t.author_id))];
+      const [{ data: profs }, { data: rcv }] = await Promise.all([
+        ids.length ? admin.from("profiles").select("id, name").in("id", ids) : Promise.resolve({ data: [] }),
+        ids.length ? admin.from("author_mono_receivers").select("author_id, legal_name, ipn").in("author_id", ids) : Promise.resolve({ data: [] }),
+      ]);
+      return json({
+        tasks: (data ?? []).map((t) => ({
+          ...t,
+          authorName: (profs ?? []).find((p) => p.id === t.author_id)?.name ?? "—",
+          legalName: (rcv ?? []).find((r) => r.author_id === t.author_id)?.legal_name ?? null,
+          code: (rcv ?? []).find((r) => r.author_id === t.author_id)?.ipn ?? null,
+        })),
+      });
+    }
+    if (action === "tariffTaskPaid") {
+      if (!reason) throw new FinanceError("reason_required", "Вкажіть причину.");
+      const ref = String(payload.bankReference ?? "").trim();
+      if (ref.length < 3) throw new FinanceError("no_reference", "Вкажіть номер платіжної інструкції з банку.");
+      const { data: t } = await admin.from("tariff_refund_tasks").update({ status: "paid", paid_at: nowIso(), bank_reference: ref.slice(0, 120) }).eq("id", String(payload.taskId)).eq("status", "open").select("*").maybeSingle();
+      if (!t) throw new FinanceError("no_task", "Завдання не знайдено або вже закрите.");
+      await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: "tariff_refunded_to_author", entity_type: "payment", entity_id: t.payment_id, reason, new_value: { amountKop: t.amount_kop, bankReference: ref } });
+      await admin.from("financial_notifications").insert({ author_id: t.author_id, event_type: "TARIFF_REFUNDED", dedupe_key: `tariff-refund:${t.id}`, message: `Sensoria повернула вам тариф ${(Number(t.amount_kop) / 100).toFixed(2)} ₴ за замовленням ${String(t.purchase_id).slice(0, 8)} після програного спору щодо платежу.` }).then(() => {}, () => {});
+      return json({ ok: true });
+    }
+
+    // Б38: Sensoria signs each act with КЕП on id.gov.ua; the signed file is what the author gets
+    if (action === "actsToSign") {
+      const period = /^\d{4}-\d{2}$/.test(String(payload.period ?? "")) ? String(payload.period) : null;
+      let q = admin.from("service_acts").select("id, author_id, period, number, data, issued_at, accept_until, status, decided_at, objection, operator_signed_at, author_signed_at").order("period", { ascending: false }).limit(300);
+      q = period ? q.eq("period", period) : q.eq("status", "draft");
+      const { data } = await q;
+      const ids = [...new Set((data ?? []).map((a) => a.author_id))];
+      const { data: profs } = ids.length ? await admin.from("profiles").select("id, name").in("id", ids) : { data: [] };
+      return json({ acts: (data ?? []).map((a) => ({ ...a, authorName: (profs ?? []).find((p) => p.id === a.author_id)?.name ?? "—" })) });
+    }
+    if (action === "actUploadUrl") {
+      const { data: a } = await admin.from("service_acts").select("id").eq("id", String(payload.actId)).maybeSingle();
+      if (!a) throw new FinanceError("no_act", "Акт не знайдено.");
+      return json({ ok: true, ...(await actUploadSlot(a.id, "operator", String(payload.fileName ?? ""))) });
+    }
+    if (action === "actSigned") {
+      const { data: a } = await admin.from("service_acts").select("id, author_id, period, number, status").eq("id", String(payload.actId)).maybeSingle();
+      if (!a) throw new FinanceError("no_act", "Акт не знайдено.");
+      const path = await actUploadedPath(a.id, "operator", String(payload.path ?? ""));
+      if (a.status === "draft") {
+        // placed for the author now: the 5 working days start today (issued_at stays the act's date, as in the signed PDF)
+        const today = kyivDay(nowIso());
+        await admin.from("service_acts").update({ operator_signed_path: path, operator_signed_at: nowIso(), status: "issued", accept_until: await workingDaysFrom(today, 5) }).eq("id", a.id);
+        await admin.from("financial_notifications").insert({ author_id: a.author_id, event_type: "ACT_ISSUED", dedupe_key: `act:${a.period}`, message: `Акт № ${a.number} про надання послуг за ${a.period}, підписаний КЕП Sensoria, розміщено в «Фінансах». Якщо маєте заперечення, надішліть їх протягом 5 робочих днів.` }).then(() => {}, () => {});
+      } else {
+        await admin.from("service_acts").update({ operator_signed_path: path, operator_signed_at: nowIso() }).eq("id", a.id);
+      }
+      await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: "act_signed_by_operator", entity_type: "service_act", entity_id: a.id, reason: reason || "КЕП", new_value: { path } });
       return json({ ok: true });
     }
 

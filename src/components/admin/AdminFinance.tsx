@@ -8,6 +8,7 @@ import ConfirmDialog from "../author/public/ConfirmDialog";
 import { STATUS_LABEL, TYPE_LABEL, uahFromKop } from "../../utils/financeView";
 
 import BrandSelect from "../ui/BrandSelect";
+import AdminActs from "./AdminActs";
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 type Overview = {
@@ -52,6 +53,16 @@ export default function AdminFinance() {
   const [mono, setMono] = useState<{ receivers: Row[]; bank: Row[]; bankError: string | null }>({ receivers: [], bank: [], bankError: null });
   const [rcvIds, setRcvIds] = useState<Record<string, string>>({});
   const [feePaid, setFeePaid] = useState({ amount: "", surplus: false });
+  // Б39: tariffs Sensoria owes back to authors after a lost chargeback
+  const [tariffTasks, setTariffTasks] = useState<Row[]>([]);
+  const [taskRefs, setTaskRefs] = useState<Record<string, string>>({});
+  // a lost dispute: first check Sensoria's bank statement, then one button for what it shows
+  const [lostCheck, setLostCheck] = useState<string | null>(null);
+  const loadTariffTasks = async () => {
+    const r = await callFinance<{ tasks: Row[] }>({ action: "tariffTasks" }).catch(() => ({ tasks: [] as Row[] }));
+    setTariffTasks(r.tasks);
+  };
+  useEffect(() => { void loadTariffTasks(); }, []);
   const [detail, setDetail] = useState<Row | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -192,6 +203,31 @@ export default function AdminFinance() {
           </div>
         </>
       )}
+
+      {/* Б39: lost chargebacks where the bank took everything from the author — Sensoria repays its tariff */}
+      {owner && tariffTasks.length > 0 && (
+        <section className="rounded-2xl bg-white border border-rose-100 p-5">
+          <h3 className="text-[16px] font-semibold mb-1">Повернути тариф Автору ({tariffTasks.length})</h3>
+          <p className="text-[13px] text-black/50 mb-3">Окремий безготівковий платіж з рахунку Sensoria на рахунок автора протягом 5 робочих днів після списання. Без заліку. Після оплати вкажіть номер платіжної інструкції.</p>
+          <div className="flex flex-col gap-2">
+            {tariffTasks.map((t) => (
+              <div key={t.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-black/5 px-4 py-3 text-[13px]">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium">{t.legalName ?? t.authorName} · {k(t.amount_kop)}</div>
+                  <div className="text-black/50">Код {t.code ?? "—"} · замовлення {String(t.purchase_id).slice(0, 8)} · списано {t.debited_at} · сплатити до <b className="text-rose-700">{t.due_date}</b></div>
+                </div>
+                <input value={taskRefs[t.id] ?? ""} onChange={(e) => setTaskRefs({ ...taskRefs, [t.id]: e.target.value })} placeholder="№ платіжки" className="w-32 px-2 py-1.5 rounded-lg border border-black/10" />
+                <button disabled={!(taskRefs[t.id] ?? "").trim()} onClick={() => ask({
+                  title: `Тариф ${k(t.amount_kop)} повернено автору?`, confirmLabel: "Сплачено", danger: false,
+                  run: async (reason) => { await callFinance({ action: "tariffTaskPaid", taskId: t.id, bankReference: taskRefs[t.id], reason }); await loadTariffTasks(); setInfo("Повернення тарифу записано."); },
+                })} className="px-3 py-1.5 rounded-lg border border-emerald-200 text-emerald-800 bg-emerald-50 disabled:opacity-30">Сплачено</button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {owner && <AdminActs />}
 
       {/* MONOBANK SPLIT: authors' FOP/TOV linked to monobank's splitReceiverId */}
       {owner && (
@@ -450,11 +486,39 @@ export default function AdminFinance() {
                             title: "Часткове повернення", confirmLabel: "Повернути", danger: true,
                             run: async (reason) => { await callFinance({ action: "refund", paymentId: p.id, kind: "partial", amountKop: Math.round(Number(partial[p.id].replace(",", ".")) * 100), reason, requestKey: key() }); setPartial({ ...partial, [p.id]: "" }); await refreshAll(authorId); },
                           })} className="px-3 py-1.5 rounded-lg border border-black/10 disabled:opacity-30">Повернути частину</button>
-                          <button disabled={!owner} onClick={() => ask({
-                            title: p.disputed ? "Закрити спір?" : "Позначити платіж спірним?", confirmLabel: "Підтвердити", danger: false,
-                            text: p.disputed ? undefined : "Спірні кошти не стають доступними автору, поки спір відкритий.",
-                            run: async (reason) => { await callFinance({ action: "markDisputed", paymentId: p.id, disputed: !p.disputed, reason }); await refreshAll(authorId); },
-                          })} className="px-3 py-1.5 rounded-lg border border-black/10 disabled:opacity-30">{p.disputed ? "Закрити спір" : "Спір"}</button>
+                          {!p.disputed ? (
+                            <button disabled={!owner} onClick={() => ask({
+                              title: "Позначити платіж спірним?", confirmLabel: "Підтвердити", danger: false,
+                              text: "Спірні кошти не стають доступними автору, поки спір відкритий.",
+                              run: async (reason) => { await callFinance({ action: "markDisputed", paymentId: p.id, disputed: true, reason }); await refreshAll(authorId); },
+                            })} className="px-3 py-1.5 rounded-lg border border-black/10 disabled:opacity-30">Спір</button>
+                          ) : (
+                            <>
+                              <button disabled={!owner} onClick={() => ask({
+                                title: "Спір вирішено на користь автора?", confirmLabel: "Спір виграно", danger: false,
+                                text: "Платіж знову звичайний, доступ покупця не змінюється.",
+                                run: async (reason) => { await callFinance({ action: "closeDispute", paymentId: p.id, outcome: "won", reason }); await refreshAll(authorId); },
+                              })} className="px-3 py-1.5 rounded-lg border border-emerald-200 text-emerald-800 bg-emerald-50 disabled:opacity-30">Спір виграно</button>
+                              {lostCheck !== p.id ? (
+                                <button disabled={!owner} onClick={() => setLostCheck(p.id)} className="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-700 bg-rose-50 disabled:opacity-30">Спір програно</button>
+                              ) : (
+                                <span className="flex flex-wrap items-center gap-2 rounded-lg bg-rose-50 px-3 py-1.5 text-rose-800">
+                                  Виписка Sensoria: банк списав тариф з рахунку Sensoria?
+                                  <button onClick={() => ask({
+                                    title: "Тариф списано з рахунку Sensoria", confirmLabel: "Спір програно", danger: true,
+                                    text: "Банк списав пропорційно: тариф уже повернувся покупцю з рахунку Sensoria, окремого платежу автору не потрібно. Доступ покупця припиниться, сформуються чеки повернення.",
+                                    run: async (reason) => { await callFinance({ action: "closeDispute", paymentId: p.id, outcome: "lost", debitedFrom: "proportional", reason }); setLostCheck(null); await refreshAll(authorId); },
+                                  })} className="px-2.5 py-1 rounded-lg bg-white border border-rose-200">Так, списано</button>
+                                  <button onClick={() => ask({
+                                    title: "Тариф не списано: усю суму взяли з автора", confirmLabel: "Спір програно", danger: true,
+                                    text: "Sensoria має повернути автору свій тариф окремим платежем протягом 5 робочих днів — з’явиться завдання «Повернути тариф Автору». Доступ покупця припиниться, сформуються чеки повернення. Дата списання — сьогодні.",
+                                    run: async (reason) => { await callFinance({ action: "closeDispute", paymentId: p.id, outcome: "lost", debitedFrom: "author_full", reason }); setLostCheck(null); await refreshAll(authorId); await loadTariffTasks(); },
+                                  })} className="px-2.5 py-1 rounded-lg bg-white border border-rose-200">Ні, усе з автора</button>
+                                  <button onClick={() => setLostCheck(null)} className="px-2 py-1 text-black/50">Скасувати</button>
+                                </span>
+                              )}
+                            </>
+                          )}
                         </>
                       )}
                     </div>

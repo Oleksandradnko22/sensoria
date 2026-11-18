@@ -197,6 +197,38 @@ export const saveBankAccount = (v: { iban: string; bankName: string; holderName:
   callFinance<{ ok: true; status: string; unchanged?: boolean }>({ action: "saveBankAccount", ...v });
 export type MonoConnection = { status: "none" | "requested" | "active" | "disabled"; ipnLast4: string | null; legalName: string | null; updatedAt: string | null };
 export const fetchMonoConnection = () => callFinance<{ ok: true } & MonoConnection>({ action: "monoConnection" });
+// Б41: the author's tax system; Б38: monthly acts of Sensoria's services
+export type TaxSystem = "fop2" | "fop3" | "fop_general" | "tov3" | "tov_general";
+export const fetchTaxProfile = () => callFinance<{ ok: true; taxSystem: TaxSystem | null; vatPayer: boolean; updatedAt: string | null }>({ action: "taxProfile" });
+export const saveTaxProfile = (v: { taxSystem: TaxSystem; vatPayer: boolean }) => callFinance<{ ok: true }>({ action: "setTaxProfile", ...v });
+export type ActStatus = "draft" | "issued" | "accepted" | "accepted_silent" | "objected" | "signed";
+export type ServiceAct = {
+  id: string; period: string; number: string; data: ActData; issued_at: string; accept_until: string; status: ActStatus; decided_at: string | null; objection: string | null;
+  operator_signed_at: string | null; author_signed_at: string | null;
+};
+export type ActData = {
+  number: string; period: string; servicesKop: number; servicesInWords: string; returnedKop: number; returnedInWords: string;
+  lines: { tariff30: { count: number; sumKop: number }; tariff15: { count: number; sumKop: number }; returned: { count: number; sumKop: number } };
+  reference: { paymentsKop: number; bankFeeKop: number };
+  /** the customer as of the act's date (absent in acts made before 18.11.2026) */
+  customer?: { legalName: string | null; code: string | null; taxSystem: TaxSystem | null; vatPayer: boolean };
+  register: { n: number; order: string; paidAt: string; material: string; fiscalNo: string | null; listKop: number; discountKop: number; paidKop: number; source: string; tariffPct: number; tariffKop: number; bankFeeKop: number; creditedToAuthorKop: number; status: string; returnFiscalNo: string | null }[];
+};
+export const fetchMyActs = () => callFinance<{ ok: true; acts: ServiceAct[] }>({ action: "myActs" });
+/** A signed copy of an act (КЕП from id.gov.ua): a short-lived link to download it. */
+export const actFileUrl = (actId: string, which: "operator" | "author") => callFinance<{ ok: true; url: string }>({ action: "actFile", actId, which });
+/** Uploads a file signed on id.gov.ua: the server gives a one-time slot in the private bucket, then checks the file is there.
+ *  "operator" — Sensoria's signature (owner, admin), "author" — the author's own (ТОВ, ФОП на загальній системі). */
+export async function uploadSignedAct(who: "operator" | "author", actId: string, file: File): Promise<void> {
+  if (!supabase) throw new Error("Supabase не налаштований.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("Файл більший за 10 МБ.");
+  const slot = await callFinance<{ path: string; token: string }>({ action: who === "operator" ? "actUploadUrl" : "actAuthorUploadUrl", actId, fileName: file.name });
+  const { error } = await supabase.storage.from("service-acts").uploadToSignedUrl(slot.path, slot.token, file, { contentType: file.type || "application/octet-stream" });
+  if (error) throw new Error("Файл не завантажився. Спробуйте ще раз.");
+  await callFinance({ action: who === "operator" ? "actSigned" : "actAuthorSigned", actId, path: slot.path, reason: "КЕП" });
+}
+export const decideAct = (actId: string, decision: "accept" | "object", objection?: string) => callFinance<{ ok: true }>({ action: "actDecision", actId, decision, objection });
+
 /** The author's cash register for fiscal receipts (ТЗ 3.4): the key and PIN go to the server only (Vault). */
 export type PrroStatus = { status: "none" | "pending" | "active" | "error" | "disabled"; lastError: string | null; updatedAt: string | null };
 export const fetchPrroStatus = () => callFinance<{ ok: true } & PrroStatus>({ action: "prroStatus" });

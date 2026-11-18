@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   GROUP3_LIMIT_2026_KOP, differentQuarters, incomeBook, kyivDay, kyivQuarter, limitLevel, monthlyAct, quarterIncomeKop,
-  refundOfEarlierQuarter, registerRow, rolling12Kop, vatLevel,
+  refundOfEarlierQuarter, registerRow, rolling12Kop, vatLevel, addWorkingDays, buildAct, uahInWords, type ActOrder,
 } from "./taxRegister.ts";
 
 test("register: paid = tariff + bank fee + credited to the author, to the kopeck", () => {
@@ -60,4 +60,43 @@ test("limits: group 3 in 2026 warns at 80 % and 95 %; VAT watch at 800 000 and 1
     { creditedAt: "2026-07-01T10:00:00Z", tariffKop: 1_000_000, kind: "refund" as const },
   ];
   assert.equal(rolling12Kop(e, "2026-11-18T12:00:00Z"), 39_000_000);
+});
+
+
+test("working days: Friday + 5 → next Friday; Wednesday + 3 → Monday", () => {
+  assert.equal(addWorkingDays("2026-11-20", 5), "2026-11-27");
+  assert.equal(addWorkingDays("2026-11-18", 3), "2026-11-23");
+  // a holiday from business_holidays (after martial law ends) is skipped
+  assert.equal(addWorkingDays("2026-12-30", 2, new Set(["2027-01-01"])), "2027-01-04");
+});
+
+test("amount in words for the act", () => {
+  assert.equal(uahInWords(30000), "триста гривень 00 копійок");
+  assert.equal(uahInWords(90000), "дев'ятсот гривень 00 копійок");
+  assert.equal(uahInWords(15001), "сто п'ятдесят гривень 01 копійка");
+  assert.equal(uahInWords(212345), "дві тисячі сто двадцять три гривні 45 копійок");
+  assert.equal(uahInWords(0), "нуль гривень 00 копійок");
+});
+
+const order = (o: Partial<ActOrder>): ActOrder => ({
+  purchaseId: "a1b2c3d4-0000-4000-8000-000000000001", contentId: "c0ffee12-0000-4000-8000-000000000002", paidAt: "2026-11-05T10:00:00Z",
+  creditedAt: "2026-11-06T07:00:00Z", listKop: 100000, discountKop: 0, paidKop: 100000, source: "catalog", tariffBps: 3000, tariffKop: 30000,
+  bankFeeKop: 1300, fiscalNo: "FC1", status: "paid", refundedAt: null, returnFiscalNo: null, ...o,
+});
+
+test("act: 3 catalog sales of 1000 + 1 refund → line 1: 3 / 900,00; line 3: 1 / 300,00; register keeps every order", () => {
+  const act = buildAct({ period: "2026-11", authorId: "deadbeef-0000-4000-8000-000000000003", orders: [order({}), order({}), order({})], returnedTariffs: [{ purchaseId: "x", tariffKop: 30000 }] });
+  assert.equal(act.number, "S-202611-DEADBEEF");
+  assert.deepEqual(act.lines.tariff30, { count: 3, sumKop: 90000 });
+  assert.deepEqual(act.lines.returned, { count: 1, sumKop: 30000 });
+  assert.equal(act.servicesInWords, "дев'ятсот гривень 00 копійок");
+  assert.equal(act.register.length, 3);
+  assert.equal(act.register[0].creditedToAuthorKop, 68700);
+});
+
+test("lost chargeback, the bank took all 1000 from the author: the tariff (300) goes back to the author — line 3 of the act", () => {
+  const act = buildAct({ period: "2026-11", authorId: "deadbeef-0000-4000-8000-000000000003", orders: [order({ status: "chargeback", refundedAt: "2026-11-20T10:00:00Z" })], returnedTariffs: [{ purchaseId: "a1b2", tariffKop: 30000 }] });
+  // the service was rendered (line 1) and the tariff went back (line 3) — two lines, no net
+  assert.deepEqual(act.lines.tariff30, { count: 1, sumKop: 30000 });
+  assert.deepEqual(act.lines.returned, { count: 1, sumKop: 30000 });
 });

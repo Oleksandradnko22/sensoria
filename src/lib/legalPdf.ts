@@ -47,6 +47,8 @@ export async function downloadLegalPdf(p: {
   effectiveDate?: string;
   acceptance?: Acceptance | null;
   fileName: string;
+  /** replaces the «Редакція …» line (e.g. an act number and date) */
+  subtitle?: string;
 }): Promise<void> {
   const pages: HTMLCanvasElement[] = [];
   let ctx!: CanvasRenderingContext2D;
@@ -95,7 +97,7 @@ export async function downloadLegalPdf(p: {
   ctx.fillText("S E N S O R I A", LEFT, y);
   y += 28;
   para(p.title, 19, true, "#12172b", 6);
-  para(`Редакція ${p.edition}${p.effectiveDate ? ` · набирає чинності ${p.effectiveDate}` : ""}`, 10.5, false, "#6b6f86", 10);
+  para(p.subtitle ?? `Редакція ${p.edition}${p.effectiveDate ? ` · набирає чинності ${p.effectiveDate}` : ""}`, 10.5, false, "#6b6f86", 10);
 
   if (p.acceptance) {
     const lines = [

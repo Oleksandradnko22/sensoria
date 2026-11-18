@@ -7,6 +7,8 @@ import { Icon } from "../ui/Icon";
 import Switch from "../ui/Switch";
 import { HEALTH_CONSENT_NEEDED, onHealthConsent, revokeHealthConsent } from "../../lib/healthConsent";
 import { downloadAsJson, exportMyData } from "../../lib/dataExport";
+import { AUTHOR_IPK_TEMPLATE, DPS_NON_MONETARY_NOTE } from "../../data/ipkTemplate";
+import { fetchMonoConnection } from "../../lib/finance";
 import type { LegalSection } from "./LegalLayout";
 import { LEGAL } from "../../data/legalOperator";
 
@@ -118,6 +120,18 @@ export default function MyLegalDocuments({ role, className }: { role: "participa
     });
   }, [reload]);
 
+  // the author's name comes from the bank connection; the full tax code is never shown in the cabinet, so it is left to fill in
+  const downloadIpk = async () => {
+    const conn = await fetchMonoConnection().catch(() => null);
+    const text = conn?.legalName ? AUTHOR_IPK_TEMPLATE.replace("[ФОП / ТОВ «…»]", conn.legalName) : AUTHOR_IPK_TEMPLATE;
+    const url = URL.createObjectURL(new Blob(["\uFEFF" + text], { type: "text/plain;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "sensoria-zapyt-ipk-avtora.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const latest = (doc: string) => (rows ?? []).find((r) => r.document === doc && !r.withdrawn_at);
 
   return (
@@ -173,6 +187,21 @@ export default function MyLegalDocuments({ role, className }: { role: "participa
         })}
       </ul>
       {pdfError && <p role="alert" className="mt-3 text-[13px] text-red-700">{pdfError}</p>}
+
+      {role === "author" && (
+        <div className="mt-4 rounded-2xl bg-[#faf9ff] p-4 ring-1 ring-[#efecfb]">
+          <div className="text-[15px] font-semibold text-[#12172b]">Шаблон запиту на індивідуальну податкову консультацію (ІПК)</div>
+          <p className="mt-1 text-[13px] leading-relaxed text-black/60">{DPS_NON_MONETARY_NOTE}</p>
+          <button
+            type="button"
+            onClick={() => void downloadIpk()}
+            className="mt-3 inline-flex min-h-[38px] items-center rounded-xl bg-[#eef0fd] px-3.5 text-[13px] font-semibold text-[#4338ca] hover:bg-[#e4e7fc] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]"
+          >
+            Завантажити шаблон ІПК
+          </button>
+          <p className="mt-2 text-[12px] text-black/45">Подається через Електронний кабінет платника з вашим КЕП. Sensoria не надає податкових консультацій.</p>
+        </div>
+      )}
 
       {role === "participant" && (
         <ul className="mt-4 flex flex-col divide-y divide-[#f1eefb] rounded-2xl ring-1 ring-[#efecfb]">

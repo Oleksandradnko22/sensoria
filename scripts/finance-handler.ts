@@ -386,7 +386,15 @@ async function authorOverview(authorId: string) {
     notifications: notes.data ?? [],
     activity: activity.data ?? [],
     statusLog: statusLog.data ?? [],
-    payments: payments.data ?? [],
+    payments: await (async () => {
+      const list = payments.data ?? [];
+      const ids = list.map((p) => p.purchase_id).filter(Boolean);
+      const { data: declined } = ids.length
+        ? await admin.from("mono_invoices").select("id").in("id", ids).eq("review_reason", "refund_declined_by_bank")
+        : { data: [] };
+      const set = new Set((declined ?? []).map((d) => d.id));
+      return list.map((p) => ({ ...p, refund_declined: set.has(p.purchase_id) }));
+    })(),
     reserves: reserves.data ?? [],
   };
 }
@@ -669,9 +677,19 @@ async function enqueueReceipts(row: MonoRow, kind: FiscalKind): Promise<number> 
     admin.from("fiscal_receipts").select("issuer").eq("invoice_id", row.id).eq("kind", "sale"),
   ]);
   const feeFiscal = kind === "sale" ? s?.sensoria_fee_fiscal !== false : (sales ?? []).some((r) => r.issuer === "sensoria");
+  // the tariff as the bank really paid it (paymentInfo.agentFee); our estimate only while the bank has not said
+  const bankFee = agentFeeKopOf(inv?.payment_info);
+  const sensoriaKop = bankFee ?? Number(row.sensoria_kop);
+  if (bankFee != null && bankFee !== Number(row.sensoria_kop) && kind === "sale") {
+    await admin.from("finance_audit_log").insert({
+      administrator_id: null, action: "agent_fee_mismatch", entity_type: "payment", entity_id: row.id,
+      reason: "Тариф, який зарахував банк, відрізняється від розрахункового — потрібна звірка",
+      previous_value: { sensoriaKop: Number(row.sensoria_kop) }, new_value: { agentFee: bankFee },
+    });
+  }
   const drafts = plannedReceipts({
     kind, invoiceId: row.id, contentId: row.content_id, listKop: row.list_kop ?? null,
-    amountKop: Number(row.amount_kop), sensoriaKop: Number(row.sensoria_kop), feeFiscal,
+    amountKop: Number(row.amount_kop), sensoriaKop, feeFiscal,
   });
   const card = cardDetailsOf(inv?.payment_info);
   const rows = drafts.map((d) => ({
@@ -695,6 +713,9 @@ async function queueReceipts(row: MonoRow, kind: FiscalKind) {
     });
   }
 }
+
+// monobank's webhook addresses (bank, 18.11.2026)
+const MONO_WEBHOOK_IPS = ["3.123.182.27", "63.180.143.70"];
 
 // ── sending to the cash service (Checkbox) ──
 // Sensoria's register: secrets SENSORIA_PRRO_LICENSE_KEY / SENSORIA_PRRO_PIN. An author's register: a Vault secret,
@@ -876,7 +897,14 @@ async function monoCancelIfNeeded(purchaseId: string, kind: RefundKind, requestK
   const { data: inv } = await admin.from("mono_invoices").select("mono_invoice_id, status").eq("id", purchaseId).maybeSingle();
   if (!inv || inv.status !== "success" || !inv.mono_invoice_id) return; // not a monobank payment (e.g. a TEST confirmation)
   if (kind !== "full") throw new FinanceError("mono_partial_refund", "Часткове повернення через банк ще не підтримується: зверніться до розробника.");
-  const res = await monoCall("/api/merchant/invoice/cancel", { invoiceId: inv.mono_invoice_id, extRef: requestKey.slice(0, 60) });
+  let res: Record<string, unknown> | null = null;
+  try {
+    res = await monoCall("/api/merchant/invoice/cancel", { invoiceId: inv.mono_invoice_id, extRef: requestKey.slice(0, 60) });
+  } catch (e) {
+    // the bank answers with an error when a receiver's account lacks the money: the same as a refused refund
+    if (e instanceof MonoError) throw new FinanceError("mono_cancel_failed", `Банк відхилив повернення коштів: ${e.message}`.slice(0, 300));
+    throw e;
+  }
   if (res?.status === "failure") throw new FinanceError("mono_cancel_failed", "Банк відхилив повернення коштів.");
 }
 
@@ -886,6 +914,9 @@ Deno.serve(async (req) => {
 
   // monobank webhook: no user, authenticated only by the bank's signature
   if (new URL(req.url).searchParams.get("hook") === "mono") {
+    // the signature is the real check; monobank's addresses are an extra hint only (logged, never trusted alone)
+    const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim();
+    if (ip && !MONO_WEBHOOK_IPS.includes(ip)) console.warn("mono webhook from an unexpected address", ip);
     try {
       return await handleMonoWebhook(req);
     } catch (e) {
@@ -1181,6 +1212,12 @@ Deno.serve(async (req) => {
             message: `Банк не провів повернення коштів покупцю за «${pay.content_title ?? "матеріал"}». Найчастіше причина — на вашому рахунку ФОП бракує суми вашої частки. Поповніть рахунок, і ми повторимо повернення.`,
           });
           await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: "refund_failed_at_bank", entity_type: "payment", entity_id: pay.id, reason, previous_value: null, new_value: { purchaseId: pay.purchase_id, kind } });
+          // the order shows «Повернення відхилено банком» in the admin panel; the buyer keeps access until it goes through
+          await admin.from("mono_invoices").update({ review_reason: "refund_declined_by_bank", updated_at: nowIso() }).eq("id", pay.purchase_id);
+          await admin.from("admin_alert_outbox").insert({
+            kind: "refund_declined", title: "Повернення відхилено банком", urgent: true,
+            details: `«${pay.content_title ?? "матеріал"}», замовлення ${String(pay.purchase_id).slice(0, 8)}: банк не провів повернення (найчастіше бракує коштів на рахунку автора). Автора повідомлено; доступ покупця не знято.`,
+          }).then(() => {}, () => {});
         }
         throw e;
       }
@@ -1200,6 +1237,7 @@ Deno.serve(async (req) => {
       // a fully refunded order no longer gives the buyer access
       const after = (await admin.from("finance_payments").select("amount_kop, refunded_kop, purchase_id").eq("id", pay.id).single()).data;
       if (after && Number(after.refunded_kop) >= Number(after.amount_kop)) {
+        await admin.from("mono_invoices").update({ review_reason: null }).eq("id", pay.purchase_id).eq("review_reason", "refund_declined_by_bank");
         await revokePaidAccess(after.purchase_id as string);
       }
       await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: `refund_${kind}`, entity_type: "payment", entity_id: pay.id, reason, previous_value: null, new_value: { key: plan?.key } });

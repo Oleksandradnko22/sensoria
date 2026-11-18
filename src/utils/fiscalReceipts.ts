@@ -39,6 +39,13 @@ export function cardDetailsOf(paymentInfo: unknown): CardDetails {
   return { maskedPan: str(p.maskedPan), approvalCode: str(p.approvalCode), rrn: str(p.rrn), paymentSystem: str(p.paymentSystem), tranId: str(p.tranId) };
 }
 
+/** The platform's reward as the bank really paid it (`paymentInfo.agentFee`, kopecks); null when the bank did not say. */
+export function agentFeeKopOf(paymentInfo: unknown): number | null {
+  const v = (paymentInfo as { agentFee?: unknown } | null)?.agentFee;
+  const n = typeof v === "string" && v.trim() !== "" ? Number(v) : v;
+  return typeof n === "number" && Number.isInteger(n) && n >= 0 ? n : null;
+}
+
 /** A receipt for a card payment must carry the card mask and an authorization reference. */
 export const cardComplete = (c: CardDetails) => !!c.maskedPan && !!(c.approvalCode || c.rrn);
 

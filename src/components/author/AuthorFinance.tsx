@@ -7,6 +7,7 @@ import { useSession } from "../../context/SessionContext";
 import { supabase } from "../../lib/supabaseClient";
 import { acceptLegal, sendLegalOtp, verifyLegalOtp } from "../../lib/legalGate";
 import { AUTHOR_PAID_ITEM, OTP_TEXT } from "../../data/consentTexts";
+import { DPS_NON_MONETARY_NOTE } from "../../data/ipkTemplate";
 import { connectPrro, fetchPrroStatus, type PrroStatus } from "../../lib/finance";
 import { fetchMonoConnection, fetchMyFinance, markFinanceNotificationsRead, requestMonoConnection, touchFinanceActivity, type FinanceSale, type MonoConnection, type MyFinance } from "../../lib/finance";
 import { STATUS_LABEL, type HistoryRow, authorBankFeeKop, financeTotals, historyRows, incomeByMaterial, isFullyRefunded, monthReportCsv, monthlyIncome, priceBreakdown, statusExplanation, toAccountKop, uahFromKop } from "../../utils/financeView";
@@ -516,6 +517,8 @@ export default function AuthorFinance() {
               <InfoTile icon="card" title="Чеки покупцям" text="Чек покупцю на повну ціну видає ваш ПРРО; Sensoria формує його автоматично після оплати. Підключіть касу в розділі «Приймання оплат»." />
               <InfoTile icon="shield" title="Реквізити захищені" text="Код ФОП або ТОВ бачите лише ви й команда Sensoria. Дані картки покупця ми не бачимо й не зберігаємо: оплату приймає банк." />
             </ul>
+            {/* Б37: the DPS position is explained here, in the cabinet only — not in the public offer */}
+            <div className="mt-4"><Notice tone="info">{DPS_NON_MONETARY_NOTE.replace("шаблон запиту нижче", "шаблон запиту — у «Налаштуваннях», розділ «Документи і згоди»")}</Notice></div>
           </section>
         </>
       )}

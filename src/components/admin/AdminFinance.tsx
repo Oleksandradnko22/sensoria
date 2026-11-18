@@ -436,6 +436,7 @@ export default function AdminFinance() {
                       <div className="min-w-[200px]">
                         <div className="font-medium">{k(p.amount_kop)} <span className="text-black/40">(автор {k(p.author_kop)} / Sensoria {k(p.sensoria_kop)})</span></div>
                         <div className="text-black/40">{dt(p.confirmed_at)} · {p.mode === "test" ? "тест" : "реальний"} · повернено {k(p.refunded_kop)}{p.disputed ? " · спір" : ""}</div>
+                        {p.refund_declined && <div className="mt-1 inline-block rounded-full bg-rose-50 px-2.5 py-0.5 text-[12px] font-semibold text-rose-700 ring-1 ring-rose-100">Повернення відхилено банком · доступ покупця збережено</div>}
                       </div>
                       {left > 0 && (
                         <>

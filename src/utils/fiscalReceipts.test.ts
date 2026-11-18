@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FiscalError, cardComplete, cardDetailsOf, checkboxReceiptBody, nextAttemptAt, plannedReceipts, sendable, sendViaCheckbox, type FetchLike, type QueuedReceipt } from "./fiscalReceipts.ts";
+import { FiscalError, agentFeeKopOf, cardComplete, cardDetailsOf, checkboxReceiptBody, nextAttemptAt, plannedReceipts, sendable, sendViaCheckbox, type FetchLike, type QueuedReceipt } from "./fiscalReceipts.ts";
 
 const ids = { invoiceId: "a1b2c3d4-0000-4000-8000-000000000001", contentId: "c0ffee12-0000-4000-8000-000000000002" };
 const card = cardDetailsOf({ maskedPan: "444403******1902", approvalCode: "662476", rrn: "060189181768", paymentSystem: "visa", tranId: "13194036" });
@@ -106,4 +106,12 @@ test("Checkbox: an open shift is not reopened; a rejected PIN is a prro_auth err
   assert.equal(urls.some((u) => u.endsWith("/shifts")), false);
   const denied: FetchLike = async () => ({ ok: false, status: 401, json: async () => ({}), text: async () => "bad pin" });
   await assert.rejects(sendViaCheckbox({ licenseKey: "LK", pin: "0" }, {}, denied, "https://x"), (e: unknown) => e instanceof FiscalError && e.code === "prro_auth");
+});
+
+test("the tariff from the bank: paymentInfo.agentFee in kopecks; nothing usable → null (our estimate is used)", () => {
+  assert.equal(agentFeeKopOf({ agentFee: 15000 }), 15000);
+  assert.equal(agentFeeKopOf({ agentFee: "30000" }), 30000);
+  assert.equal(agentFeeKopOf({ agentFee: 150.5 }), null);
+  assert.equal(agentFeeKopOf({}), null);
+  assert.equal(agentFeeKopOf(null), null);
 });

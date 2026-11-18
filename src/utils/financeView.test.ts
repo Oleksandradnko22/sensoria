@@ -49,12 +49,13 @@ test("uahFromKop", () => {
   assert.match(uahFromKop(75050), /750,5/);
 });
 
-test("bank fee: 1.3 % on a Ukrainian card, 2 % on a foreign one, from the author's share only", () => {
-  assert.deepEqual(priceBreakdown(100000, 3000), { sensoriaKop: 30000, authorKop: 70000, feeKop: 910, toAccountKop: 69090 });
-  assert.deepEqual(priceBreakdown(100000, 1500, "foreign"), { sensoriaKop: 15000, authorKop: 85000, feeKop: 1700, toAccountKop: 83300 });
-  assert.equal(authorBankFeeKop({ authorKop: 70000, cardOrigin: null }), 910);
+test("bank fee (monobank 18.11.2026): 1.3 % / 2 % of the WHOLE payment, all of it out of the author's share", () => {
+  // 1000 ₴: Sensoria 300 ₴ in full; the author 700 ₴ minus 13 ₴ (1.3 % of 1000 ₴) = 687 ₴
+  assert.deepEqual(priceBreakdown(100000, 3000), { sensoriaKop: 30000, authorKop: 70000, feeKop: 1300, toAccountKop: 68700 });
+  assert.deepEqual(priceBreakdown(100000, 1500, "foreign"), { sensoriaKop: 15000, authorKop: 85000, feeKop: 2000, toAccountKop: 83000 });
+  assert.equal(authorBankFeeKop({ priceKop: 100000, authorKop: 70000, cardOrigin: null }), 1300);
   const sale = { confirmedAt: "2026-11-02T10:00:00Z", title: "T", priceKop: 100000, authorKop: 70000, refundedKop: 0, authorRefundedKop: 0, source: "catalog" as const };
-  assert.equal(toAccountKop(sale), 69090);
+  assert.equal(toAccountKop(sale), 68700);
 });
 
 test("month report: only that month, a totals row, Excel-friendly", () => {

@@ -181,8 +181,13 @@ export function financeTotals(sales: SaleLike[], now: Date = new Date()) {
 export type CardOrigin = "ua" | "foreign" | null | undefined;
 export const bankFeeBps = (card: CardOrigin) => (card === "foreign" ? 200 : 130);
 
-/** The bank's fee on the author's share (estimated at the Ukrainian rate when the card is unknown). */
-export const authorBankFeeKop = (s: { authorKop: number; cardOrigin?: CardOrigin }) => Math.round((s.authorKop * bankFeeBps(s.cardOrigin)) / 10000);
+/**
+ * The bank's acquiring fee, all of it paid by the author: monobank takes it on the WHOLE payment out of the author's
+ * part, the platform's agentFeePercent arrives in full (monobank, 18.11.2026). Estimated at the Ukrainian rate when
+ * the card is unknown.
+ */
+export const authorBankFeeKop = (s: { priceKop?: number; authorKop: number; cardOrigin?: CardOrigin }) =>
+  Math.round(((s.priceKop ?? s.authorKop) * bankFeeBps(s.cardOrigin)) / 10000);
 
 /** What a sale leaves on the author's account: the share minus the bank's fee, minus what went back to the buyer.
  * After a full refund it is below zero by the fee: the bank keeps its fee. */
@@ -192,7 +197,7 @@ export const toAccountKop = (s: SaleLike & { cardOrigin?: CardOrigin }) => s.aut
 export function priceBreakdown(priceKop: number, commissionBps: number, card: CardOrigin = "ua") {
   const sensoriaKop = Math.round((priceKop * commissionBps) / 10000);
   const authorKop = priceKop - sensoriaKop;
-  const feeKop = Math.round((authorKop * bankFeeBps(card)) / 10000);
+  const feeKop = Math.round((priceKop * bankFeeBps(card)) / 10000); // the whole payment's fee, out of the author's part
   return { sensoriaKop, authorKop, feeKop, toAccountKop: authorKop - feeKop };
 }
 
@@ -216,7 +221,7 @@ export function monthReportCsv(sales: (SaleLike & { cardOrigin?: CardOrigin; com
   const fee = (s: (typeof rows)[number]) => (s.bankFeeKop != null ? s.bankFeeKop : authorBankFeeKop(s));
   const head = [
     "Дата оплати (чек)", "Дата зарахування", "Матеріал", "Покупець прийшов", "Ціна, ₴", "Знижка за промокодом, ₴", "Оплачено = дохід для податкового обліку, ₴", "Ваша ставка", "Ваша частка, ₴", "Картка",
-    "Комісія банку з вашої частки, ₴", "Джерело комісії", "Повернено покупцю (ваша частка), ₴", "На ваш рахунок, ₴",
+    "Комісія банку (з усієї оплати, з вашої частки), ₴", "Джерело комісії", "Повернено покупцю (ваша частка), ₴", "На ваш рахунок, ₴",
   ];
   const lines = rows.map((s) => [
     new Date(s.confirmedAt).toLocaleDateString("uk-UA"),

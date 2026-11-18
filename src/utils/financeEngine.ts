@@ -545,11 +545,9 @@ export function planPaymentReceived(args: {
   // Without the split Sensoria receives the whole payment and pays the whole fee.
   const actualFee = args.bankFeeKop != null && Number.isInteger(args.bankFeeKop) && args.bankFeeKop >= 0 ? args.bankFeeKop : null;
   const feeKop =
-    s.splitAtSource === 1
-      ? actualFee != null
-        ? Math.round((actualFee * sensoriaKop) / purchase.amountKop)
-        : bankFeeOnPrice(sensoriaKop, s)
-      : actualFee ?? bankFeeOnPrice(purchase.amountKop, s);
+    // monobank (18.11.2026): with agentFeePercent the platform gets its share in full — the whole acquiring fee
+    // comes out of the author's share, so in the split Sensoria pays no bank fee at all
+    s.splitAtSource === 1 ? 0 : actualFee ?? bankFeeOnPrice(purchase.amountKop, s);
   const grossKop = purchase.amountKop; // the buyer is charged the price only
   const plan = newPlan(`payment:${purchase.purchaseId}`, "PAYMENT_RECEIVED", purchase.authorId, account.version);
   const base = { authorId: purchase.authorId, paymentId, orderId: purchase.purchaseId, buyerId: purchase.buyerId };

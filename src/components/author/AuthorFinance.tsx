@@ -137,7 +137,7 @@ export default function AuthorFinance() {
           if (!split || !h.key.endsWith("|AUTHOR_EARNING") || h.amountKop == null) return h;
           // as it reaches the account: the share minus the bank's fee (the sale's card, else the Ukrainian rate)
           const sale = sales.find((s) => s.purchaseId && h.key.startsWith(`payment:${s.purchaseId}|`));
-          return { ...h, label: "Надходження з продажу", amountKop: h.amountKop - authorBankFeeKop({ authorKop: h.amountKop, cardOrigin: sale?.cardOrigin }) };
+          return { ...h, label: "Надходження з продажу", amountKop: h.amountKop - authorBankFeeKop({ priceKop: sale?.priceKop, authorKop: h.amountKop, cardOrigin: sale?.cardOrigin }) };
         });
       // localhost only: with too few real operations, add examples to see the list, «Переглянути далі» and the calendar
       if (!import.meta.env.DEV || real.length >= 5) return real;
@@ -222,7 +222,7 @@ export default function AuthorFinance() {
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
               <Mini label="Ваша частка" value={uahFromKop(monthShareKop)} hint={`${monthCount} ${monthCount === 1 ? "продаж" : monthCount > 1 && monthCount < 5 ? "продажі" : "продажів"}, ${monthRef} за посиланням`} />
-              <Mini label="Комісія банку" value={monthFeeKop ? `−${uahFromKop(monthFeeKop)}` : uahFromKop(0)} hint="1,3 % або 2 % з вашої частки" />
+              <Mini label="Комісія банку" value={monthFeeKop ? `−${uahFromKop(monthFeeKop)}` : uahFromKop(0)} hint="1,3 % або 2 % від усієї оплати" />
               <Mini label="Повернено покупцям" value={monthRefundKop ? `−${uahFromKop(monthRefundKop)}` : uahFromKop(0)} hint="ваша частка" />
               <Mini label="Надійде завтра" value={uahFromKop(comingKop)} hint="оплати за останню добу" />
             </div>
@@ -422,7 +422,7 @@ export default function AuthorFinance() {
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-[12px] leading-relaxed text-black/50">Комісію банк утримує з кожної частки окремо, ще до зарахування: з вашої — з вашої, з частки Sensoria — з її. Знижка банку «0 % на 30 днів» на цю схему не поширюється.</p>
+            <p className="mt-3 text-[12px] leading-relaxed text-black/50">Комісію банку (1,3 % або 2 % від усієї оплати) банк утримує з вашої частки до зарахування; комісія Sensoria надходить без вирахувань. Знижка банку «0 % на 30 днів» на цю схему не поширюється.</p>
           </section>
 
           {/* HOW THE MONEY ARRIVES */}
@@ -439,7 +439,7 @@ export default function AuthorFinance() {
               <Row label="Куди" value="Основний гривневий рахунок" note="Рахунок вашого ФОП або ТОВ у monobank. Інший рахунок указати не можна." />
               <Row label="Коли" value="Наступного дня" note="І вам, і Sensoria банк зараховує кошти наступного дня після оплати." />
               <Row label="Мінімальна сума" value="Немає" note="Запитувати виплату не потрібно: кожна оплата надходить окремо." />
-              <Row label="Комісія банку" value="1,3 % або 2 %" note="Утримується з вашої частки до зарахування: 1,3 % — українські картки, 2 % — іноземні." />
+              <Row label="Комісія банку" value="1,3 % або 2 %" note="Від усієї суми оплати, з вашої частки до зарахування: 1,3 % — українські картки, 2 % — іноземні." />
               <Row label="Що бачить покупець" value="Сторінка monobank" note="Оплата карткою, Apple Pay або Google Pay. У виписці покупця — назва платформи." />
             </dl>
           </section>

@@ -141,7 +141,7 @@ export default function AuthorActs({ card }: { card: string }) {
           {acts.map((a) => (
             <li key={a.id} className="py-3">
               <div className="flex flex-wrap items-center gap-3">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-[200px] flex-1">
                   <div className="text-[15px] font-semibold text-[#12172b]">Акт № {a.number} · {monthName(a.period)}</div>
                   <div className="text-[13px] text-black/55">Послуги {uah(a.data.servicesKop)} ₴ · повернено тариф {uah(a.data.returnedKop)} ₴ · {STATUS[a.status]}</div>
                 </div>

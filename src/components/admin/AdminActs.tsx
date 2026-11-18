@@ -60,7 +60,7 @@ export default function AdminActs() {
   if (!period && acts.length === 0) {
     return (
       <section className="rounded-2xl bg-white border border-black/5 p-5 flex flex-wrap items-center gap-3">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-[220px]">
           <h3 className="text-[16px] font-semibold">Акти авторам</h3>
           <p className="text-[13px] text-black/50">Актів до підпису немає. Нові з’являються 1–5 числа за попередній місяць.</p>
         </div>
@@ -75,7 +75,7 @@ export default function AdminActs() {
   return (
     <section className="rounded-2xl bg-white border border-amber-100 p-5">
       <div className="flex flex-wrap items-start gap-3 mb-3">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-[220px]">
           <h3 className="text-[16px] font-semibold">{period ? `Акти за ${actMonth(period)} (${acts.length})` : `Акти до підпису КЕП (${acts.length})`}</h3>
           <p className="text-[13px] text-black/50">Завантажте PDF, підпишіть його КЕП Sensoria на id.gov.ua і завантажте підписаний файл (.p7s, .asice або .pdf). Після цього акт з’явиться в кабінеті автора, і почнуться 5 робочих днів на заперечення.</p>
         </div>
@@ -91,7 +91,7 @@ export default function AdminActs() {
         <div className="flex flex-col gap-2">
           {acts.map((a) => (
             <div key={a.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-black/5 px-4 py-3 text-[13px]">
-              <div className="min-w-0 flex-1">
+              <div className="min-w-[220px] flex-1">
                 <div className="font-medium">{a.data.customer?.legalName ?? a.authorName} · № {a.number} · {actMonth(a.period)}</div>
                 <div className="text-black/50">
                   Послуги {uah(a.data.servicesKop)} · повернено тариф {uah(a.data.returnedKop)} · {STATUS[a.status]}

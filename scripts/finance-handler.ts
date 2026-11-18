@@ -843,10 +843,17 @@ const MONO_WEBHOOK_IPS = ["3.123.182.27", "63.180.143.70"];
 
 // ── sending to the cash service (Checkbox) ──
 // Sensoria's register: secrets SENSORIA_PRRO_LICENSE_KEY / SENSORIA_PRRO_PIN. An author's register: a Vault secret,
-// read by author_fiscal_secret() (supabase/author-prro.sql). Test mode sends only to CHECKBOX_TEST_API_URL (the
-// cash service's test environment); without it test receipts wait in the queue.
+// read by author_fiscal_secret() (supabase/author-prro.sql).
+// Checkbox has ONE address for test and fiscal work; a test register differs only by its license key. So a TEST
+// payment never touches a real register: all its receipts (the author's and Sensoria's) go to Sensoria's TEST register
+// (secrets SENSORIA_PRRO_TEST_LICENSE_KEY / SENSORIA_PRRO_TEST_PIN); without them test receipts wait in the queue.
 
-async function fiscalCredsFor(issuer: FiscalIssuer, authorId: string): Promise<CheckboxCreds | null> {
+async function fiscalCredsFor(issuer: FiscalIssuer, authorId: string, live: boolean): Promise<CheckboxCreds | null> {
+  if (!live) {
+    const licenseKey = Deno.env.get("SENSORIA_PRRO_TEST_LICENSE_KEY") ?? "";
+    const pin = Deno.env.get("SENSORIA_PRRO_TEST_PIN") ?? "";
+    return licenseKey && pin ? { licenseKey, pin } : null;
+  }
   if (issuer === "sensoria") {
     const licenseKey = Deno.env.get("SENSORIA_PRRO_LICENSE_KEY") ?? "";
     const pin = Deno.env.get("SENSORIA_PRRO_PIN") ?? "";
@@ -884,12 +891,12 @@ async function fiscalSendDue(onlyInvoice?: string): Promise<{ sent: number; fail
       const r = rows.find((x) => x.id === qr.id)!;
       const { data: inv } = await admin.from("mono_invoices").select("buyer_id, author_id, mode, payment_info").eq("id", r.invoice_id).single();
       const live = inv?.mode === "live";
-      const base = live ? CHECKBOX_API : Deno.env.get("CHECKBOX_TEST_API_URL") ?? "";
-      const creds = base ? await fiscalCredsFor(r.issuer, r.author_id) : null;
-      if (!base || !creds) {
+      const base = CHECKBOX_API;
+      const creds = await fiscalCredsFor(r.issuer, r.author_id, live);
+      if (!creds) {
         out.waiting += 1;
         qr.status = "failed"; // not this run (kept pending in the database)
-        await admin.from("fiscal_receipts").update({ last_error: !base ? "Тестова каса не налаштована" : r.issuer === "sensoria" ? "ПРРО Sensoria не підключено" : "ПРРО автора не підключено" }).eq("id", r.id);
+        await admin.from("fiscal_receipts").update({ last_error: !live ? "Тестова каса не налаштована" : r.issuer === "sensoria" ? "ПРРО Sensoria не підключено" : "ПРРО автора не підключено" }).eq("id", r.id);
         continue;
       }
       const card = cardDetailsOf(inv?.payment_info);
@@ -1153,9 +1160,8 @@ Deno.serve(async (req) => {
       const pin = String(payload.pin ?? "").replace(/\s+/g, "");
       if (licenseKey.length < 10) throw new FinanceError("bad_license", "Вкажіть ключ ліцензії каси з кабінету Checkbox.");
       if (!/^\d{4,10}$/.test(pin)) throw new FinanceError("bad_pin", "PIN касира — 4–10 цифр.");
-      const { data: cfg } = await admin.from("finance_settings").select("mode").eq("id", 1).single();
-      const base = cfg?.mode === "live" ? CHECKBOX_API : Deno.env.get("CHECKBOX_TEST_API_URL") ?? CHECKBOX_API;
-      // a test sign-in: the key and PIN must really open the author's register
+      const base = CHECKBOX_API;
+      // a test sign-in only (no receipt): the key and PIN must really open the author's register
       let status = "active";
       let err: string | null = null;
       try {

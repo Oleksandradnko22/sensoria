@@ -171,14 +171,16 @@ export function sendable(all: QueuedReceipt[], nowIso: string): QueuedReceipt[] 
 }
 
 // ── Checkbox client ────────────────────────────────────────────────────────
-// docs: https://api.checkbox.in.ua/api/redoc — the cashier signs in with the cash register's license key + PIN,
+// docs: https://api.checkbox.ua/api/redoc — the cashier signs in with the cash register's license key + PIN,
 // a shift is opened if needed, then the receipt is sent. Field names are to be confirmed on a test cash register.
 
 export type FetchLike = (url: string, init: { method: string; headers: Record<string, string>; body?: string }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown>; text: () => Promise<string> }>;
 export interface CheckboxCreds { licenseKey: string; pin: string }
 export interface CheckboxResult { providerReceiptId: string; fiscalCode: string | null; receiptUrl: string }
 
-export const CHECKBOX_API = "https://api.checkbox.in.ua";
+// Checkbox support (18.11.2026): one host for testing and fiscal work. A test register differs by its LICENSE KEY,
+// not by the address — so test mode must never be given a real register's key.
+export const CHECKBOX_API = "https://api.checkbox.ua";
 export const checkboxReceiptUrl = (id: string) => `https://check.checkbox.ua/${id}`;
 
 export function checkboxClient(creds: CheckboxCreds, fetchFn: FetchLike, base = CHECKBOX_API) {

@@ -698,8 +698,10 @@ async function enqueueReceipts(row: MonoRow, kind: FiscalKind): Promise<number> 
     admin.from("fiscal_receipts").select("issuer").eq("invoice_id", row.id).eq("kind", "sale"),
   ]);
   const feeFiscal = kind === "sale" ? s?.sensoria_fee_fiscal !== false : (sales ?? []).some((r) => r.issuer === "sensoria");
-  // the tariff as the bank really paid it (paymentInfo.agentFee); our estimate only while the bank has not said
-  const bankFee = agentFeeKopOf(inv?.payment_info);
+  // the tariff as the bank really paid it (paymentInfo.agentFee); our estimate only while the bank has not said.
+  // TEST payments: monobank's test token reports agentFee 0 (even with a test split receiver), so the estimate is
+  // used there — otherwise Sensoria's receipt would silently disappear (seen 19.11.2026). Same rule in the act and Б39.
+  const bankFee = row.mode === "live" ? agentFeeKopOf(inv?.payment_info) : null;
   const sensoriaKop = bankFee ?? Number(row.sensoria_kop);
   if (bankFee != null && bankFee !== Number(row.sensoria_kop) && kind === "sale") {
     await admin.from("finance_audit_log").insert({
@@ -774,7 +776,7 @@ async function actDataFor(authorId: string, period: string) {
   const list = pays ?? [];
   const ids = list.map((x) => x.purchase_id);
   const [{ data: invs }, { data: rec }, { data: refunds }, { data: tasks }] = await Promise.all([
-    ids.length ? admin.from("mono_invoices").select("id, payment_info, bank_fee_kop, list_kop, discount_kop, promo_code_id").in("id", ids) : Promise.resolve({ data: [] }),
+    ids.length ? admin.from("mono_invoices").select("id, mode, payment_info, bank_fee_kop, list_kop, discount_kop, promo_code_id").in("id", ids) : Promise.resolve({ data: [] }),
     ids.length ? admin.from("fiscal_receipts").select("invoice_id, kind, fiscal_code").eq("issuer", "author").in("invoice_id", ids) : Promise.resolve({ data: [] }),
     admin.from("finance_refunds").select("order_id, sensoria_share_kop, created_at").eq("author_id", authorId).gte("created_at", from).lt("created_at", to),
     admin.from("tariff_refund_tasks").select("purchase_id, amount_kop, paid_at").eq("author_id", authorId).eq("status", "paid").gte("paid_at", from).lt("paid_at", to),
@@ -784,7 +786,7 @@ async function actDataFor(authorId: string, period: string) {
   const fno = (id: string, kind: string) => (rec ?? []).find((r) => r.invoice_id === id && r.kind === kind)?.fiscal_code ?? null;
   const orders: ActOrder[] = list.map((x) => {
     const i = inv.get(x.purchase_id) ?? {};
-    const tariff = agentFeeKopOf(i.payment_info) ?? Number(x.sensoria_kop);
+    const tariff = (i.mode === "live" ? agentFeeKopOf(i.payment_info) : null) ?? Number(x.sensoria_kop);
     const fee = i.bank_fee_kop != null ? Number(i.bank_fee_kop) : estimatedBankFeeKop(Number(x.amount_kop), x.card_origin === "foreign");
     const refunded = Number(x.refunded_kop) >= Number(x.amount_kop);
     return {
@@ -1471,7 +1473,7 @@ Deno.serve(async (req) => {
       }
       // the bank took everything from the author: Sensoria repays its tariff within 5 working days, a separate payment
       if (debitedFrom === "author_full") {
-        const tariff = agentFeeKopOf(row?.payment_info) ?? Number(pay.sensoria_kop);
+        const tariff = (row?.mode === "live" ? agentFeeKopOf(row?.payment_info) : null) ?? Number(pay.sensoria_kop);
         const due = await workingDaysFrom(debitedAt, 5);
         await admin.from("tariff_refund_tasks").upsert(
           { payment_id: pay.id, purchase_id: pay.purchase_id, author_id: pay.author_id, amount_kop: tariff, debited_at: debitedAt, due_date: due },

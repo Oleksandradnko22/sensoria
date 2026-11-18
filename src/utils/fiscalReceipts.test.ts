@@ -79,21 +79,41 @@ test("order: the author's receipt first; Sensoria's only after it; a return only
   assert.deepEqual(sendable([q({ issuer: "author", kind: "sale", nextAttemptAt: "2026-11-18T11:00:00Z" })], now), []);
 });
 
-test("Checkbox: sign in with the license key and PIN, open a shift when closed, send the receipt", async () => {
+const noWait = async () => {};
+
+test("Checkbox: sign in with the license key and PIN, open a shift when closed, WAIT until it is opened, send the receipt", async () => {
   const calls: { url: string; method: string; headers: Record<string, string>; body?: string }[] = [];
+  let polls = 0;
+  let opened = false;
   const fake: FetchLike = async (url, init) => {
     calls.push({ url, ...init });
-    const body = url.endsWith("/signinPinCode") ? { access_token: "T" } : url.endsWith("/cashier/shift") ? { status: "CLOSED" } : url.endsWith("/shifts") ? { status: "OPENING" } : { id: "rcpt-1", fiscal_code: "FC-1" };
+    if (url.endsWith("/shifts")) opened = true;
+    // the shift is OPENING for a while after it is asked to open (18.11.2026: a receipt sent then got shift.not_opened)
+    const shift = !url.endsWith("/cashier/shift") ? "" : !opened ? "CLOSED" : ++polls < 3 ? "OPENING" : "OPENED";
+    const body = url.endsWith("/signinPinCode") ? { access_token: "T" } : url.endsWith("/cashier/shift") ? { status: shift } : url.endsWith("/shifts") ? { status: "OPENING" } : { id: "rcpt-1", fiscal_code: "FC-1" };
     return { ok: true, status: 200, json: async () => body, text: async () => "" };
   };
   const draft = plannedReceipts({ kind: "sale", ...ids, amountKop: 100000, sensoriaKop: 30000, feeFiscal: true })[0];
-  const r = await sendViaCheckbox({ licenseKey: "LK", pin: "1234" }, checkboxReceiptBody(draft, card), fake, "https://x");
+  const r = await sendViaCheckbox({ licenseKey: "LK", pin: "1234" }, checkboxReceiptBody(draft, card), fake, "https://x", noWait);
   assert.deepEqual(r, { providerReceiptId: "rcpt-1", fiscalCode: "FC-1", receiptUrl: "https://check.checkbox.ua/rcpt-1" });
-  assert.deepEqual(calls.map((c) => `${c.method} ${c.url.replace("https://x", "")}`), ["POST /api/v1/cashier/signinPinCode", "GET /api/v1/cashier/shift", "POST /api/v1/shifts", "POST /api/v1/receipts/sell"]);
+  const seq = calls.map((c) => `${c.method} ${c.url.replace("https://x", "")}`);
+  assert.deepEqual(seq, ["POST /api/v1/cashier/signinPinCode", "GET /api/v1/cashier/shift", "POST /api/v1/shifts", "GET /api/v1/cashier/shift", "GET /api/v1/cashier/shift", "GET /api/v1/cashier/shift", "POST /api/v1/receipts/sell"]);
   assert.equal(calls[0].headers["X-License-Key"], "LK");
   assert.equal(JSON.parse(calls[0].body ?? "{}").pin_code, "1234");
-  assert.equal(calls[3].headers.Authorization, "Bearer T");
-  assert.equal(JSON.parse(calls[3].body ?? "{}").payments[0].value, 100000);
+  const sell = calls[calls.length - 1];
+  assert.equal(sell.headers.Authorization, "Bearer T");
+  assert.equal(JSON.parse(sell.body ?? "{}").payments[0].value, 100000);
+});
+
+test("Checkbox: a shift that never opens is a retryable error, no receipt is sent", async () => {
+  const urls: string[] = [];
+  const stuck: FetchLike = async (url) => {
+    urls.push(url);
+    return { ok: true, status: 200, json: async () => (url.endsWith("/signinPinCode") ? { access_token: "T" } : { status: "OPENING" }), text: async () => "" };
+  };
+  await assert.rejects(sendViaCheckbox({ licenseKey: "LK", pin: "1" }, {}, stuck, "https://x", noWait), (e: unknown) => e instanceof FiscalError && e.code === "prro_error");
+  assert.equal(urls.some((u) => u.endsWith("/receipts/sell")), false);
+  assert.equal(urls.some((u) => u.endsWith("/shifts")), false); // already OPENING: not asked to open again
 });
 
 test("Checkbox: an open shift is not reopened; a rejected PIN is a prro_auth error", async () => {
@@ -102,10 +122,10 @@ test("Checkbox: an open shift is not reopened; a rejected PIN is a prro_auth err
     urls.push(url);
     return { ok: true, status: 200, json: async () => (url.endsWith("/signinPinCode") ? { access_token: "T" } : url.endsWith("/cashier/shift") ? { status: "OPENED" } : { id: "r" }), text: async () => "" };
   };
-  await sendViaCheckbox({ licenseKey: "LK", pin: "1" }, {}, ok, "https://x");
+  await sendViaCheckbox({ licenseKey: "LK", pin: "1" }, {}, ok, "https://x", noWait);
   assert.equal(urls.some((u) => u.endsWith("/shifts")), false);
   const denied: FetchLike = async () => ({ ok: false, status: 401, json: async () => ({}), text: async () => "bad pin" });
-  await assert.rejects(sendViaCheckbox({ licenseKey: "LK", pin: "0" }, {}, denied, "https://x"), (e: unknown) => e instanceof FiscalError && e.code === "prro_auth");
+  await assert.rejects(sendViaCheckbox({ licenseKey: "LK", pin: "0" }, {}, denied, "https://x", noWait), (e: unknown) => e instanceof FiscalError && e.code === "prro_auth");
 });
 
 test("the tariff from the bank: paymentInfo.agentFee in kopecks; nothing usable → null (our estimate is used)", () => {

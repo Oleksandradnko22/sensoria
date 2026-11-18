@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "node --experimental-strip-types --test src/utils/*.test.ts && node scripts/build-finance.mjs --check && node --experimental-strip-types scripts/build-materials-seed.mjs --check",
     "build:finance": "node scripts/build-finance.mjs",
+    "deploy:finance": "node scripts/build-finance.mjs && npx supabase functions deploy finance --no-verify-jwt",
     "build:materials-seed": "node --experimental-strip-types scripts/build-materials-seed.mjs"
   },
   "dependencies": {

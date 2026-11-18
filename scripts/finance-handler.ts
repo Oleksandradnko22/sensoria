@@ -9,7 +9,10 @@
 // and finance_settings.mode is 'live', payments are TEST: a test token from api.monobank.ua moves no real money.
 //
 // DEPLOY: Dashboard -> Edge Functions -> "finance" -> paste -> Deploy.
-// Secrets: CRON_SECRET (for runJobs), RESEND_API_KEY / RESEND_FROM (emails),
+// DEPLOY WITH `npm run deploy:finance` (= --no-verify-jwt): monobank webhooks and pg_cron come without a user JWT,
+// and Supabase's gateway would answer them 401. This function checks every caller itself: a user's JWT, the bank's
+// signature, the x-cron-secret header.
+// Secrets: CRON_SECRET (for runJobs / fiscalTick), RESEND_API_KEY / RESEND_FROM (emails),
 // ADMIN_REQUIRE_2FA (as for admin-data). Schedule `runJobs` daily with the
 // header  x-cron-secret: <CRON_SECRET>.
 //
@@ -433,7 +436,9 @@ async function monoCall(path: string, body?: unknown) {
   try { data = JSON.parse(text); } catch { /* not json */ }
   if (!res.ok) {
     console.error("monobank", path, res.status, text.slice(0, 500));
-    throw new FinanceError("mono_error", `Банк не прийняв запит (${res.status}). Спробуйте пізніше.`);
+    // the bank's own reason (errCode / errText) — no secrets in it, and it tells what to fix
+    const why = [data?.errCode, data?.errText ?? data?.errorDescription].filter(Boolean).join(": ").slice(0, 200);
+    throw new FinanceError("mono_error", `Банк не прийняв запит (${res.status}${why ? `: ${why}` : ""}). Спробуйте пізніше.`);
   }
   return data;
 }
@@ -548,9 +553,15 @@ async function monoCheckout(userId: string, payload: Record<string, unknown>, cl
   const { data: cfg } = await admin.from("finance_settings").select("mode").eq("id", 1).single();
   const mode: "test" | "live" = cfg?.mode === "live" ? "live" : "test";
   const { data: rcv } = await admin.from("author_mono_receivers").select("receiver_id, status").eq("author_id", content.author_id).maybeSingle();
-  // live: a paid sale needs the author's FOP connected to the split; the test token has no split at all
-  const receiverId = rcv?.status === "active" ? String(rcv.receiver_id ?? "") : "";
-  if (mode === "live" && !receiverId) throw new FinanceError("author_not_connected", "Автор ще не підключив прийом оплат. Спробуйте пізніше.");
+  // a paid sale needs the author's FOP connected to the split. The test token requires a split too (monobank,
+  // 18.11.2026: «'splitReceiverId' is required»): the author's linked receiver, or MONO_TEST_SPLIT_RECEIVER_ID for test payments
+  const testReceiver = mode === "test" ? (Deno.env.get("MONO_TEST_SPLIT_RECEIVER_ID") ?? "").trim() : "";
+  const receiverId = (rcv?.status === "active" ? String(rcv.receiver_id ?? "") : "") || testReceiver;
+  if (!receiverId) {
+    throw new FinanceError("author_not_connected", mode === "test"
+      ? "Тестова оплата: автора не прив’язано до отримувача monobank. Прив’яжіть його в адмінці «Фінанси» або додайте секрет MONO_TEST_SPLIT_RECEIVER_ID."
+      : "Автор ще не підключив прийом оплат. Спробуйте пізніше.");
+  }
   if (mode === "live") {
     // the author's receipt is issued on the author's own PRRO: no register — no paid sale (ТЗ 3.4)
     const { data: af } = await admin.from("author_fiscal").select("status").eq("author_id", content.author_id).maybeSingle();
@@ -567,10 +578,10 @@ async function monoCheckout(userId: string, payload: Record<string, unknown>, cl
   const origin = allowedOrigins().includes(requested) ? requested : siteUrl();
   const split = buildInvoiceBody({
     amountKop, authorKop, sensoriaKop, title: content.title, contentCode: content.id,
-    authorReceiverId: receiverId || "test-no-split",
+    authorReceiverId: receiverId,
     reference: ref, redirectUrl: `${origin}/payment-result?pay=${ref}`, webHookUrl: `${SUPABASE_URL}/functions/v1/finance?hook=mono`,
   });
-  const body = mode === "live" ? split : withoutSplit(split);
+  const body = split;
 
   const { error: insErr } = await admin.from("mono_invoices").insert({
     id: ref, buyer_id: userId, content_id: content.id, author_id: content.author_id,

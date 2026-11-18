@@ -182,6 +182,10 @@ export interface CheckboxResult { providerReceiptId: string; fiscalCode: string 
 // not by the address — so test mode must never be given a real register's key.
 export const CHECKBOX_API = "https://api.checkbox.ua";
 export const checkboxReceiptUrl = (id: string) => `https://check.checkbox.ua/${id}`;
+/** Waiting for a shift to open: up to 10 × 1.5 s. */
+export const SHIFT_WAIT_MS = 1500;
+export const SHIFT_WAIT_TRIES = 10;
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export function checkboxClient(creds: CheckboxCreds, fetchFn: FetchLike, base = CHECKBOX_API) {
   const head = (token?: string): Record<string, string> => ({
@@ -206,12 +210,24 @@ export function checkboxClient(creds: CheckboxCreds, fetchFn: FetchLike, base = 
       if (!token) throw new FiscalError("prro_auth", "Каса не видала токен касира: перевірте ключ ліцензії й PIN.");
       return token;
     },
-    /** Opens a shift if there is none open. */
-    async ensureShift(token: string): Promise<void> {
-      const cur = await call("/api/v1/cashier/shift", "GET", token).catch(() => null);
-      const status = cur && typeof cur.status === "string" ? cur.status : null;
-      if (status === "OPENED" || status === "OPENING") return;
-      await call("/api/v1/shifts", "POST", token, {});
+    /**
+     * Opens a shift if there is none, and WAITS until it is OPENED: Checkbox opens a shift asynchronously
+     * (OPENING for a few seconds while the opening is signed), and a receipt sent meanwhile gets
+     * 400 shift.not_opened (seen on the test register, 18.11.2026).
+     */
+    async ensureShift(token: string, wait: (ms: number) => Promise<void> = sleep): Promise<void> {
+      const statusOf = async () => {
+        const cur = await call("/api/v1/cashier/shift", "GET", token).catch(() => null);
+        return cur && typeof cur.status === "string" ? cur.status : null;
+      };
+      const first = await statusOf();
+      if (first === "OPENED") return;
+      if (first !== "OPENING") await call("/api/v1/shifts", "POST", token, {});
+      for (let i = 0; i < SHIFT_WAIT_TRIES; i++) {
+        await wait(SHIFT_WAIT_MS);
+        if ((await statusOf()) === "OPENED") return;
+      }
+      throw new FiscalError("prro_error", "Зміна в касі відкривається довше, ніж очікувалося. Чек буде надіслано повторно.");
     },
     async sell(token: string, body: unknown): Promise<CheckboxResult> {
       const r = await call("/api/v1/receipts/sell", "POST", token, body);
@@ -223,9 +239,9 @@ export function checkboxClient(creds: CheckboxCreds, fetchFn: FetchLike, base = 
 }
 
 /** One receipt end to end: sign in, make sure a shift is open, send. */
-export async function sendViaCheckbox(creds: CheckboxCreds, body: unknown, fetchFn: FetchLike, base = CHECKBOX_API): Promise<CheckboxResult> {
+export async function sendViaCheckbox(creds: CheckboxCreds, body: unknown, fetchFn: FetchLike, base = CHECKBOX_API, wait: (ms: number) => Promise<void> = sleep): Promise<CheckboxResult> {
   const c = checkboxClient(creds, fetchFn, base);
   const token = await c.signIn();
-  await c.ensureShift(token);
+  await c.ensureShift(token, wait);
   return c.sell(token, body);
 }

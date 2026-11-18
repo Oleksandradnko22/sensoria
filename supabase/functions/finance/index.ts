@@ -9,7 +9,10 @@
 // and finance_settings.mode is 'live', payments are TEST: a test token from api.monobank.ua moves no real money.
 //
 // DEPLOY: Dashboard -> Edge Functions -> "finance" -> paste -> Deploy.
-// Secrets: CRON_SECRET (for runJobs), RESEND_API_KEY / RESEND_FROM (emails),
+// DEPLOY WITH `npm run deploy:finance` (= --no-verify-jwt): monobank webhooks and pg_cron come without a user JWT,
+// and Supabase's gateway would answer them 401. This function checks every caller itself: a user's JWT, the bank's
+// signature, the x-cron-secret header.
+// Secrets: CRON_SECRET (for runJobs / fiscalTick), RESEND_API_KEY / RESEND_FROM (emails),
 // ADMIN_REQUIRE_2FA (as for admin-data). Schedule `runJobs` daily with the
 // header  x-cron-secret: <CRON_SECRET>.
 //
@@ -1608,6 +1611,10 @@ export interface CheckboxResult { providerReceiptId: string; fiscalCode: string 
 // not by the address — so test mode must never be given a real register's key.
 export const CHECKBOX_API = "https://api.checkbox.ua";
 export const checkboxReceiptUrl = (id: string) => `https://check.checkbox.ua/${id}`;
+/** Waiting for a shift to open: up to 10 × 1.5 s. */
+export const SHIFT_WAIT_MS = 1500;
+export const SHIFT_WAIT_TRIES = 10;
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export function checkboxClient(creds: CheckboxCreds, fetchFn: FetchLike, base = CHECKBOX_API) {
   const head = (token?: string): Record<string, string> => ({
@@ -1632,12 +1639,24 @@ export function checkboxClient(creds: CheckboxCreds, fetchFn: FetchLike, base = 
       if (!token) throw new FiscalError("prro_auth", "Каса не видала токен касира: перевірте ключ ліцензії й PIN.");
       return token;
     },
-    /** Opens a shift if there is none open. */
-    async ensureShift(token: string): Promise<void> {
-      const cur = await call("/api/v1/cashier/shift", "GET", token).catch(() => null);
-      const status = cur && typeof cur.status === "string" ? cur.status : null;
-      if (status === "OPENED" || status === "OPENING") return;
-      await call("/api/v1/shifts", "POST", token, {});
+    /**
+     * Opens a shift if there is none, and WAITS until it is OPENED: Checkbox opens a shift asynchronously
+     * (OPENING for a few seconds while the opening is signed), and a receipt sent meanwhile gets
+     * 400 shift.not_opened (seen on the test register, 18.11.2026).
+     */
+    async ensureShift(token: string, wait: (ms: number) => Promise<void> = sleep): Promise<void> {
+      const statusOf = async () => {
+        const cur = await call("/api/v1/cashier/shift", "GET", token).catch(() => null);
+        return cur && typeof cur.status === "string" ? cur.status : null;
+      };
+      const first = await statusOf();
+      if (first === "OPENED") return;
+      if (first !== "OPENING") await call("/api/v1/shifts", "POST", token, {});
+      for (let i = 0; i < SHIFT_WAIT_TRIES; i++) {
+        await wait(SHIFT_WAIT_MS);
+        if ((await statusOf()) === "OPENED") return;
+      }
+      throw new FiscalError("prro_error", "Зміна в касі відкривається довше, ніж очікувалося. Чек буде надіслано повторно.");
     },
     async sell(token: string, body: unknown): Promise<CheckboxResult> {
       const r = await call("/api/v1/receipts/sell", "POST", token, body);
@@ -1649,10 +1668,10 @@ export function checkboxClient(creds: CheckboxCreds, fetchFn: FetchLike, base = 
 }
 
 /** One receipt end to end: sign in, make sure a shift is open, send. */
-export async function sendViaCheckbox(creds: CheckboxCreds, body: unknown, fetchFn: FetchLike, base = CHECKBOX_API): Promise<CheckboxResult> {
+export async function sendViaCheckbox(creds: CheckboxCreds, body: unknown, fetchFn: FetchLike, base = CHECKBOX_API, wait: (ms: number) => Promise<void> = sleep): Promise<CheckboxResult> {
   const c = checkboxClient(creds, fetchFn, base);
   const token = await c.signIn();
-  await c.ensureShift(token);
+  await c.ensureShift(token, wait);
   return c.sell(token, body);
 }
 
@@ -2315,7 +2334,9 @@ async function monoCall(path: string, body?: unknown) {
   try { data = JSON.parse(text); } catch { /* not json */ }
   if (!res.ok) {
     console.error("monobank", path, res.status, text.slice(0, 500));
-    throw new FinanceError("mono_error", `Банк не прийняв запит (${res.status}). Спробуйте пізніше.`);
+    // the bank's own reason (errCode / errText) — no secrets in it, and it tells what to fix
+    const why = [data?.errCode, data?.errText ?? data?.errorDescription].filter(Boolean).join(": ").slice(0, 200);
+    throw new FinanceError("mono_error", `Банк не прийняв запит (${res.status}${why ? `: ${why}` : ""}). Спробуйте пізніше.`);
   }
   return data;
 }
@@ -2430,9 +2451,15 @@ async function monoCheckout(userId: string, payload: Record<string, unknown>, cl
   const { data: cfg } = await admin.from("finance_settings").select("mode").eq("id", 1).single();
   const mode: "test" | "live" = cfg?.mode === "live" ? "live" : "test";
   const { data: rcv } = await admin.from("author_mono_receivers").select("receiver_id, status").eq("author_id", content.author_id).maybeSingle();
-  // live: a paid sale needs the author's FOP connected to the split; the test token has no split at all
-  const receiverId = rcv?.status === "active" ? String(rcv.receiver_id ?? "") : "";
-  if (mode === "live" && !receiverId) throw new FinanceError("author_not_connected", "Автор ще не підключив прийом оплат. Спробуйте пізніше.");
+  // a paid sale needs the author's FOP connected to the split. The test token requires a split too (monobank,
+  // 18.11.2026: «'splitReceiverId' is required»): the author's linked receiver, or MONO_TEST_SPLIT_RECEIVER_ID for test payments
+  const testReceiver = mode === "test" ? (Deno.env.get("MONO_TEST_SPLIT_RECEIVER_ID") ?? "").trim() : "";
+  const receiverId = (rcv?.status === "active" ? String(rcv.receiver_id ?? "") : "") || testReceiver;
+  if (!receiverId) {
+    throw new FinanceError("author_not_connected", mode === "test"
+      ? "Тестова оплата: автора не прив’язано до отримувача monobank. Прив’яжіть його в адмінці «Фінанси» або додайте секрет MONO_TEST_SPLIT_RECEIVER_ID."
+      : "Автор ще не підключив прийом оплат. Спробуйте пізніше.");
+  }
   if (mode === "live") {
     // the author's receipt is issued on the author's own PRRO: no register — no paid sale (ТЗ 3.4)
     const { data: af } = await admin.from("author_fiscal").select("status").eq("author_id", content.author_id).maybeSingle();
@@ -2449,10 +2476,10 @@ async function monoCheckout(userId: string, payload: Record<string, unknown>, cl
   const origin = allowedOrigins().includes(requested) ? requested : siteUrl();
   const split = buildInvoiceBody({
     amountKop, authorKop, sensoriaKop, title: content.title, contentCode: content.id,
-    authorReceiverId: receiverId || "test-no-split",
+    authorReceiverId: receiverId,
     reference: ref, redirectUrl: `${origin}/payment-result?pay=${ref}`, webHookUrl: `${SUPABASE_URL}/functions/v1/finance?hook=mono`,
   });
-  const body = mode === "live" ? split : withoutSplit(split);
+  const body = split;
 
   const { error: insErr } = await admin.from("mono_invoices").insert({
     id: ref, buyer_id: userId, content_id: content.id, author_id: content.author_id,

@@ -211,6 +211,22 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
   // ТЗ 3.1–3.2: the seller of each paid material and the buyer's explicit request for access right after payment
   const [sellers, setSellers] = useState<Record<string, SellerInfo>>({});
   const [immediate, setImmediate] = useState(false);
+  // two steps: the cart (summary, promo) → a screen of its own with the seller and the immediate-access request,
+  // right before the bank's page — the long legal text gets a wide panel instead of stretching the sidebar
+  const [step, setStep] = useState<"cart" | "confirm">("cart");
+  const goStep = (next: "cart" | "confirm") => {
+    setStep(next);
+    setPayError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const checkout = () => {
+    if (!userId) return onRequireLogin();
+    if (!isParticipant) {
+      setPayError("Купувати матеріали можуть учасники. Увійдіть в обліковий запис учасника.");
+      return;
+    }
+    goStep("confirm");
+  };
 
   // A material that no longer exists is dropped, but only once the real catalog has loaded.
   useEffect(() => {
@@ -336,7 +352,71 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
             </p>
           )}
 
-          {lines.length === 0 ? (
+          {step === "confirm" && payable.length > 0 ? (
+            <section aria-labelledby="cart-confirm" className="mx-auto max-w-[860px] rounded-[24px] bg-gradient-to-br from-white to-[#f1f1ff] p-5 text-slate-900 shadow-[0_16px_40px_-26px_rgba(30,41,99,0.55)] sm:p-8">
+              <button type="button" onClick={() => goStep("cart")} className="-ml-2 inline-flex min-h-[40px] items-center gap-1.5 rounded-xl px-2 text-[14px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]">
+                <span aria-hidden="true">←</span> Назад до кошика
+              </button>
+              <h2 id="cart-confirm" className="mt-2 text-[22px] font-bold leading-tight sm:text-[24px]">Підтвердження замовлення</h2>
+
+              <ul className="mt-5 flex flex-col divide-y divide-slate-200 rounded-[18px] bg-white ring-1 ring-[#e3def9]">
+                {payable.map((l) => (
+                  <li key={cartKey(l.entry)} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3.5 sm:px-5">
+                    <div className="min-w-[200px] flex-1">
+                      <div className="text-[15px] font-semibold leading-snug">{l.item.title}</div>
+                      <div className="mt-0.5 text-[13px] text-slate-500">
+                        Продавець: {sellers[l.item.id] ? `${sellers[l.item.id].legalName} · ${sellers[l.item.id].codeMasked}` : "завантажуємо…"}
+                      </div>
+                    </div>
+                    <div className="text-[16px] font-semibold">{priceLabel(l.item)}</div>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[12px] text-slate-500">Sensoria — оператор платформи (технічні послуги). Оплату приймає банк.</p>
+
+              <label className={`mt-5 flex cursor-pointer items-start gap-3 rounded-[16px] px-4 py-4 ring-1 transition-colors sm:px-5 ${immediate ? "bg-[#eef0fd] ring-[#c9cffa]" : "bg-white ring-[#e3def9]"}`}>
+                <input type="checkbox" checked={immediate} onChange={(e) => { setImmediate(e.target.checked); setPayError(null); }} className="mt-[3px] h-[18px] w-[18px] shrink-0 cursor-pointer accent-[#4338ca]" />
+                <span className="text-[14px] leading-relaxed text-slate-800">{consentText}</span>
+              </label>
+              <p className="mt-2 text-[12px] text-slate-500">
+                <a href="/participant-agreement" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Угода учасника</a>
+                {" · "}
+                <a href="/refunds" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Правила повернення коштів</a>
+              </p>
+
+              <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-[15px] text-slate-500">
+                  До сплати: <span className="ml-1 text-[24px] font-bold text-slate-900">{(totals.paidTotal - discountTotal).toLocaleString("uk-UA")} ₴</span>
+                  {payable.length > 1 && <div className="text-[13px]">Кожен матеріал оплачується окремо.</div>}
+                </div>
+                {payable.length === 1 ? (
+                  <button type="button" onClick={() => pay(payable[0].item)} disabled={paying !== null || !immediate} className={`${BTN} min-h-[48px] text-[15px] disabled:opacity-60 sm:w-auto sm:px-7`}>
+                    {paying ? "Переходимо до оплати…" : <>Перейти до оплати <span aria-hidden="true" className="ml-2">→</span></>}
+                  </button>
+                ) : (
+                  <div className="flex flex-col gap-2 sm:items-end">
+                    {payable.map((l) => (
+                      <button
+                        key={cartKey(l.entry)}
+                        type="button"
+                        onClick={() => pay(l.item)}
+                        disabled={paying !== null || !immediate}
+                        aria-label={`Оплатити: ${l.item.title}`}
+                        className="inline-flex min-h-[44px] max-w-full items-center justify-center rounded-[14px] bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[14px] font-semibold text-white transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2 disabled:opacity-60"
+                      >
+                        <span className="truncate">{paying === l.item.id ? "Зачекайте…" : `Оплатити «${l.item.title}» · ${priceLabel(l.item)}`}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {payError && (
+                <p role="alert" className="mt-3 rounded-[14px] bg-red-50 px-4 py-3 text-[14px] leading-relaxed text-red-700">
+                  {payError}
+                </p>
+              )}
+            </section>
+          ) : lines.length === 0 ? (
             <EmptyCart onOpenCatalog={onOpenCatalog} onOpenGuides={onOpenGuides} onOpenMeditations={onOpenMeditations} />
           ) : (
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
@@ -444,58 +524,13 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                   </div>
                 )}
 
-                {payable.length > 0 && (
-                  <div className="mt-4 border-t border-slate-200 pt-4">
-                    <div className="text-[13px] font-semibold text-slate-600">Продавець</div>
-                    <ul className="mt-1.5 flex flex-col gap-1 text-[13px] leading-snug text-slate-700">
-                      {payable.map((l) => (
-                        <li key={cartKey(l.entry)}>
-                          {payable.length > 1 && <span className="text-slate-500">{l.item.title}: </span>}
-                          {sellers[l.item.id] ? `${sellers[l.item.id].legalName} · ${sellers[l.item.id].codeMasked}` : isParticipant ? "Завантажуємо…" : "буде показано після входу"}
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="mt-1.5 text-[12px] text-slate-500">Sensoria — оператор платформи (технічні послуги).</p>
-                    <label className={`mt-3 flex cursor-pointer items-start gap-3 rounded-[14px] px-3.5 py-3 ring-1 transition-colors ${immediate ? "bg-[#eef0fd] ring-[#c9cffa]" : "bg-white ring-[#e3def9]"}`}>
-                      <input type="checkbox" checked={immediate} onChange={(e) => { setImmediate(e.target.checked); setPayError(null); }} className="mt-[3px] h-[18px] w-[18px] shrink-0 cursor-pointer accent-[#4338ca]" />
-                      <span className="text-[13px] leading-relaxed text-slate-800">{consentText}</span>
-                    </label>
-                    <p className="mt-2 text-[12px] text-slate-500">
-                      <a href="/participant-agreement" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Угода учасника</a>
-                      {" · "}
-                      <a href="/refunds" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Правила повернення коштів</a>
-                    </p>
-                  </div>
-                )}
-
                 {payable.length > 0 ? (
                   <>
-                    {payable.length === 1 ? (
-                      <button type="button" onClick={() => pay(payable[0].item)} disabled={paying !== null || !immediate} className={`${BTN} mt-5 min-h-[48px] text-[15px] disabled:opacity-60`}>
-                        {paying ? "Переходимо до оплати…" : <>Перейти до оплати <span aria-hidden="true" className="ml-2">→</span></>}
-                      </button>
-                    ) : (
-                      <>
-                        <p className="mt-4 text-[14px] leading-relaxed text-slate-500">Кожен матеріал оплачується окремо.</p>
-                        <ul className="mt-3 flex flex-col gap-2">
-                          {payable.map((l) => (
-                            <li key={cartKey(l.entry)} className="flex items-center justify-between gap-3">
-                              <span className="min-w-0 flex-1 truncate text-[14px]">{l.item.title}</span>
-                              <button
-                                type="button"
-                                onClick={() => pay(l.item)}
-                                disabled={paying !== null || !immediate}
-                                aria-label={`Оплатити: ${l.item.title}`}
-                                className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[14px] font-semibold text-white transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2 disabled:opacity-60"
-                              >
-                                {paying === l.item.id ? "Зачекайте…" : `Оплатити · ${priceLabel(l.item)}`}
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
-                    {payError && (
+                    <button type="button" onClick={checkout} className={`${BTN} mt-5 min-h-[48px] text-[15px]`}>
+                      Оформити замовлення <span aria-hidden="true" className="ml-2">→</span>
+                    </button>
+                    <p className="mt-2 text-center text-[12px] text-slate-500">Далі — продавець і підтвердження, потім сторінка оплати банку.</p>
+                    {payError && step === "cart" && (
                       <p role="alert" className="mt-3 rounded-[14px] bg-red-50 px-4 py-3 text-[14px] leading-relaxed text-red-700">
                         {payError}
                       </p>

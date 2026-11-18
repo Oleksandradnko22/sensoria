@@ -16,6 +16,7 @@
 
 import { supabase } from "./supabaseClient.ts";
 import { notifyObservationsChanged } from "../utils/observationsSignal.ts";
+import { requireHealthConsent } from "./healthConsent.ts";
 
 export type PracticeResponseValue =
   | { text: string }
@@ -66,6 +67,7 @@ export async function submitPracticeResponse(params: {
   itemTitle?: string;
   prompt?: string;
 }): Promise<void> {
+  await requireHealthConsent(); // emotional-state data only with the separate consent (Угода учасника п. 8)
   const client = requireSupabase();
   const { error } = await client.from("content_item_practice_responses").upsert(
     {

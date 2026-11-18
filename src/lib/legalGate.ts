@@ -23,7 +23,7 @@ const ERRORS: Record<string, string> = {
   missing_required: "Відмітьте всі обов’язкові пункти.",
 };
 
-export async function acceptLegal(kind: "participant" | "author" | "health_data" | "marketing_email", items: ConsentItem[], viewedMs: number, openedDocs: string[]): Promise<void> {
+export async function acceptLegal(kind: "participant" | "author" | "author_paid" | "health_data" | "marketing_email", items: ConsentItem[], viewedMs: number, openedDocs: string[]): Promise<void> {
   if (!supabase) return;
   const { error } = await supabase.rpc("accept_legal", {
     p_kind: kind,

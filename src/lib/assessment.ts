@@ -8,6 +8,7 @@ import { supabase } from "./supabaseClient.ts";
 import type { FunnelInsight, PrimaryStateId, Intensity } from "../store/funnelStore.ts";
 import { isPrimaryStateId, isIntensity, clampScore } from "../utils/primaryState.ts";
 import { getIntensity } from "../utils/calculateResults.ts";
+import { fetchHealthConsent, whenHealthConsented } from "./healthConsent.ts";
 
 export type SavedAssessment = {
   primaryState: PrimaryStateId;
@@ -29,6 +30,12 @@ export async function saveAssessmentResult(
   profileId: string,
   insight: FunnelInsight
 ): Promise<void> {
+  // emotional-state data only with the separate consent (Угода учасника п. 8). Right after sign-up the consent
+  // screen has not been answered yet: the result waits and is saved as soon as the consent is given.
+  if ((await fetchHealthConsent()) === "no") {
+    whenHealthConsented(() => saveAssessmentResult(profileId, insight));
+    return;
+  }
   const client = requireSupabase();
   const { error } = await client.from("assessment_results").upsert({
     profile_id: profileId,

@@ -203,7 +203,10 @@ export const markFinanceNotificationsRead = () => callFinance<{ ok: true }>({ ac
 
 // ── paying a material on monobank (the server decides the amount and the split; the browser only names the material) ──
 export const startMonoCheckout = (contentId: string, promoCode?: string) =>
-  callFinance<{ ok: true; pageUrl: string; ref: string }>({ action: "monoCheckout", contentId, origin: window.location.origin, ...(promoCode ? { promoCode } : {}) });
+  callFinance<{ ok: true; pageUrl: string; ref: string }>({ action: "monoCheckout", contentId, origin: window.location.origin, immediateAccess: true, ...(promoCode ? { promoCode } : {}) });
+/** Who sells the material (the author's FOP/LLC) and the exact immediate-access text for it (ТЗ 3.1–3.2). */
+export type SellerInfo = { legalName: string; codeMasked: string; consentText: string };
+export const fetchSellerInfo = (contentId: string) => callFinance<{ ok: true } & SellerInfo>({ action: "sellerInfo", contentId });
 /** The author's promo code for one material: the server checks it and prices it (offer Б33). */
 export type PromoQuote = { listKop: number; discountKop: number; amountKop: number; percent?: number };
 export const fetchPromoQuote = (contentId: string, promoCode: string) =>

@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { acceptLegal, fetchMissingConsents, sendLegalOtp, verifyLegalOtp, type MissingConsent } from "../../lib/legalGate";
 import { logoutAccount } from "../../lib/auth";
 import { saveNotificationPref } from "../../lib/notificationPrefs";
+import { fetchHealthConsent } from "../../lib/healthConsent";
 import { Icon } from "../ui/Icon";
 import { AUTHOR_ITEMS, HEALTH_HINT, OTP_TEXT, PARTICIPANT_ITEMS, type ConsentItem } from "../../data/consentTexts";
 
@@ -123,6 +124,8 @@ export function GateScreen({ kind, missing, onDone }: { kind: "participant" | "a
     run(async () => {
       if (kind === "participant") {
         await acceptLegal("participant", accepted(), Date.now() - shownAt.current, opened);
+        // item 4 may have given the emotional-data consent: refresh it (a waiting test result is saved then)
+        void fetchHealthConsent(true);
         // item 5 and the «Нові матеріали» switch in «Профіль» are one and the same (spec 4.5)
         if (checked.p5 && supabase) {
           const { data } = await supabase.auth.getUser();

@@ -8,6 +8,7 @@
 // shape as lib/moodCheckins.ts otherwise.
 
 import { supabase } from "./supabaseClient.ts";
+import { requireHealthConsent } from "./healthConsent.ts";
 
 export type ModuleMoodBefore = "calm" | "neutral" | "hard";
 export type ModuleMoodAfter = "easier" | "same" | "harder";
@@ -64,6 +65,7 @@ export async function submitModuleMoodBefore(params: {
   programTitle?: string;
   moduleTitle?: string;
 }): Promise<void> {
+  await requireHealthConsent(); // emotional-state data only with the separate consent (Угода учасника п. 8)
   const client = requireSupabase();
   const { error } = await client.from("content_module_mood_checkins").upsert(
     {
@@ -91,6 +93,7 @@ export async function submitModuleMoodAfter(params: {
   programTitle?: string;
   moduleTitle?: string;
 }): Promise<void> {
+  await requireHealthConsent(); // emotional-state data only with the separate consent (Угода учасника п. 8)
   const client = requireSupabase();
   const { error } = await client.from("content_module_mood_checkins").upsert(
     {

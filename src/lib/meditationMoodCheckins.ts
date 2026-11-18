@@ -17,6 +17,7 @@
 
 import { supabase } from "./supabaseClient.ts";
 import { notifyObservationsChanged } from "../utils/observationsSignal.ts";
+import { requireHealthConsent } from "./healthConsent.ts";
 
 export type MeditationMoodCheckIn = {
   id: string;
@@ -62,6 +63,7 @@ export async function createMeditationMoodCheckin(params: {
   states: string[];
   beforeValue: number | null;
 }): Promise<string> {
+  await requireHealthConsent(); // emotional-state data only with the separate consent (Угода учасника п. 8)
   const client = requireSupabase();
   const { data, error } = await client
     .from("meditation_mood_checkins")
@@ -112,6 +114,7 @@ export async function fetchAllMeditationMoodCheckIns(
 }
 
 export async function submitMeditationMoodAfter(id: string, userId: string, value: number): Promise<void> {
+  await requireHealthConsent(); // emotional-state data only with the separate consent (Угода учасника п. 8)
   const client = requireSupabase();
   const { error } = await client
     .from("meditation_mood_checkins")
@@ -127,6 +130,7 @@ export async function submitMeditationMoodAfter(id: string, userId: string, valu
 // submitMoodBefore — asked as its own follow-up step right after the
 // intensity number, never in the same request.
 export async function submitMeditationMoodChangeNote(id: string, userId: string, note: string): Promise<void> {
+  await requireHealthConsent(); // emotional-state data only with the separate consent (Угода учасника п. 8)
   const client = requireSupabase();
   const { error } = await client
     .from("meditation_mood_checkins")

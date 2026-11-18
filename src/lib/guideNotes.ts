@@ -6,6 +6,7 @@
 
 import { supabase } from "./supabaseClient.ts";
 import { notifySavedChanged } from "../utils/savedSignal.ts";
+import { requireHealthConsent } from "./healthConsent.ts";
 
 export type GuideNote = {
   id: string;
@@ -88,6 +89,7 @@ export async function saveGuideNote(params: {
   noteText: string;
   userId: string;
 }): Promise<GuideNote> {
+  await requireHealthConsent(); // emotional-state data only with the separate consent (Угода учасника п. 8)
   const client = requireSupabase();
   const { data, error } = await client
     .from("guide_notes")

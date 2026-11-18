@@ -11,6 +11,7 @@
 
 import { supabase } from "./supabaseClient.ts";
 import { notifyObservationsChanged } from "../utils/observationsSignal.ts";
+import { requireHealthConsent } from "./healthConsent.ts";
 
 export type Reflection = {
   id: string;
@@ -103,6 +104,7 @@ export async function submitReflection(params: {
   itemTitle?: string;
   note: string;
 }): Promise<Reflection> {
+  await requireHealthConsent(); // emotional-state data only with the separate consent (Угода учасника п. 8)
   const client = requireSupabase();
   const { data, error } = await client
     .from("content_item_reflections")

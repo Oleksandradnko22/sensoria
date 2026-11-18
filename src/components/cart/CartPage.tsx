@@ -2,7 +2,7 @@ import { Fragment, useEffect, useId, useMemo, useState, type ReactNode } from "r
 import Footer from "../Footer";
 import { useCart } from "../../lib/cartStore";
 import { acquireContent } from "../../lib/acquired";
-import { fetchPromoQuote, startMonoCheckout, type PromoQuote } from "../../lib/finance";
+import { fetchPromoQuote, fetchSellerInfo, startMonoCheckout, type PromoQuote, type SellerInfo } from "../../lib/finance";
 import { isBankPageUrl } from "../../utils/payment";
 import ProgramCover from "../ProgramCover";
 import MaterialVisual from "../author/public/MaterialVisual";
@@ -12,6 +12,11 @@ import { useCartView } from "../../lib/useCartView";
 import { cartKey, cartTotals, materialsWord, type CartKind } from "../../utils/cart";
 import { formatPrice, isFreePrice } from "../../utils/price";
 import type { Profile } from "../../lib/auth";
+
+// the immediate-access request — word for word from docs/legal/participant-agreement.md (the server stores it per order
+// with the seller filled in)
+const IMMEDIATE_TEMPLATE =
+  "Прошу надати доступ до цифрового матеріалу одразу після оплати. Я розумію, що після надання доступу право розірвати договір протягом 14 днів без пояснення причин не застосовується (пункт 1 частини п’ятої статті 13 Закону України «Про захист прав споживачів»), а повернення коштів можливе у випадках, передбачених Правилами повернення коштів і законом. Продавець — {{назва ФОП/ТОВ автора}}.";
 import type { Program } from "../../data/programs";
 
 type Props = {
@@ -203,6 +208,9 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
   const [promo, setPromo] = useState<{ code: string; quotes: Record<string, PromoQuote> } | null>(null);
   const [promoBusy, setPromoBusy] = useState(false);
   const [promoMsg, setPromoMsg] = useState<string | null>(null);
+  // ТЗ 3.1–3.2: the seller of each paid material and the buyer's explicit request for access right after payment
+  const [sellers, setSellers] = useState<Record<string, SellerInfo>>({});
+  const [immediate, setImmediate] = useState(false);
 
   // A material that no longer exists is dropped, but only once the real catalog has loaded.
   useEffect(() => {
@@ -220,6 +228,22 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
   const payable = inOrder.filter((l) => !isFreePrice(l.item.price));
   const free = inOrder.filter((l) => isFreePrice(l.item.price));
   const totals = cartTotals(payable);
+  const payableKey = payable.map((l) => l.item.id).join(",");
+  useEffect(() => {
+    if (!userId || !isParticipant || !payableKey) return;
+    let cancelled = false;
+    void Promise.allSettled(payableKey.split(",").map((id) => fetchSellerInfo(id).then((r) => [id, r] as const))).then((res) => {
+      if (cancelled) return;
+      const next: Record<string, SellerInfo> = {};
+      res.forEach((r) => { if (r.status === "fulfilled") next[r.value[0]] = r.value[1]; });
+      setSellers(next);
+    });
+    return () => { cancelled = true; };
+  }, [payableKey, userId, isParticipant]);
+  const consentText =
+    payable.length === 1 && sellers[payable[0].item.id]
+      ? sellers[payable[0].item.id].consentText
+      : IMMEDIATE_TEMPLATE.replace("{{назва ФОП/ТОВ автора}}", "зазначений біля кожного матеріалу вище");
   const quoteFor = (item: CatalogItem) => promo?.quotes[item.id];
   const discountTotal = payable.reduce((n, l) => n + (quoteFor(l.item)?.discountKop ?? 0), 0) / 100;
   const priceLabel = (item: CatalogItem) => {
@@ -249,6 +273,10 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
     if (!userId) return onRequireLogin();
     if (!isParticipant) {
       setPayError("Купувати матеріали можуть учасники. Увійдіть в обліковий запис учасника.");
+      return;
+    }
+    if (!immediate) {
+      setPayError("Підтвердьте, що хочете отримати доступ одразу після оплати.");
       return;
     }
     setPaying(item.id);
@@ -416,10 +444,34 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                   </div>
                 )}
 
+                {payable.length > 0 && (
+                  <div className="mt-4 border-t border-slate-200 pt-4">
+                    <div className="text-[13px] font-semibold text-slate-600">Продавець</div>
+                    <ul className="mt-1.5 flex flex-col gap-1 text-[13px] leading-snug text-slate-700">
+                      {payable.map((l) => (
+                        <li key={cartKey(l.entry)}>
+                          {payable.length > 1 && <span className="text-slate-500">{l.item.title}: </span>}
+                          {sellers[l.item.id] ? `${sellers[l.item.id].legalName} · ${sellers[l.item.id].codeMasked}` : isParticipant ? "Завантажуємо…" : "буде показано після входу"}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-1.5 text-[12px] text-slate-500">Sensoria — оператор платформи (технічні послуги).</p>
+                    <label className={`mt-3 flex cursor-pointer items-start gap-3 rounded-[14px] px-3.5 py-3 ring-1 transition-colors ${immediate ? "bg-[#eef0fd] ring-[#c9cffa]" : "bg-white ring-[#e3def9]"}`}>
+                      <input type="checkbox" checked={immediate} onChange={(e) => { setImmediate(e.target.checked); setPayError(null); }} className="mt-[3px] h-[18px] w-[18px] shrink-0 cursor-pointer accent-[#4338ca]" />
+                      <span className="text-[13px] leading-relaxed text-slate-800">{consentText}</span>
+                    </label>
+                    <p className="mt-2 text-[12px] text-slate-500">
+                      <a href="/participant-agreement" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Угода учасника</a>
+                      {" · "}
+                      <a href="/refunds" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Правила повернення коштів</a>
+                    </p>
+                  </div>
+                )}
+
                 {payable.length > 0 ? (
                   <>
                     {payable.length === 1 ? (
-                      <button type="button" onClick={() => pay(payable[0].item)} disabled={paying !== null} className={`${BTN} mt-5 min-h-[48px] text-[15px] disabled:opacity-60`}>
+                      <button type="button" onClick={() => pay(payable[0].item)} disabled={paying !== null || !immediate} className={`${BTN} mt-5 min-h-[48px] text-[15px] disabled:opacity-60`}>
                         {paying ? "Переходимо до оплати…" : <>Перейти до оплати <span aria-hidden="true" className="ml-2">→</span></>}
                       </button>
                     ) : (
@@ -432,7 +484,7 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                               <button
                                 type="button"
                                 onClick={() => pay(l.item)}
-                                disabled={paying !== null}
+                                disabled={paying !== null || !immediate}
                                 aria-label={`Оплатити: ${l.item.title}`}
                                 className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[14px] font-semibold text-white transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2 disabled:opacity-60"
                               >

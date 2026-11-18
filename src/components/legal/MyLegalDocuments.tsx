@@ -4,6 +4,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { Icon } from "../ui/Icon";
+import Switch from "../ui/Switch";
+import { HEALTH_CONSENT_NEEDED, onHealthConsent, revokeHealthConsent } from "../../lib/healthConsent";
+import { downloadAsJson, exportMyData } from "../../lib/dataExport";
 import type { LegalSection } from "./LegalLayout";
 import { LEGAL } from "../../data/legalOperator";
 
@@ -70,6 +73,38 @@ export default function MyLegalDocuments({ role, className }: { role: "participa
     }
   };
 
+  const [reload, setReload] = useState(0);
+  // the consent window (HealthConsentPrompt) or a withdrawal changed the consents: read them again
+  useEffect(() => onHealthConsent(() => setReload((n) => n + 1)), []);
+  const [confirmRevoke, setConfirmRevoke] = useState(false);
+  const [healthBusy, setHealthBusy] = useState<null | "copy" | "revoke">(null);
+  const [healthMsg, setHealthMsg] = useState<string | null>(null);
+  const copyData = async () => {
+    setHealthBusy("copy");
+    setHealthMsg(null);
+    try {
+      const { data } = await supabase!.auth.getUser();
+      if (data.user) downloadAsJson(`sensoria-data-${data.user.id}.json`, await exportMyData(data.user.id));
+    } catch {
+      setHealthMsg("Не вдалося підготувати копію. Спробуйте ще раз.");
+    } finally {
+      setHealthBusy(null);
+    }
+  };
+  const revoke = async () => {
+    setHealthBusy("revoke");
+    setHealthMsg(null);
+    try {
+      await revokeHealthConsent();
+      setConfirmRevoke(false);
+      setHealthMsg("Згоду відкликано, ваші відповіді, нотатки й результати тесту видалено.");
+    } catch (e) {
+      setHealthMsg(e instanceof Error ? e.message : "Не вдалося відкликати згоду.");
+    } finally {
+      setHealthBusy(null);
+    }
+  };
+
   useEffect(() => {
     if (!supabase) return setRows([]);
     void supabase.auth.getUser().then(async ({ data }) => {
@@ -81,7 +116,7 @@ export default function MyLegalDocuments({ role, className }: { role: "participa
         .order("accepted_at", { ascending: false });
       setRows((r as Row[] | null) ?? []);
     });
-  }, []);
+  }, [reload]);
 
   const latest = (doc: string) => (rows ?? []).find((r) => r.document === doc && !r.withdrawn_at);
 
@@ -152,11 +187,37 @@ export default function MyLegalDocuments({ role, className }: { role: "participa
                 <span className={`shrink-0 rounded-full px-3 py-1 text-[12px] font-semibold ${r ? "bg-[#eef0fd] text-[#4338ca]" : "bg-black/[0.04] text-black/55"}`}>
                   {rows === null ? "…" : r ? `Згоду надано ${date(r.accepted_at)}` : "Згоди немає"}
                 </span>
+                {o.doc === "health_data" && rows !== null && (
+                  <Switch
+                    touch
+                    label={o.label}
+                    on={!!r}
+                    disabled={healthBusy !== null}
+                    onClick={() => (r ? setConfirmRevoke(true) : window.dispatchEvent(new Event(HEALTH_CONSENT_NEEDED)))}
+                  />
+                )}
+                {o.doc === "health_data" && confirmRevoke && (
+                  <div role="alertdialog" aria-label="Відкликати згоду" className="basis-full rounded-xl bg-rose-50/60 p-3.5 ring-1 ring-rose-100">
+                    <p className="text-[13px] leading-relaxed text-[#12172b]">Ваші відповіді, нотатки й результати тесту буде видалено. Спершу завантажити копію?</p>
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      <button type="button" onClick={() => void copyData()} disabled={healthBusy !== null} className="min-h-[38px] rounded-xl bg-white px-3.5 text-[13px] font-semibold text-[#3b27a8] ring-1 ring-[#d9d4f7] hover:bg-[#f3f4ff] disabled:opacity-60">
+                        {healthBusy === "copy" ? "Готуємо…" : "Завантажити копію"}
+                      </button>
+                      <button type="button" onClick={() => void revoke()} disabled={healthBusy !== null} className="min-h-[38px] rounded-xl bg-rose-600 px-3.5 text-[13px] font-semibold text-white hover:bg-rose-700 disabled:opacity-60">
+                        {healthBusy === "revoke" ? "Видаляємо…" : "Відкликати й видалити"}
+                      </button>
+                      <button type="button" onClick={() => setConfirmRevoke(false)} disabled={healthBusy !== null} className="min-h-[38px] rounded-xl px-3 text-[13px] font-semibold text-black/60 hover:bg-black/[0.04]">
+                        Скасувати
+                      </button>
+                    </div>
+                  </div>
+                )}
               </li>
             );
           })}
         </ul>
       )}
+      {healthMsg && <p role="status" className="mt-3 text-[13px] text-[#4338ca]">{healthMsg}</p>}
     </section>
   );
 }

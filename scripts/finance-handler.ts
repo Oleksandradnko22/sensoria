@@ -429,6 +429,34 @@ interface MonoRow {
   list_kop?: number | null; discount_kop?: number | null; promo_code_id?: string | null;
 }
 
+// The immediate-access request on the payment page — word for word from docs/legal/participant-agreement.md
+// («Галочка на сторінці оплати»; consentTexts.test.ts checks it). Stored with every order (supabase/purchase-consents.sql).
+const IMMEDIATE_ACCESS_TEXT =
+  "Прошу надати доступ до цифрового матеріалу одразу після оплати. Я розумію, що після надання доступу право розірвати договір протягом 14 днів без пояснення причин не застосовується (пункт 1 частини п’ятої статті 13 Закону України «Про захист прав споживачів»), а повернення коштів можливе у випадках, передбачених Правилами повернення коштів і законом. Продавець — {{назва ФОП/ТОВ автора}}.";
+
+/** The seller of a material: the author's FOP/LLC from the bank connection. РНОКПП is masked, ЄДРПОУ shown in full. */
+async function sellerOf(authorId: string): Promise<{ legalName: string; codeMasked: string }> {
+  const { data: r } = await admin.from("author_mono_receivers").select("legal_name, ipn, status").eq("author_id", authorId).maybeSingle();
+  const code = String(r?.ipn ?? "");
+  if (r?.legal_name && code) {
+    return { legalName: String(r.legal_name), codeMasked: code.length === 8 ? `ЄДРПОУ ${code}` : `РНОКПП ••••${code.slice(-4)}` };
+  }
+  const { data: p } = await admin.from("profiles").select("name").eq("id", authorId).maybeSingle();
+  return { legalName: `автор матеріалу${p?.name ? ` ${p.name}` : ""}`, codeMasked: "дані ФОП ще не підключено" };
+}
+const immediateAccessText = (seller: { legalName: string; codeMasked: string }) =>
+  IMMEDIATE_ACCESS_TEXT.replace("{{назва ФОП/ТОВ автора}}", `${seller.legalName} (${seller.codeMasked})`);
+
+/** Seller block for the cart: who sells this material and the exact text the buyer is asked to confirm. */
+async function sellerInfoFor(payload: Record<string, unknown>) {
+  const contentId = String(payload.contentId ?? "");
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contentId);
+  const { data: content } = await admin.from("content").select("id, author_id, status").eq(isUuid ? "id" : "slug", contentId).maybeSingle();
+  if (!content || content.status !== "published") throw new FinanceError("not_for_sale", "Цей матеріал недоступний для купівлі.");
+  const seller = await sellerOf(content.author_id as string);
+  return { ...seller, consentText: immediateAccessText(seller) };
+}
+
 /** An author's promo code valid for this material right now (offer Б33). Only the author's own codes count. */
 async function findPromo(code: unknown, content: { id: string; author_id: string }) {
   const c = String(code ?? "").trim().toUpperCase();
@@ -459,7 +487,9 @@ async function promoQuoteFor(payload: Record<string, unknown>) {
   return { listKop, discountKop: q.discountKop, amountKop: q.amountKop, percent: promo.percent };
 }
 
-async function monoCheckout(userId: string, payload: Record<string, unknown>) {
+async function monoCheckout(userId: string, payload: Record<string, unknown>, client: { ip: string | null; userAgent: string | null } = { ip: null, userAgent: null }) {
+  // ТЗ 3.2: access right after payment only on the buyer's explicit request, recorded with the order
+  if (payload.immediateAccess !== true) throw new FinanceError("immediate_access_required", "Підтвердьте, що хочете отримати доступ одразу після оплати.");
   // release B: no invoice without the buyer's current consents (docs/consent-legal-spec.md, 2.4); a missing function = not migrated yet
   const { data: consentOk, error: consentErr } = await admin.rpc("has_required_consents", { p_uid: userId });
   if (!consentErr && consentOk === false) throw new FinanceError("consent_required", "Щоб продовжити, прийміть умови користування.");
@@ -516,6 +546,13 @@ async function monoCheckout(userId: string, payload: Record<string, unknown>) {
     ...(quote && promo ? { list_kop: listKop, discount_kop: quote.discountKop, promo_code_id: promo.id } : {}),
   });
   if (insErr) throw new Error(insErr.message);
+  // the immediate-access consent, before the bank invoice exists (a missing table = not migrated yet)
+  const seller = await sellerOf(content.author_id as string);
+  const { error: pcErr } = await admin.from("purchase_consents").insert({
+    invoice_id: ref, buyer_id: userId, content_id: content.id, seller_legal_name: seller.legalName, seller_code_masked: seller.codeMasked,
+    consent_text: immediateAccessText(seller), ip: client.ip, user_agent: client.userAgent,
+  });
+  if (pcErr && !/does not exist|schema cache|PGRST205|42P01/i.test(`${pcErr.code} ${pcErr.message}`)) throw new Error(pcErr.message);
   try {
     const inv = await monoCall("/api/merchant/invoice/create", body);
     if (!inv?.invoiceId || !inv?.pageUrl) throw new FinanceError("mono_error", "Банк не повернув посилання на оплату.");
@@ -709,7 +746,13 @@ Deno.serve(async (req) => {
     // ── any signed-in user: pay for a material on monobank ──
     if (action === "monoCheckout") {
       if (!prof) return json({ error: "Не авторизовано." }, 401);
-      return json({ ok: true, ...(await monoCheckout(user.id, payload)) });
+      const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || null;
+      const userAgent = (req.headers.get("user-agent") ?? "").slice(0, 500) || null;
+      return json({ ok: true, ...(await monoCheckout(user.id, payload, { ip, userAgent })) });
+    }
+    if (action === "sellerInfo") {
+      if (!prof) return json({ error: "Не авторизовано." }, 401);
+      return json({ ok: true, ...(await sellerInfoFor(payload)) });
     }
     if (action === "promoQuote") {
       if (!prof) return json({ error: "Не авторизовано." }, 401);
@@ -753,6 +796,9 @@ Deno.serve(async (req) => {
         const legalName = String(payload.legalName ?? "").trim().replace(/\s+/g, " ").slice(0, 160);
         if (!validateTaxId(ipn)) throw new FinanceError("bad_tax_id", "РНОКПП ФОП — 10 цифр, ЄДРПОУ ТОВ — 8 цифр.");
         if (legalName.length < 5) throw new FinanceError("bad_name", "Вкажіть назву ФОП або ТОВ повністю, як у документах.");
+        // A6 (paid sales) must be signed with a code first; a missing function = not migrated yet
+        const { data: paidOk, error: paidErr } = await admin.rpc("has_current_consent", { p_uid: user.id, p_document: "author_paid_sales" });
+        if (!paidErr && paidOk === false) throw new FinanceError("paid_consent_required", "Спершу підтвердьте умови платних продажів кодом з листа.");
         const { data: cur } = await admin.from("author_mono_receivers").select("status, ipn").eq("author_id", user.id).maybeSingle();
         if (cur?.status === "active" && cur.ipn === ipn) return json({ ok: true, status: "active", unchanged: true });
         // a new FOP means a new receiver: until the owner links it, paid sales wait (the old receiver is not reused)

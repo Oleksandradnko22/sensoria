@@ -16,3 +16,12 @@ test("author checkbox and code texts match docs/legal/author-consent.md letter f
   assert.ok(authorMd.includes(`> ${OTP_TEXT}`));
   assert.ok(OTP_TEXT.includes("{{email автора}}"));
 });
+
+test("the immediate-access request in the payment server matches the agreement letter for letter", () => {
+  const handler = readFileSync("scripts/finance-handler.ts", "utf8");
+  const md = participantMd.match(/## Галочка на сторінці оплати[\s\S]*?\n> (.+)\n/);
+  assert.ok(md, "checkbox text in participant-agreement.md");
+  const text = md[1].replace("{{назва ФОП/ТОВ автора}}", "{{назва ФОП/ТОВ автора}}");
+  assert.ok(handler.includes(JSON.stringify(text)), "IMMEDIATE_ACCESS_TEXT in finance-handler.ts");
+  assert.ok(readFileSync("src/components/cart/CartPage.tsx", "utf8").includes(JSON.stringify(text)), "IMMEDIATE_TEMPLATE in CartPage.tsx");
+});

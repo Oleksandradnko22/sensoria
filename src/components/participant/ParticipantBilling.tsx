@@ -4,6 +4,7 @@
 // «Квитанція» downloads a PDF at once. The refund request (the existing 14-day flow) is one quiet link in «Проблема з
 // оплатою?», shown only while some purchase is still inside the window: no reminders elsewhere.
 import { useEffect, useRef, useState } from "react";
+import { supabase } from "../../lib/supabaseClient";
 import BrandSelect from "../ui/BrandSelect";
 import { createPortal } from "react-dom";
 import { Icon } from "../ui/Icon";
@@ -95,6 +96,10 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
     setPdfError(null);
     try {
       const number = shortOrderId(p.id);
+      // ТЗ 3.2: the confirmation repeats the immediate-access request and names the seller as recorded with the order
+      const { data: pc } = supabase
+        ? await supabase.from("purchase_consents").select("seller_legal_name, seller_code_masked, consent_text").eq("invoice_id", p.id).maybeSingle()
+        : { data: null };
       const lines: [string, string][] = [
         ["Номер покупки", number],
         ["Дата й час", `${formatAbsoluteDate(p.date)}, ${fmtTime(p.date)}`],
@@ -102,13 +107,17 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
         ...(p.kind ? [["Тип", KIND_LABEL[p.kind]] as [string, string]] : []),
         ...(p.author ? [["Автор", p.author] as [string, string]] : []),
         // Seller's legal name (ФОП/ТОВ) comes with the seller block of release C; until then the author is named as the seller.
-        ["Продавець", p.author ? `автор матеріалу — ${p.author}` : "автор матеріалу"],
+        ["Продавець", pc ? `${pc.seller_legal_name} · ${pc.seller_code_masked}` : p.author ? `автор матеріалу — ${p.author}` : "автор матеріалу"],
         ...(session?.profile.name ? [["Покупець", session.profile.name] as [string, string]] : []),
         ["Спосіб оплати", "Картка, через monobank"],
         ["Статус", STATUS_LABEL[p.status]],
         ["Сума", formatAmount(p.amount)],
       ];
-      await downloadReceiptPdf(lines, number, "Не є фіскальним чеком. Фіскальний чек видає продавець. Оплату прийнято через monobank; дані картки Sensoria не отримує й не зберігає.");
+      await downloadReceiptPdf(
+        lines,
+        number,
+        `${pc?.consent_text ? `${pc.consent_text} ` : ""}Не є фіскальним чеком. Фіскальний чек видає продавець. Оплату прийнято через monobank; дані картки Sensoria не отримує й не зберігає.`,
+      );
     } catch {
       setPdfError("Не вдалося створити PDF. Спробуйте ще раз.");
     } finally {

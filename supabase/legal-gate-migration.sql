@@ -181,6 +181,18 @@ begin
     if otp_id is null then raise exception 'otp_required'; end if;
     update legal_otp set consumed_at = now() where id = otp_id;
     docs := array['author_agreement', 'terms', 'privacy'];
+  elsif p_kind = 'author_paid' then
+    -- A6: before paid sales, signed with its own code from the email (author-consent.md, А; spec 2.5)
+    if not ('a6' = any (keys)) then raise exception 'missing_required'; end if;
+    if (select role from profiles where id = uid) <> 'author' then raise exception 'not_author'; end if;
+    select id, verified_at into otp_id, otp_at from legal_otp
+      where user_id = uid and purpose = 'author_paid_sales' and verified_at is not null and consumed_at is null
+        and verified_at > now() - interval '30 minutes'
+      order by verified_at desc limit 1;
+    if otp_id is null then raise exception 'otp_required'; end if;
+    update legal_otp set consumed_at = now() where id = otp_id;
+    ctx := 'author_paid';
+    docs := array['author_paid_sales'];
   elsif p_kind in ('health_data', 'marketing_email') then
     ctx := 'profile';
     docs := array[p_kind];
@@ -195,12 +207,12 @@ begin
     else
       -- похідні згоди йдуть за редакцією основного договору ролі
       select version, text_hash into ver, hsh from legal_documents
-        where document = case when p_kind = 'author' then 'author_agreement' else 'participant_agreement' end and is_current;
+        where document = case when p_kind in ('author', 'author_paid') then 'author_agreement' else 'participant_agreement' end and is_current;
       if ver is null then ver := '1.0'; end if;
     end if;
     insert into legal_consents (user_id, document, version, text_hash, items, context, ip, user_agent, viewed_ms, opened_docs, otp_verified_at, otp_channel)
     values (uid, doc, ver, hsh, p_items, ctx, v_ip, v_ua, p_viewed_ms, coalesce(p_opened_docs, '{}'),
-            case when doc = 'author_agreement' then otp_at end, case when doc = 'author_agreement' then 'email' end)
+            case when doc in ('author_agreement', 'author_paid_sales') then otp_at end, case when doc in ('author_agreement', 'author_paid_sales') then 'email' end)
     on conflict (user_id, document, version) where withdrawn_at is null do nothing;
   end loop;
 end $$;

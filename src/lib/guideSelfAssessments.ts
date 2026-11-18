@@ -7,6 +7,7 @@
 // previous score (upsert), it doesn't keep a history.
 
 import { supabase } from "./supabaseClient.ts";
+import { requireHealthConsent } from "./healthConsent.ts";
 
 export type SelfAssessmentPhase = "before" | "after";
 
@@ -87,6 +88,7 @@ export async function saveSelfAssessment(params: {
   score: number;
   userId: string;
 }): Promise<GuideSelfAssessment> {
+  await requireHealthConsent(); // emotional-state data only with the separate consent (Угода учасника п. 8)
   const client = requireSupabase();
   let { data, error } = await client
     .from("guide_self_assessments")

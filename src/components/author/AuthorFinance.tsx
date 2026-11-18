@@ -4,6 +4,9 @@
 // author's share straight to the author's account; Sensoria's commission comes as agentFeePercent).
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSession } from "../../context/SessionContext";
+import { supabase } from "../../lib/supabaseClient";
+import { acceptLegal, sendLegalOtp, verifyLegalOtp } from "../../lib/legalGate";
+import { AUTHOR_PAID_ITEM, OTP_TEXT } from "../../data/consentTexts";
 import { fetchMonoConnection, fetchMyFinance, markFinanceNotificationsRead, requestMonoConnection, touchFinanceActivity, type FinanceSale, type MonoConnection, type MyFinance } from "../../lib/finance";
 import { STATUS_LABEL, type HistoryRow, authorBankFeeKop, financeTotals, historyRows, incomeByMaterial, isFullyRefunded, monthReportCsv, monthlyIncome, priceBreakdown, statusExplanation, toAccountKop, uahFromKop } from "../../utils/financeView";
 import { buildReferralLink } from "../../utils/referral";
@@ -570,9 +573,21 @@ function MonoConnectCard() {
   const [ipn, setIpn] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A6 — the conditions of paid sales, signed with a code from the email before the first connection
+  const [paidOk, setPaidOk] = useState<boolean>(true);
+  const [a6, setA6] = useState(false);
+  const [codeStep, setCodeStep] = useState<{ email: string } | null>(null);
+  const [code, setCode] = useState("");
 
   const load = async () => {
     try {
+      if (supabase) {
+        const { data } = await supabase.auth.getUser();
+        if (data.user) {
+          const { data: ok, error: e } = await supabase.rpc("has_current_consent", { p_uid: data.user.id, p_document: "author_paid_sales" });
+          setPaidOk(e ? true : ok === true); // before the migration nothing is asked
+        }
+      }
       setConn(await fetchMonoConnection());
       setLoadFailed(false);
     } catch {
@@ -586,9 +601,22 @@ function MonoConnectCard() {
   const problem = legalName.trim().length < 5 ? "Вкажіть назву ФОП або ТОВ повністю, як у документах." : !/^(\d{8}|\d{10})$/.test(ipn) ? "РНОКПП ФОП — 10 цифр, ЄДРПОУ ТОВ — 8 цифр." : null;
   const save = async () => {
     if (problem) return setError(problem);
+    if (!paidOk && !a6) return setError("Підтвердьте умови платних продажів.");
     setSaving(true);
     setError(null);
     try {
+      if (!paidOk) {
+        if (!codeStep) {
+          const r = await sendLegalOtp("author_paid_sales");
+          setCodeStep({ email: r.to ?? "" });
+          return;
+        }
+        await verifyLegalOtp(code, "author_paid_sales");
+        await acceptLegal("author_paid", [AUTHOR_PAID_ITEM], 0, []);
+        setPaidOk(true);
+        setCodeStep(null);
+        setCode("");
+      }
       await requestMonoConnection({ ipn, legalName: legalName.trim() });
       setEditing(false);
       await load();
@@ -633,10 +661,38 @@ function MonoConnectCard() {
           <label className="text-[13px] font-semibold text-[#2d2a5c]">Назва ФОП або ТОВ (як у документах)<input value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="ФОП Прізвище Ім’я По батькові" className={`${input} mt-1`} /></label>
           <label className="text-[13px] font-semibold text-[#2d2a5c]">РНОКПП (ФОП) або ЄДРПОУ (ТОВ)<input value={ipn} onChange={(e) => setIpn(e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" className={`${input} mt-1`} /></label>
           {status === "active" && <p className="text-[13px] text-amber-800">Після зміни даних продажі зупиняться, доки банк не підключить новий рахунок.</p>}
+          {!paidOk && (
+            <div className="rounded-2xl bg-[#faf9ff] p-4 ring-1 ring-[#efeafd]">
+              <label className={`flex cursor-pointer items-start gap-3 rounded-xl p-2 ${a6 ? "bg-[#eef0fd]" : ""}`}>
+                <input type="checkbox" checked={a6} disabled={!!codeStep} onChange={(e) => setA6(e.target.checked)} className="mt-[3px] h-[18px] w-[18px] shrink-0 accent-[#4338ca]" />
+                <span className="text-[14px] leading-relaxed text-[#12172b]">{AUTHOR_PAID_ITEM.text}</span>
+              </label>
+              <p className="mt-2 text-[13px] text-black/55">
+                Докладно в оферті:{" "}
+                <a href="/author-agreement#commission-payouts" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Тариф і комісія банку</a>
+                {" · "}
+                <a href="/author-agreement#taxes" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Податки та розрахункові документи</a>
+              </p>
+              {codeStep && (
+                <div className="mt-3">
+                  <p className="text-[13px] leading-relaxed text-black/70">{OTP_TEXT.replace("{{email автора}}", codeStep.email || "вашу пошту")}</p>
+                  <input
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    aria-label="Код з листа"
+                    placeholder="Код з листа"
+                    className={`${input} mt-2 max-w-[220px] text-center text-[20px] tracking-[0.3em]`}
+                  />
+                </div>
+              )}
+            </div>
+          )}
           {error && <p role="alert" className="text-[13px] text-rose-700">{error}</p>}
           <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={() => void save()} disabled={saving} className="min-h-[46px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-5 text-[14px] font-semibold text-white hover:opacity-95 disabled:opacity-60">{saving ? "Надсилаємо…" : "Надіслати"}</button>
-            <button type="button" onClick={() => { setEditing(false); setError(null); }} className="min-h-[46px] rounded-xl px-4 text-[14px] font-semibold text-black/55 hover:text-black">Скасувати</button>
+            <button type="button" onClick={() => void save()} disabled={saving} className="min-h-[46px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-5 text-[14px] font-semibold text-white hover:opacity-95 disabled:opacity-60">{saving ? "Надсилаємо…" : !paidOk && !codeStep ? "Надіслати код на пошту" : !paidOk ? "Підписати й надіслати" : "Надіслати"}</button>
+            <button type="button" onClick={() => { setEditing(false); setError(null); setCodeStep(null); setCode(""); }} className="min-h-[46px] rounded-xl px-4 text-[14px] font-semibold text-black/55 hover:text-black">Скасувати</button>
           </div>
         </div>
       ) : (

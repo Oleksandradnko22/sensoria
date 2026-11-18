@@ -54,7 +54,11 @@ type Props = {
 export default function LegalLayout({ title, lead, metaTitle, metaDescription, sections, footer, effectiveDate, edition }: Props) {
   const h1Ref = useRef<HTMLHeadingElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(0);
+  // a link like /author-agreement#taxes opens that section
+  const [active, setActive] = useState(() => {
+    const i = sections.findIndex((s) => s.id === window.location.hash.slice(1));
+    return i >= 0 ? i : 0;
+  });
 
   useEffect(() => {
     const prev = document.title;

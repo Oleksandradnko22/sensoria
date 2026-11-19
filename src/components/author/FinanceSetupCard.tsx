@@ -126,7 +126,7 @@ export default function FinanceSetupCard({ card }: { card: string }) {
                 <input value={when} onChange={(e) => setWhen(e.target.value.slice(0, 200))} placeholder="Наприклад: будні після 18:00 або вівторок зранку" className={input} />
               </label>
               <label className="grid gap-1 text-[13px] font-semibold text-[#2d2a5c]">
-                Коментар <span className="font-normal text-black/45">(необов’язково)</span>
+                <span>Коментар <span className="font-normal text-black/45">(необов’язково)</span></span>
                 <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} rows={2} className={`${input} py-2.5`} />
               </label>
               <p className="text-[12px] text-black/50">Відповімо на {email || "пошту вашого облікового запису"}. Не надсилайте ключі каси, PIN чи паролі — вони на зустрічі не потрібні.</p>

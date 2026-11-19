@@ -210,6 +210,8 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
   const [promoMsg, setPromoMsg] = useState<string | null>(null);
   // ТЗ 3.1–3.2: the seller of each paid material and the buyer's explicit request for access right after payment
   const [sellers, setSellers] = useState<Record<string, SellerInfo>>({});
+  // the seller could not be named (not for sale, network): it must be shown before payment, so that item cannot be paid
+  const [sellerFailed, setSellerFailed] = useState<Record<string, string>>({});
   const [immediate, setImmediate] = useState(false);
   // two steps: the cart (summary, promo) → a screen of its own with the seller and the immediate-access request,
   // right before the bank's page — the long legal text gets a wide panel instead of stretching the sidebar
@@ -251,8 +253,14 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
     void Promise.allSettled(payableKey.split(",").map((id) => fetchSellerInfo(id).then((r) => [id, r] as const))).then((res) => {
       if (cancelled) return;
       const next: Record<string, SellerInfo> = {};
-      res.forEach((r) => { if (r.status === "fulfilled") next[r.value[0]] = r.value[1]; });
+      const failed: Record<string, string> = {};
+      const ids = payableKey.split(",");
+      res.forEach((r, n) => {
+        if (r.status === "fulfilled") next[r.value[0]] = r.value[1];
+        else failed[ids[n]] = r.reason instanceof Error ? r.reason.message : "Не вдалося визначити продавця.";
+      });
       setSellers(next);
+      setSellerFailed(failed);
     });
     return () => { cancelled = true; };
   }, [payableKey, userId, isParticipant]);
@@ -331,10 +339,14 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
     <>
       <main className="min-h-screen pt-[112px] text-white sm:pt-[132px] lg:pt-[150px]">
         <div className="page-container pb-16">
-          <h1 className="mb-1 text-[28px] font-bold leading-tight sm:text-[32px]">Кошик</h1>
-          <p className="mb-6 text-[16px] font-medium text-white/85">
-            {lines.length > 0 ? `${lines.length} ${materialsWord(lines.length)} у кошику` : "Тут зібрано те, що ви хочете почати."}
-          </p>
+          {!(step === "confirm" && payable.length > 0) && (
+            <>
+              <h1 className="mb-1 text-[28px] font-bold leading-tight sm:text-[32px]">Кошик</h1>
+              <p className="mb-6 text-[16px] font-medium text-white/85">
+                {lines.length > 0 ? `${lines.length} ${materialsWord(lines.length)} у кошику` : "Тут зібрано те, що ви хочете почати."}
+              </p>
+            </>
+          )}
 
           {addedCount > 0 && (
             <div role="status" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-gradient-to-r from-[#eef0fd] to-[#f6f1ff] ring-1 ring-[#e4def9] px-5 py-4 text-slate-900 shadow-[0_16px_40px_-26px_rgba(30,41,99,0.45)]">
@@ -353,7 +365,7 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
           )}
 
           {step === "confirm" && payable.length > 0 ? (
-            <section aria-labelledby="cart-confirm" className="mx-auto max-w-[860px] rounded-[24px] bg-gradient-to-br from-white to-[#f1f1ff] p-5 text-slate-900 shadow-[0_16px_40px_-26px_rgba(30,41,99,0.55)] sm:p-8">
+            <section aria-labelledby="cart-confirm" className="rounded-[24px] bg-gradient-to-br from-white to-[#f1f1ff] p-5 text-slate-900 shadow-[0_16px_40px_-26px_rgba(30,41,99,0.55)] sm:p-8">
               <button type="button" onClick={() => goStep("cart")} className="-ml-2 inline-flex min-h-[40px] items-center gap-1.5 rounded-xl px-2 text-[14px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]">
                 <span aria-hidden="true">←</span> Назад до кошика
               </button>
@@ -365,7 +377,11 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                     <div className="min-w-[200px] flex-1">
                       <div className="text-[15px] font-semibold leading-snug">{l.item.title}</div>
                       <div className="mt-0.5 text-[13px] text-slate-500">
-                        Продавець: {sellers[l.item.id] ? `${sellers[l.item.id].legalName} · ${sellers[l.item.id].codeMasked}` : "завантажуємо…"}
+                        {sellers[l.item.id]
+                          ? `Продавець: ${sellers[l.item.id].legalName} · ${sellers[l.item.id].codeMasked}`
+                          : sellerFailed[l.item.id]
+                            ? <span className="text-red-700">{sellerFailed[l.item.id]} Цей матеріал зараз не можна оплатити.</span>
+                            : "Продавець: завантажуємо…"}
                       </div>
                     </div>
                     <div className="text-[16px] font-semibold">{priceLabel(l.item)}</div>
@@ -379,8 +395,6 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                 <span className="text-[14px] leading-relaxed text-slate-800">{consentText}</span>
               </label>
               <p className="mt-2 text-[12px] text-slate-500">
-                <a href="/participant-agreement" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Угода учасника</a>
-                {" · "}
                 <a href="/refunds" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Правила повернення коштів</a>
               </p>
 
@@ -390,7 +404,7 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                   {payable.length > 1 && <div className="text-[13px]">Кожен матеріал оплачується окремо.</div>}
                 </div>
                 {payable.length === 1 ? (
-                  <button type="button" onClick={() => pay(payable[0].item)} disabled={paying !== null || !immediate} className={`${BTN} min-h-[48px] text-[15px] disabled:opacity-60 sm:w-auto sm:px-7`}>
+                  <button type="button" onClick={() => pay(payable[0].item)} disabled={paying !== null || !immediate || !sellers[payable[0].item.id]} className={`${BTN} min-h-[48px] text-[15px] disabled:opacity-60 sm:w-auto sm:px-7`}>
                     {paying ? "Переходимо до оплати…" : <>Перейти до оплати <span aria-hidden="true" className="ml-2">→</span></>}
                   </button>
                 ) : (
@@ -400,7 +414,7 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                         key={cartKey(l.entry)}
                         type="button"
                         onClick={() => pay(l.item)}
-                        disabled={paying !== null || !immediate}
+                        disabled={paying !== null || !immediate || !sellers[l.item.id]}
                         aria-label={`Оплатити: ${l.item.title}`}
                         className="inline-flex min-h-[44px] max-w-full items-center justify-center rounded-[14px] bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[14px] font-semibold text-white transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2 disabled:opacity-60"
                       >

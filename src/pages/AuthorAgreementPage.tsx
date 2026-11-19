@@ -288,9 +288,9 @@ export const SECTIONS: LegalSection[] = [
     body: [
       "Оператор: {{operatorName}}.",
       "РНОКПП (ІПН): {{registration}}.",
-      "Місцезнаходження (адреса для юридично значущих звернень): {{address}}.",
-      "Адреса для листування: {{mailingAddress}}.",
-      "Електронна пошта: {{email}}.",
+      "Місцезнаходження: {{address}}.",
+      "Адреса для листування, зокрема для претензій і юридично значущих звернень: {{mailingAddress}}.",
+      "Електронна пошта (зокрема для претензій): {{email}}.",
     ],
   },
 ];
@@ -309,7 +309,7 @@ export default function AuthorAgreementPage({ onOpenTerms, onOpenPrivacy, onOpen
       metaTitle="Публічний договір про надання послуг технічного характеру — Sensoria"
       metaDescription="Публічний договір (оферта) Sensoria з авторами: предмет договору, тариф, комісія банку, приймання оплати, розрахунки, повернення коштів та припинення співпраці."
       edition="1.0"
-      effectiveDate="17.11.2026"
+      effectiveDate="20.11.2026"
       sections={SECTIONS}
       footer={<RelatedDocs current="author" onOpenTerms={onOpenTerms} onOpenPrivacy={onOpenPrivacy} onOpenRefunds={onOpenRefunds} />}
     />

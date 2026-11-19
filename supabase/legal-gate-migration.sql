@@ -20,10 +20,10 @@ create policy "anyone reads legal documents" on public.legal_documents for selec
 
 -- Поточні редакції (хеші станом на 20.11.2026). Нова редакція: вставити рядок, у старої зняти is_current.
 insert into public.legal_documents (document, version, text_hash, effective_from, is_current) values
-  ('participant_agreement', '1.0', 'd5169e71e353f3b6c634017e6041750eeb129220d2d55c844c2dcada3ee5ce4f', now(), true),
-  ('author_agreement',      '1.0', 'a297fb88d6b8249cee962031f8f6718e5e6155bee4ad147a35aa7d3932fb0a8f', '2026-11-17', true),
-  ('terms',                 '1.0', '7cbfd6785e9cc2b6cefa3a3373e8559a9078df355e467c605f52b6559d91fec3', now(), true),
-  ('privacy',               '1.0', '281381958ac105379f5bdaa0f9e9d301e30490961682379d0ca4e4c5db0fcff5', now(), true),
+  ('participant_agreement', '1.0', '43639290eb0ca84adf31c3e9711892dbe1c986812ea7d6599eec7f600cb620fe', now(), true),
+  ('author_agreement',      '1.0', '00894472c48d41c224d03c020d666a6bb5329280808e3ed02c8bfd2bc996b233', '2026-11-17', true),
+  ('terms',                 '1.0', 'e57c494f283113538d3d534efac3703c771a7d62ac999e14e83c41d096e64ca3', now(), true),
+  ('privacy',               '1.0', 'f66026379b70f001978966db56ce6aea5736302adc9258c41a3854d913a42695', now(), true),
   ('refunds',               '1.0', '8ca79483a688a978e58fc2c8d14adfb32fadaf38da0ca8a885a09503ad035940', now(), true)
 on conflict (document, version) do nothing;
 

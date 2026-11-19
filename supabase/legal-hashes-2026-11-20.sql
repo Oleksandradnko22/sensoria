@@ -1,5 +1,7 @@
--- Хеші текстів після правок 20.11.2026 (оферта Б39а, Б43–Б45; Політика П16; Угода учасника п. 9.3).
+-- Хеші текстів після правок 20.11.2026: оферта Б39а, Б43–Б45; Політика П16; Угода учасника п. 9.3;
+-- Б46 — реквізити (місцезнаходження й адреса для листування, зокрема для претензій) в оферті, Умовах, Угоді й Політиці.
 -- Редакція лишається 1.0: змінюється лише відбиток тексту, повторної згоди не потрібно. Ідемпотентно.
-update public.legal_documents set text_hash = 'd5169e71e353f3b6c634017e6041750eeb129220d2d55c844c2dcada3ee5ce4f' where document = 'participant_agreement' and is_current;
-update public.legal_documents set text_hash = 'a297fb88d6b8249cee962031f8f6718e5e6155bee4ad147a35aa7d3932fb0a8f' where document = 'author_agreement' and is_current;
-update public.legal_documents set text_hash = '281381958ac105379f5bdaa0f9e9d301e30490961682379d0ca4e4c5db0fcff5' where document = 'privacy' and is_current;
+update public.legal_documents set text_hash = '43639290eb0ca84adf31c3e9711892dbe1c986812ea7d6599eec7f600cb620fe' where document = 'participant_agreement' and is_current;
+update public.legal_documents set text_hash = '00894472c48d41c224d03c020d666a6bb5329280808e3ed02c8bfd2bc996b233' where document = 'author_agreement' and is_current;
+update public.legal_documents set text_hash = 'e57c494f283113538d3d534efac3703c771a7d62ac999e14e83c41d096e64ca3' where document = 'terms' and is_current;
+update public.legal_documents set text_hash = 'f66026379b70f001978966db56ce6aea5736302adc9258c41a3854d913a42695' where document = 'privacy' and is_current;

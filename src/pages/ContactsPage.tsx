@@ -327,8 +327,8 @@ export default function ContactsPage({ onOpenParticipantDashboard, onOpenAuthorD
         <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4 t-small text-white">
           <div><dt className="text-white/70">Оператор платформи Sensoria</dt><dd className="mt-0.5 font-medium">{LEGAL.operatorName}, РНОКПП {LEGAL.registration}</dd></div>
           <div><dt className="text-white/70">Місцезнаходження</dt><dd className="mt-0.5 font-medium">{LEGAL.address}</dd></div>
-          <div><dt className="text-white/70">Адреса для листування</dt><dd className="mt-0.5 font-medium">{LEGAL.mailingAddress}</dd></div>
-          <div><dt className="text-white/70">Електронна пошта</dt><dd className="mt-0.5 font-medium break-all"><a href={`mailto:${LEGAL.email}`} className="underline underline-offset-4">{LEGAL.email}</a></dd></div>
+          <div><dt className="text-white/70">Адреса для листування, зокрема для претензій і юридично значущих звернень</dt><dd className="mt-0.5 font-medium">{LEGAL.mailingAddress}</dd></div>
+          <div><dt className="text-white/70">Електронна пошта (зокрема для претензій)</dt><dd className="mt-0.5 font-medium break-all"><a href={`mailto:${LEGAL.email}`} className="underline underline-offset-4">{LEGAL.email}</a></dd></div>
         </dl>
       </section>
     </main>

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FiscalError, agentFeeKopOf, cardComplete, cardDetailsOf, checkboxReceiptBody, nextAttemptAt, plannedReceipts, sendable, sendViaCheckbox, type FetchLike, type QueuedReceipt } from "./fiscalReceipts.ts";
+import { FiscalError, agentFeeKopOf, cardComplete, checkRegister, verifyViaCheckbox, cardDetailsOf, checkboxReceiptBody, nextAttemptAt, plannedReceipts, sendable, sendViaCheckbox, type FetchLike, type QueuedReceipt } from "./fiscalReceipts.ts";
 
 const ids = { invoiceId: "a1b2c3d4-0000-4000-8000-000000000001", contentId: "c0ffee12-0000-4000-8000-000000000002" };
 const card = cardDetailsOf({ maskedPan: "444403******1902", approvalCode: "662476", rrn: "060189181768", paymentSystem: "visa", tranId: "13194036" });
@@ -134,4 +134,56 @@ test("the tariff from the bank: paymentInfo.agentFee in kopecks; nothing usable 
   assert.equal(agentFeeKopOf({ agentFee: 150.5 }), null);
   assert.equal(agentFeeKopOf({}), null);
   assert.equal(agentFeeKopOf(null), null);
+});
+
+// ── is it the author's own, real register? ──
+
+const realInfo = { fiscal_number: "4000123456", is_test: false };
+const meOf = (edrpou: string) => ({ full_name: "Касир", organization: { title: "ФОП Іванова", edrpou } });
+
+test("register check: the author's own fiscal register passes", () => {
+  const r = checkRegister(meOf("3837304242"), realInfo, "3837304242");
+  assert.deepEqual([r.ok, r.fiscalNumber, r.taxId, r.isTest], [true, "4000123456", "3837304242", false]);
+});
+
+test("register check: a test register is refused (by flag or by a TEST fiscal number)", () => {
+  assert.equal(checkRegister(meOf("3837304242"), { fiscal_number: "4000123456", is_test: true }, "3837304242").ok, false);
+  const r = checkRegister(meOf("3837304242"), { fiscal_number: "TEST730329" }, "3837304242");
+  assert.equal(r.ok, false);
+  assert.match(r.reason ?? "", /тестова каса/);
+});
+
+test("register check: someone else's register is refused", () => {
+  const r = checkRegister(meOf("1111111111"), realInfo, "3837304242");
+  assert.equal(r.ok, false);
+  assert.match(r.reason ?? "", /інший ФОП/);
+});
+
+test("register check: no fiscal number yet, no bank connection, or an unreadable owner — never ok", () => {
+  assert.equal(checkRegister(meOf("3837304242"), { is_test: false }, "3837304242").ok, false);
+  assert.equal(checkRegister(meOf("3837304242"), realInfo, null).ok, false);
+  assert.equal(checkRegister({ full_name: "Касир" }, realInfo, "3837304242").ok, false);
+  assert.equal(checkRegister(null, null, "3837304242").ok, false);
+});
+
+test("register check over the API: sign in, read cashier and register; a refused PIN throws", async () => {
+  const urls: string[] = [];
+  const fake: FetchLike = async (url) => {
+    urls.push(url);
+    const body = url.endsWith("/signinPinCode") ? { access_token: "T" } : url.endsWith("/cashier/me") ? meOf("3837304242") : realInfo;
+    return { ok: true, status: 200, json: async () => body, text: async () => "" };
+  };
+  const r = await verifyViaCheckbox({ licenseKey: "LK", pin: "1234" }, "3837304242", fake, "https://x");
+  assert.equal(r.ok, true);
+  assert.ok(urls.some((u) => u.endsWith("/api/v1/cash-registers/info")));
+  assert.equal(urls.some((u) => u.endsWith("/receipts/sell")), false); // checking never sends a receipt
+  const denied: FetchLike = async () => ({ ok: false, status: 403, json: async () => ({}), text: async () => "" });
+  await assert.rejects(verifyViaCheckbox({ licenseKey: "LK", pin: "0" }, "3837304242", denied, "https://x"), (e: unknown) => e instanceof FiscalError && e.code === "prro_auth");
+});
+
+test("register check over the API: a register that does not answer is not «broken» — prro_error, never prro_auth", async () => {
+  const flaky: FetchLike = async (url) => (url.endsWith("/signinPinCode")
+    ? { ok: true, status: 200, json: async () => ({ access_token: "T" }), text: async () => "" }
+    : { ok: false, status: 502, json: async () => ({}), text: async () => "bad gateway" });
+  await assert.rejects(verifyViaCheckbox({ licenseKey: "LK", pin: "1" }, "3837304242", flaky, "https://x"), (e: unknown) => e instanceof FiscalError && e.code === "prro_error");
 });

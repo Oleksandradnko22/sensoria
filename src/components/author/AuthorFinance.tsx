@@ -762,17 +762,13 @@ function PrroCard() {
           {status === "error" && <div className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-[14px] text-rose-900">Каса не приймає дані доступу. Перевірте ключ і PIN у кабінеті Checkbox і підключіть ще раз.</div>}
           {status === "none" && (
             <div className="mt-4 rounded-2xl bg-[#faf9ff] px-4 py-3 text-[14px] text-black/65">
-              Без каси платні матеріали не можна купити. Що потрібно зробити один раз:
-              <ol className="mt-2 list-decimal space-y-1 pl-5 text-[13px] text-black/55">
-                <li>Зареєструйте господарську одиницю «інтернет-магазин» (форма 20-ОПП).</li>
-                <li>Зареєструйте ПРРО в Checkbox (форма 1-ПРРО).</li>
-                <li>Оформіть електронну печатку для ПРРО й зареєструйте її як ключ касира (форма 5-ПРРО).</li>
-                <li>Вкажіть тут ключ ліцензії каси й PIN касира з кабінету Checkbox.</li>
-              </ol>
+              Без каси платні матеріали не можна купити; безкоштовні публікуються й без неї. Касу підключають один раз —
+              інструкція нижче.
             </div>
           )}
         </>
       )}
+      {!failed && st && status !== "active" && <PrroGuide />}
       {editing ? (
         <div className="mt-4 grid gap-3">
           <label className="text-[13px] font-semibold text-[#2d2a5c]">Ключ ліцензії каси<input value={licenseKey} onChange={(e) => setLicenseKey(e.target.value)} autoComplete="off" className={`${input} mt-1`} /></label>
@@ -788,6 +784,75 @@ function PrroCard() {
         st && <button type="button" onClick={() => setEditing(true)} className="mt-4 inline-flex min-h-[44px] items-center rounded-xl bg-[#f1eeff] px-4 text-[14px] font-semibold text-[#5b4bd0] hover:bg-[#e7e1ff]">{status === "active" ? "Змінити дані каси" : "Підключити касу"}</button>
       )}
     </section>
+  );
+}
+
+// Step-by-step connection of the author's register — the exact path the operator went through on 18–19.11.2026
+// (20-ОПП → Checkbox register → DepositSign cashier key → license key + PIN here). Values are the ones the tax
+// cabinet and Checkbox actually ask for; the author signs everything with their own key, Sensoria never does.
+function PrroGuide() {
+  const step = "rounded-2xl border border-[#ece8fb] bg-white px-4 py-3";
+  const sum = "cursor-pointer list-none text-[14px] font-semibold text-[#2d2a5c] [&::-webkit-details-marker]:hidden";
+  const body = "mt-3 space-y-2 text-[13px] leading-relaxed text-black/65";
+  const warn = "rounded-xl bg-amber-50 px-3 py-2 text-[13px] text-amber-900";
+  const row = (k: string, v: string) => (
+    <tr key={k} className="border-t border-[#f1eeff] align-top">
+      <td className="py-1.5 pr-3 font-semibold text-[#2d2a5c]">{k}</td>
+      <td className="py-1.5">{v}</td>
+    </tr>
+  );
+  return (
+    <div className="mt-4 grid gap-2">
+      <p className="text-[13px] text-black/55">
+        Займає 30–40 хвилин і до 1–2 днів очікування відповідей ДПС. Потрібен лише ваш КЕП, яким ви входите в Електронний кабінет.
+        Перші 30 днів Checkbox безкоштовний, далі — щомісячна плата за касу (актуальний тариф — на checkbox.ua).
+        Надсилати чеки покупцям вам не потрібно: Sensoria формує їх на вашій касі автоматично, покупець отримує чек на пошту й бачить його в «Оплатах».
+      </p>
+
+      <details className={step}>
+        <summary className={sum}>Крок 1. Повідомте ДПС про місце діяльності (форма 20-ОПП)</summary>
+        <div className={body}>
+          <p>cabinet.tax.gov.ua → «Введення звітності» → рік і поточний місяць → «Створити» → у пошуку «20-ОПП» (код форми для ФОП починається на F1312). У рядку таблиці:</p>
+          <table className="w-full text-[13px]"><tbody>
+            {row("Графа 2", "1 — первинне подання")}
+            {row("Графа 3", "682 — квартира або 685 — житловий будинок (за адресою реєстрації ФОП)")}
+            {row("Графа 4", "назва з довідника, наприклад «Житловий будинок». Запам’ятайте її")}
+            {row("Графа 5", "код типу + 00001: 68200001 або 68500001")}
+            {row("Графи 6–13", "адреса реєстрації ФОП точно як у витязі з ЄДР")}
+            {row("Графа 14", "2 — експлуатується")}
+            {row("Графа 15", "1 — власне житло; 3 — житло родичів, де ви проживаєте; 7 — оренда за договором")}
+            {row("Графи 16, 17", "порожні (жодних «+»)")}
+          </tbody></table>
+          <p>«Зберегти» → галочка перевірки → підпис вашим КЕП → «Відправити». Чекайте квитанцію № 2 у «Вхідні/вихідні документи» («документ опрацьовано»), а потім рядок в «Облікові дані платника → Об’єкти оподаткування».</p>
+          <p className={warn}>Вказуйте адресу реєстрації ФОП, а не орендоване житло без договору: адреса має підтверджуватися документом. Якщо 20-ОПП ви вже колись подавали — не обирайте «первинне», напишіть у підтримку Sensoria.</p>
+        </div>
+      </details>
+
+      <details className={step}>
+        <summary className={sum}>Крок 2. Зареєструйте касу в Checkbox (форма 1-ПРРО)</summary>
+        <div className={body}>
+          <p>checkbox.ua → реєстрація → підтвердіть ФОП своїм КЕП. «Каси» → «Додати касу» → <b>основна</b>. Адреса підтягнеться з ДПС сама (з кроку 1) — заявку Checkbox подає сам.</p>
+          <p>Дочекайтеся статусу «Активна» і фіскального номера каси (зазвичай від кількох хвилин до доби).</p>
+          <p className={warn}>Не додавайте резервну касу — це ще одна платна каса, для Sensoria достатньо основної.</p>
+        </div>
+      </details>
+
+      <details className={step}>
+        <summary className={sum}>Крок 3. Додайте касира з окремим ключем (форма 5-ПРРО)</summary>
+        <div className={body}>
+          <p>Checkbox → «Касири» → «Додати касира» → <b>«Створити ключ DepositSign»</b> → підтвердіть особу своїм КЕП або Дія.Підписом. Назва — будь-яка, наприклад «Sensoria каса 1». Задайте PIN (запишіть його) і прив’яжіть касира до каси з кроку 2. Форму 5-ПРРО Checkbox подасть сам; чекайте статусу «Активний».</p>
+          <p className={warn}>Радимо не обирати «ключ ЕЦП, яким заходили в ДПС». Ключ касира постійно зберігається в Checkbox і підписує кожен чек, тому безпечніше мати для цього окремий ключ, а не ваш особистий КЕП, яким підписуються декларації й договори.</p>
+        </div>
+      </details>
+
+      <details className={step}>
+        <summary className={sum}>Крок 4. Підключіть касу тут</summary>
+        <div className={body}>
+          <p>Ключ ліцензії: Checkbox → «Каси» → колонка «Ключ ліцензії» вашої основної каси. PIN — той, що ви задали касиру. Натисніть «Підключити касу» нижче: ми перевіримо, що каса відкривається.</p>
+          <p>Нікому не пересилайте ключ ліцензії й PIN, зокрема в чат підтримки.</p>
+        </div>
+      </details>
+    </div>
   );
 }
 

@@ -323,6 +323,13 @@ async function runJobs() {
     res.errors.push(`fiscal queue: ${e instanceof Error ? e.message : e}`);
   }
 
+  // 7) authors' registers: still the author's own, real, working register? (a broken one stops the author's sales)
+  try {
+    (res as Record<string, unknown>).prroChecked = await recheckAuthorRegisters();
+  } catch (e) {
+    res.errors.push(`prro recheck: ${e instanceof Error ? e.message : e}`);
+  }
+
   res.emails = await sendPendingEmails();
   return res;
 }
@@ -880,6 +887,48 @@ async function fiscalCredsFor(issuer: FiscalIssuer, authorId: string, live: bool
   return v.licenseKey && v.pin ? { licenseKey: v.licenseKey, pin: v.pin } : null;
 }
 
+/** Daily: every connected author register must still sign in and pass checkRegister (own FOP, not a test one). */
+async function recheckAuthorRegisters(): Promise<{ checked: number; broken: number }> {
+  const out = { checked: 0, broken: 0 };
+  const { data: list, error } = await admin.from("author_fiscal").select("author_id").eq("status", "active").limit(500);
+  if (error) throw new Error(error.message);
+  for (const a of list ?? []) {
+    const authorId = a.author_id as string;
+    const creds = await fiscalCredsFor("author", authorId, true);
+    const { data: rcv } = await admin.from("author_mono_receivers").select("ipn").eq("author_id", authorId).maybeSingle();
+    out.checked += 1;
+    let why: string | null = null;
+    if (!creds) why = "Не знайдено даних доступу до каси.";
+    else {
+      try {
+        const check = await verifyViaCheckbox(creds, rcv?.ipn ? String(rcv.ipn) : null, fetch as unknown as FetchLike);
+        if (!check.ok) why = check.reason;
+      } catch (e) {
+        // only a refusal of the key/PIN counts; a network hiccup is tried again tomorrow
+        if (e instanceof FiscalError && e.code === "prro_auth") why = "Каса не прийняла ключ або PIN.";
+      }
+    }
+    if (why) {
+      out.broken += 1;
+      await markAuthorPrroBroken(authorId, why);
+    }
+  }
+  return out;
+}
+
+/** The author's register stopped working: sales stop (monoCheckout needs status 'active'), the author and the admin are told once. */
+async function markAuthorPrroBroken(authorId: string, why: string) {
+  const { data: af } = await admin.from("author_fiscal").update({ status: "error", last_error: why.slice(0, 300), updated_at: nowIso() })
+    .eq("author_id", authorId).eq("status", "active").select("author_id").maybeSingle();
+  if (!af) return; // already marked
+  const day = nowIso().slice(0, 10);
+  await admin.from("financial_notifications").insert({
+    author_id: authorId, event_type: "PRRO_BROKEN", dedupe_key: `prro-broken:${day}`,
+    message: "Ваша каса для чеків (ПРРО) перестала приймати запити. Продаж ваших платних матеріалів призупинено, доки ви не підключите касу знову у «Фінанси → Каса для чеків». Перевірте в кабінеті Checkbox, що каса активна, оплачена і касир має ключ.",
+  }).then(() => {}, () => {});
+  await fiscalAlert("Каса автора не працює", `Автор ${authorId}: ${why}. Продаж призупинено.`);
+}
+
 async function fiscalAlert(title: string, details: string) {
   await admin.from("admin_alert_outbox").insert({ kind: "fiscal", title, details: details.slice(0, 1000), urgent: true }).then(() => {}, () => {});
 }
@@ -935,6 +984,9 @@ async function fiscalSendDue(onlyInvoice?: string): Promise<{ sent: number; fail
         out.sent += 1;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
+        // the author's register no longer lets us in (key revoked, subscription over, register closed):
+        // new sales of this author stop at checkout until the register is reconnected; the author and the admin hear about it
+        if (live && r.issuer === "author" && e instanceof FiscalError && e.code === "prro_auth") await markAuthorPrroBroken(r.author_id, msg);
         const attempts = Number(r.attempts) + 1;
         const next = nextAttemptAt(attempts - 1, nowIso()); // 1st failure → +1 min, 2nd → +5 min, …
         await admin.from("fiscal_receipts").update(next ? { attempts, next_attempt_at: next, last_error: msg.slice(0, 500) } : { attempts, status: "failed", last_error: msg.slice(0, 500) }).eq("id", r.id);
@@ -1173,20 +1225,28 @@ Deno.serve(async (req) => {
       const pin = String(payload.pin ?? "").replace(/\s+/g, "");
       if (licenseKey.length < 10) throw new FinanceError("bad_license", "Вкажіть ключ ліцензії каси з кабінету Checkbox.");
       if (!/^\d{4,10}$/.test(pin)) throw new FinanceError("bad_pin", "PIN касира — 4–10 цифр.");
-      const base = CHECKBOX_API;
-      // a test sign-in only (no receipt): the key and PIN must really open the author's register
-      let status = "active";
-      let err: string | null = null;
+      // no receipt is sent: sign in, then check that this is the author's OWN, REAL register (fiscalReceipts.ts,
+      // checkRegister). A failed attempt never replaces a register that already works.
+      const { data: rcv } = await admin.from("author_mono_receivers").select("ipn").eq("author_id", user.id).maybeSingle();
+      let check: RegisterCheck;
       try {
-        await checkboxClient({ licenseKey, pin }, fetch as unknown as FetchLike, base).signIn();
+        check = await verifyViaCheckbox({ licenseKey, pin }, rcv?.ipn ? String(rcv.ipn) : null, fetch as unknown as FetchLike);
       } catch (e) {
-        status = "error";
-        err = e instanceof Error ? e.message.slice(0, 300) : "Не вдалося увійти в касу.";
+        if (e instanceof FiscalError && e.code === "prro_auth") throw new FinanceError("prro_auth", "Каса не прийняла ключ або PIN. Перевірте дані в кабінеті Checkbox.");
+        throw new FinanceError("prro_unavailable", `Каса зараз не відповідає. Спробуйте за кілька хвилин.${e instanceof Error ? ` (${e.message.slice(0, 120)})` : ""}`);
       }
-      const { error: sErr } = await admin.rpc("author_fiscal_store", { p_author: user.id, p_license: licenseKey, p_pin: pin, p_status: status, p_error: err });
+      if (!check.ok) {
+        // what Checkbox answered, for support (no secrets): the register's number, the tax id it reported, test or not
+        await admin.from("finance_audit_log").insert({
+          administrator_id: null, action: "prro_check_failed", entity_type: "author", entity_id: user.id, reason: check.reason,
+          new_value: { fiscalNumber: check.fiscalNumber, taxIdReported: check.taxId ? `••••${check.taxId.slice(-4)}` : null, isTest: check.isTest },
+        }).then(() => {}, () => {});
+        throw new FinanceError("prro_check", check.reason ?? "Касу не вдалося перевірити.");
+      }
+      const { error: sErr } = await admin.rpc("author_fiscal_store", { p_author: user.id, p_license: licenseKey, p_pin: pin, p_status: "active", p_error: null });
       if (sErr) throw new FinanceError("prro_store", "Каси поки не підключаються. Спробуйте пізніше.");
-      if (status !== "active") throw new FinanceError("prro_auth", "Каса не прийняла ключ або PIN. Перевірте дані в кабінеті Checkbox.");
-      return json({ ok: true, status });
+      await admin.from("author_fiscal").update({ cash_register_id: check.fiscalNumber }).eq("author_id", user.id);
+      return json({ ok: true, status: "active", fiscalNumber: check.fiscalNumber });
     }
 
     if (action === "touchActivity" || action === "requestPayout" || action === "markNotificationsRead" || action === "saveBankAccount" || action === "monoConnection" || action === "requestMonoConnection") {

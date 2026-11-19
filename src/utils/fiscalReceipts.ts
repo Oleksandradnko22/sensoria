@@ -229,6 +229,14 @@ export function checkboxClient(creds: CheckboxCreds, fetchFn: FetchLike, base = 
       }
       throw new FiscalError("prro_error", "Зміна в касі відкривається довше, ніж очікувалося. Чек буде надіслано повторно.");
     },
+    /** The cashier and the organization (FOP/LLC) the register belongs to. */
+    async me(token: string): Promise<Record<string, unknown>> {
+      return call("/api/v1/cashier/me", "GET", token);
+    },
+    /** The register itself: fiscal number, test or not. */
+    async registerInfo(token: string): Promise<Record<string, unknown>> {
+      return call("/api/v1/cash-registers/info", "GET", token);
+    },
     async sell(token: string, body: unknown): Promise<CheckboxResult> {
       const r = await call("/api/v1/receipts/sell", "POST", token, body);
       const id = typeof r.id === "string" ? r.id : "";
@@ -236,6 +244,55 @@ export function checkboxClient(creds: CheckboxCreds, fetchFn: FetchLike, base = 
       return { providerReceiptId: id, fiscalCode: typeof r.fiscal_code === "string" ? r.fiscal_code : null, receiptUrl: checkboxReceiptUrl(id) };
     },
   };
+}
+
+// ── is this the author's own, real register? ────────────────────────────────
+// A sign-in alone proves only that the key and PIN work. Three more things must hold before an author may sell:
+//  1) the register is not a TEST one (its receipts are not fiscal: a sale would go without a receipt);
+//  2) it belongs to the author's own FOP/LLC (the tax id connected at monobank), not to someone else;
+//  3) it has a fiscal number.
+// Field names follow Checkbox's API and are read defensively; an unknown answer is never treated as "ok".
+
+export interface RegisterCheck {
+  ok: boolean;
+  /** why not, in Ukrainian, for the author */
+  reason: string | null;
+  fiscalNumber: string | null;
+  taxId: string | null;
+  isTest: boolean;
+}
+
+const pick = (o: unknown, ...paths: string[]): string | null => {
+  for (const p of paths) {
+    let v: unknown = o;
+    for (const k of p.split(".")) v = v && typeof v === "object" ? (v as Record<string, unknown>)[k] : undefined;
+    if (typeof v === "string" && v.trim()) return v.trim();
+    if (typeof v === "number") return String(v);
+  }
+  return null;
+};
+
+export function checkRegister(me: unknown, info: unknown, expectedTaxId: string | null): RegisterCheck {
+  const fiscalNumber = pick(info, "fiscal_number", "fiscalNumber");
+  const isTest = (info as { is_test?: unknown } | null)?.is_test === true || /^TEST/i.test(fiscalNumber ?? "");
+  const taxId = pick(me, "organization.edrpou", "organization.tax_number", "organization.tax_code", "organization.nin")
+    ?? pick(info, "organization.edrpou", "organization.tax_number", "organization.tax_code");
+  const out = { fiscalNumber, taxId, isTest };
+  if (isTest) return { ok: false, reason: "Це тестова каса: її чеки не фіскальні. Підключіть основну касу з кабінету Checkbox.", ...out };
+  if (!fiscalNumber) return { ok: false, reason: "Каса ще не має фіскального номера. Дочекайтеся реєстрації в ДПС (статус «Активна») і підключіть ще раз.", ...out };
+  if (!expectedTaxId) return { ok: false, reason: "Спершу підключіть приймання оплат у розділі «Приймання оплат»: касу перевіряємо за кодом вашого ФОП.", ...out };
+  if (!taxId) return { ok: false, reason: "Не вдалося перевірити, на кого зареєстрована каса. Напишіть у підтримку Sensoria.", ...out };
+  if (taxId.replace(/\D/g, "") !== expectedTaxId.replace(/\D/g, "")) return { ok: false, reason: "Каса зареєстрована на інший ФОП або ТОВ. Підключіть касу свого ФОП — того, на який приходять оплати.", ...out };
+  return { ok: true, reason: null, ...out };
+}
+
+/** Sign in and check the register (connect and the daily recheck). Throws on network/auth errors: a register
+ *  that did not answer is NOT a broken one (prro_error — try later); only prro_auth means the key/PIN were refused. */
+export async function verifyViaCheckbox(creds: CheckboxCreds, expectedTaxId: string | null, fetchFn: FetchLike, base = CHECKBOX_API): Promise<RegisterCheck> {
+  const c = checkboxClient(creds, fetchFn, base);
+  const token = await c.signIn();
+  const [me, info] = await Promise.all([c.me(token), c.registerInfo(token)]);
+  return checkRegister(me, info, expectedTaxId);
 }
 
 /** One receipt end to end: sign in, make sure a shift is open, send. */

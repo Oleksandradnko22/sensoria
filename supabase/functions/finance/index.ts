@@ -1549,8 +1549,15 @@ export function plannedReceipts(i: ReceiptInput): ReceiptDraft[] {
  * (monobank withholds it from the author's share); Sensoria's tariff carries none. Field name `commission` —
  * to be confirmed on the test register (the line must show the amount).
  */
-export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { email?: string | null; relatedReceiptId?: string | null; commissionKop?: number | null } = {}) {
-  const commission = opts.commissionKop != null && Number.isInteger(opts.commissionKop) && opts.commissionKop > 0 ? opts.commissionKop : null;
+/**
+ * Card requisites in SENSORIA's tariff receipt. They are optional for internet acquiring, and leaving them out passes
+ * less of the buyer's data to the author. But the tax consultation request filed 19.11.2026 (п. 2.7) describes this
+ * receipt WITH them, so it stays that way until ДПС answers; then set to false (the facts must match the request).
+ */
+export const SENSORIA_FEE_CARD_DETAILS = true;
+
+export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { email?: string | null; relatedReceiptId?: string | null; commissionKop?: number | null; sensoriaCardDetails?: boolean } = {}) {
+  const commission = d.issuer === "author" && opts.commissionKop != null && Number.isInteger(opts.commissionKop) && opts.commissionKop > 0 ? opts.commissionKop : null;
   if (d.priceKop - d.discountKop !== d.amountKop) throw new FiscalError("bad_amount", "Сума чека не збігається з ціною та знижкою.");
   if (d.kind === "return" && !opts.relatedReceiptId) throw new FiscalError("no_related", "Чек повернення потребує фіскального чека продажу.");
   const good = {
@@ -1559,16 +1566,27 @@ export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { 
     ...(d.kind === "return" ? { is_return: true } : {}),
     ...(d.discountKop > 0 ? { discounts: [{ type: "DISCOUNT", mode: "VALUE", value: d.discountKop, name: "Знижка" }] } : {}),
   };
+  // Sensoria's tariff receipt goes to the AUTHOR: no buyer card data in it. Card requisites (ЕПЗ, auth code, RRN,
+  // acquirer fee) are mandatory for payments through a payment device (POS / Tap to phone), not for internet acquiring
+  // (Положення № 13; Checkbox support and ЗІР 42872, 19.11.2026), so the buyer's data is not passed on needlessly.
+  if (d.issuer === "sensoria" && !(opts.sensoriaCardDetails ?? SENSORIA_FEE_CARD_DETAILS)) {
+    return {
+      goods: [good],
+      payments: [{ type: "CASHLESS", value: d.amountKop, label: "Інтернет-еквайринг (розподіл платежу)" }],
+      ...(opts.relatedReceiptId ? { related_receipt_id: opts.relatedReceiptId } : {}),
+      ...(opts.email ? { delivery: { email: opts.email } } : {}),
+    };
+  }
   return {
     goods: [good],
     payments: [{
       type: "CASHLESS",
       value: d.amountKop,
-      label: "Картка",
-      card_mask: card.maskedPan,
-      auth_code: card.approvalCode,
-      rrn: card.rrn,
-      payment_system: card.paymentSystem,
+      label: cardComplete(card) ? "Картка" : "Інтернет-еквайринг",
+      ...(card.maskedPan ? { card_mask: card.maskedPan } : {}),
+      ...(card.approvalCode ? { auth_code: card.approvalCode } : {}),
+      ...(card.rrn ? { rrn: card.rrn } : {}),
+      ...(card.paymentSystem ? { payment_system: card.paymentSystem } : {}),
       bank_name: ACQUIRER_NAME,
       ...(commission != null ? { commission } : {}),
     }],
@@ -2949,13 +2967,8 @@ async function fiscalSendDue(onlyInvoice?: string): Promise<{ sent: number; fail
         continue;
       }
       const card = cardDetailsOf(inv?.payment_info);
-      if (!cardComplete(card)) {
-        await admin.from("fiscal_receipts").update({ status: "failed", last_error: "Банк не передав дані картки для чека" }).eq("id", r.id);
-        qr.status = "failed";
-        out.failed += 1;
-        await fiscalAlert("Чек не сформовано", `Замовлення ${r.invoice_id}: немає даних картки від банку.`);
-        continue;
-      }
+      // card requisites are optional for internet acquiring (mandatory only for POS / Tap to phone): a receipt without
+      // them is sent anyway — a sale without any receipt would be far worse. Only Sensoria's receipt never carries them.
       const to = r.deliver_to === "buyer" ? inv?.buyer_id : r.author_id;
       const { data: who } = to ? await admin.from("profiles").select("email").eq("id", to).maybeSingle() : { data: null };
       const related = r.kind === "return" ? rows.find((x) => x.invoice_id === r.invoice_id && x.issuer === r.issuer && x.kind === "sale")?.provider_receipt_id : null;

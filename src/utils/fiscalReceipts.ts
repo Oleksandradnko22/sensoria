@@ -120,8 +120,15 @@ export function plannedReceipts(i: ReceiptInput): ReceiptDraft[] {
  * (monobank withholds it from the author's share); Sensoria's tariff carries none. Field name `commission` —
  * to be confirmed on the test register (the line must show the amount).
  */
-export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { email?: string | null; relatedReceiptId?: string | null; commissionKop?: number | null } = {}) {
-  const commission = opts.commissionKop != null && Number.isInteger(opts.commissionKop) && opts.commissionKop > 0 ? opts.commissionKop : null;
+/**
+ * Card requisites in SENSORIA's tariff receipt. They are optional for internet acquiring, and leaving them out passes
+ * less of the buyer's data to the author. But the tax consultation request filed 19.11.2026 (п. 2.7) describes this
+ * receipt WITH them, so it stays that way until ДПС answers; then set to false (the facts must match the request).
+ */
+export const SENSORIA_FEE_CARD_DETAILS = true;
+
+export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { email?: string | null; relatedReceiptId?: string | null; commissionKop?: number | null; sensoriaCardDetails?: boolean } = {}) {
+  const commission = d.issuer === "author" && opts.commissionKop != null && Number.isInteger(opts.commissionKop) && opts.commissionKop > 0 ? opts.commissionKop : null;
   if (d.priceKop - d.discountKop !== d.amountKop) throw new FiscalError("bad_amount", "Сума чека не збігається з ціною та знижкою.");
   if (d.kind === "return" && !opts.relatedReceiptId) throw new FiscalError("no_related", "Чек повернення потребує фіскального чека продажу.");
   const good = {
@@ -133,7 +140,7 @@ export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { 
   // Sensoria's tariff receipt goes to the AUTHOR: no buyer card data in it. Card requisites (ЕПЗ, auth code, RRN,
   // acquirer fee) are mandatory for payments through a payment device (POS / Tap to phone), not for internet acquiring
   // (Положення № 13; Checkbox support and ЗІР 42872, 19.11.2026), so the buyer's data is not passed on needlessly.
-  if (d.issuer === "sensoria") {
+  if (d.issuer === "sensoria" && !(opts.sensoriaCardDetails ?? SENSORIA_FEE_CARD_DETAILS)) {
     return {
       goods: [good],
       payments: [{ type: "CASHLESS", value: d.amountKop, label: "Інтернет-еквайринг (розподіл платежу)" }],
@@ -146,11 +153,11 @@ export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { 
     payments: [{
       type: "CASHLESS",
       value: d.amountKop,
-      label: "Картка",
-      card_mask: card.maskedPan,
-      auth_code: card.approvalCode,
-      rrn: card.rrn,
-      payment_system: card.paymentSystem,
+      label: cardComplete(card) ? "Картка" : "Інтернет-еквайринг",
+      ...(card.maskedPan ? { card_mask: card.maskedPan } : {}),
+      ...(card.approvalCode ? { auth_code: card.approvalCode } : {}),
+      ...(card.rrn ? { rrn: card.rrn } : {}),
+      ...(card.paymentSystem ? { payment_system: card.paymentSystem } : {}),
       bank_name: ACQUIRER_NAME,
       ...(commission != null ? { commission } : {}),
     }],

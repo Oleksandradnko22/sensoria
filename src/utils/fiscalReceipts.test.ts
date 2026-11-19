@@ -236,3 +236,18 @@ test("Checkbox: a receipt refused with shift.opened_too_long → close, reopen, 
   assert.equal(sells, 2);
   assert.ok(calls.indexOf("POST /api/v1/shifts/close") < calls.indexOf("POST /api/v1/shifts"));
 });
+
+test("Sensoria's tariff receipt carries no buyer card data; the author's keeps it, and goes out even without it", () => {
+  const [author, sensoria] = plannedReceipts({ kind: "sale", ...ids, amountKop: 100000, sensoriaKop: 30000, feeFiscal: true });
+  // until the ІПК answer the tariff receipt matches the request (with card data); afterwards — without
+  const withCard = checkboxReceiptBody(sensoria, card).payments[0] as Record<string, unknown>;
+  assert.equal(withCard.card_mask, "444403******1902");
+  assert.equal("commission" in withCard, false);
+  const s = checkboxReceiptBody(sensoria, card, { sensoriaCardDetails: false }).payments[0] as Record<string, unknown>;
+  assert.equal(s.value, 30000);
+  for (const k of ["card_mask", "auth_code", "rrn", "payment_system", "commission"]) assert.equal(k in s, false, k);
+  const a = checkboxReceiptBody(author, card, { commissionKop: 1300 }).payments[0] as Record<string, unknown>;
+  assert.deepEqual([a.card_mask, a.rrn, a.commission, a.label], ["444403******1902", "060189181768", 1300, "Картка"]);
+  const bare = checkboxReceiptBody(author, cardDetailsOf(null)).payments[0] as Record<string, unknown>;
+  assert.deepEqual([bare.value, bare.label, "card_mask" in bare], [100000, "Інтернет-еквайринг", false]);
+});

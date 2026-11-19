@@ -962,13 +962,8 @@ async function fiscalSendDue(onlyInvoice?: string): Promise<{ sent: number; fail
         continue;
       }
       const card = cardDetailsOf(inv?.payment_info);
-      if (!cardComplete(card)) {
-        await admin.from("fiscal_receipts").update({ status: "failed", last_error: "Банк не передав дані картки для чека" }).eq("id", r.id);
-        qr.status = "failed";
-        out.failed += 1;
-        await fiscalAlert("Чек не сформовано", `Замовлення ${r.invoice_id}: немає даних картки від банку.`);
-        continue;
-      }
+      // card requisites are optional for internet acquiring (mandatory only for POS / Tap to phone): a receipt without
+      // them is sent anyway — a sale without any receipt would be far worse. Only Sensoria's receipt never carries them.
       const to = r.deliver_to === "buyer" ? inv?.buyer_id : r.author_id;
       const { data: who } = to ? await admin.from("profiles").select("email").eq("id", to).maybeSingle() : { data: null };
       const related = r.kind === "return" ? rows.find((x) => x.invoice_id === r.invoice_id && x.issuer === r.issuer && x.kind === "sale")?.provider_receipt_id : null;

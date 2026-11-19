@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FiscalError, agentFeeKopOf, cardComplete, checkRegister, verifyViaCheckbox, cardDetailsOf, checkboxReceiptBody, nextAttemptAt, plannedReceipts, sendable, sendViaCheckbox, type FetchLike, type QueuedReceipt } from "./fiscalReceipts.ts";
+import { FiscalError, agentFeeKopOf, cardComplete, checkRegister, verifyViaCheckbox, cardDetailsOf, checkboxClient, checkboxReceiptBody, nextAttemptAt, plannedReceipts, sendable, sendViaCheckbox, type FetchLike, type QueuedReceipt } from "./fiscalReceipts.ts";
 
 const ids = { invoiceId: "a1b2c3d4-0000-4000-8000-000000000001", contentId: "c0ffee12-0000-4000-8000-000000000002" };
 const card = cardDetailsOf({ maskedPan: "444403******1902", approvalCode: "662476", rrn: "060189181768", paymentSystem: "visa", tranId: "13194036" });
@@ -193,4 +193,46 @@ test("«Комісія еквайра»: the bank's fee goes to the payment as `
   assert.equal(checkboxReceiptBody(draft, card, { commissionKop: 585 }).payments[0].commission, 585);
   assert.equal("commission" in checkboxReceiptBody(draft, card, { commissionKop: 0 }).payments[0], false);
   assert.equal("commission" in checkboxReceiptBody(draft, card).payments[0], false);
+});
+
+test("Checkbox: a shift open for 23 h or more is closed and a new one opened before the receipt", async () => {
+  const seq: string[] = [];
+  let phase: "old" | "closing" | "closed" | "opening" | "open" = "old";
+  const fake: FetchLike = async (url, init) => {
+    const path = url.replace("https://x", "");
+    seq.push(`${init.method} ${path}`);
+    if (path.endsWith("/signinPinCode")) return { ok: true, status: 200, json: async () => ({ access_token: "T" }), text: async () => "" };
+    if (path === "/api/v1/shifts/close") { phase = "closing"; return { ok: true, status: 200, json: async () => ({}), text: async () => "" }; }
+    if (path === "/api/v1/shifts") { phase = "opening"; return { ok: true, status: 200, json: async () => ({}), text: async () => "" }; }
+    if (path === "/api/v1/cashier/shift") {
+      const body = phase === "old" ? { status: "OPENED", opened_at: "2026-11-19T08:00:00Z" } : phase === "closing" ? ((phase = "closed"), { status: "CLOSING" }) : phase === "closed" ? { status: "CLOSED" } : phase === "opening" ? ((phase = "open"), { status: "OPENING" }) : { status: "OPENED", opened_at: "2026-11-20T09:00:00Z" };
+      return { ok: true, status: 200, json: async () => body, text: async () => "" };
+    }
+    return { ok: true, status: 200, json: async () => ({ id: "rc" }), text: async () => "" };
+  };
+  const c = checkboxClient({ licenseKey: "LK", pin: "1" }, fake, "https://x");
+  await c.ensureShift("T", noWait, Date.parse("2026-11-20T09:00:00Z"));
+  assert.ok(seq.includes("POST /api/v1/shifts/close"));
+  assert.ok(seq.indexOf("POST /api/v1/shifts/close") < seq.indexOf("POST /api/v1/shifts"));
+});
+
+test("Checkbox: a receipt refused with shift.opened_too_long → close, reopen, send again once", async () => {
+  const calls: string[] = [];
+  let shift = "OPENED"; // opened_at unknown: only the refusal tells it is too old
+  let sells = 0;
+  const ok = (b: unknown) => ({ ok: true, status: 200, json: async () => b, text: async () => "" });
+  const fake: FetchLike = async (url, init) => {
+    const path = url.replace("https://x", "");
+    calls.push(`${init.method} ${path}`);
+    if (path.endsWith("/signinPinCode")) return ok({ access_token: "T" });
+    if (path === "/api/v1/cashier/shift") return ok({ status: shift });
+    if (path === "/api/v1/shifts/close") { shift = "CLOSED"; return ok({}); }
+    if (path === "/api/v1/shifts") { shift = "OPENED"; return ok({}); }
+    sells += 1;
+    return sells === 1 ? { ok: false, status: 400, json: async () => ({}), text: async () => '{"code":"shift.opened_too_long"}' } : ok({ id: "rc2" });
+  };
+  const r = await sendViaCheckbox({ licenseKey: "LK", pin: "1" }, {}, fake, "https://x", noWait);
+  assert.equal(r.providerReceiptId, "rc2");
+  assert.equal(sells, 2);
+  assert.ok(calls.indexOf("POST /api/v1/shifts/close") < calls.indexOf("POST /api/v1/shifts"));
 });

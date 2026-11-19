@@ -29,6 +29,7 @@ import {
 } from "../../utils/purchasesView";
 import { useModal } from "../author/public/useModal";
 import { downloadReceiptPdf } from "../../lib/receiptPdf";
+import { fetchMyFiscalReceipts, type MyFiscalReceipt } from "../../lib/finance";
 
 // Enough words to force a real explanation, not an essay.
 const MIN_REFUND_REASON_WORDS = 20;
@@ -67,6 +68,8 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
   const [refundOpen, setRefundOpen] = useState(false);
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  // the seller's fiscal receipts from Checkbox, by purchase: the same receipt the buyer got by email
+  const [fiscal, setFiscal] = useState<Record<string, { sale?: MyFiscalReceipt; return?: MyFiscalReceipt }>>({});
   const [filter, setFilter] = useState<Filter>("all");
 
   // quiet refresh when the (always-mounted) section is reopened
@@ -79,6 +82,13 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
         setState("ready");
       })
       .catch(() => !quiet && setState("error"));
+    fetchMyFiscalReceipts()
+      .then(({ receipts }) => {
+        const next: Record<string, { sale?: MyFiscalReceipt; return?: MyFiscalReceipt }> = {};
+        receipts.forEach((r) => { next[r.invoiceId] = { ...next[r.invoiceId], [r.kind]: r }; });
+        setFiscal(next);
+      })
+      .catch(() => {});
   };
   const first = useRef(true);
   useEffect(() => {
@@ -101,9 +111,7 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
         ? await supabase.from("purchase_consents").select("seller_legal_name, seller_code_masked, consent_text").eq("invoice_id", p.id).maybeSingle()
         : { data: null };
       // the seller's fiscal receipt (formed from the author's PRRO right after the payment)
-      const { data: fr } = supabase
-        ? await supabase.from("fiscal_receipts").select("receipt_url, fiscal_code, status").eq("invoice_id", p.id).eq("issuer", "author").eq("kind", "sale").maybeSingle()
-        : { data: null };
+      const fr = fiscal[p.id]?.sale;
       const lines: [string, string][] = [
         ["Номер покупки", number],
         ["Дата й час", `${formatAbsoluteDate(p.date)}, ${fmtTime(p.date)}`],
@@ -116,7 +124,7 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
         ["Спосіб оплати", "Картка, через monobank"],
         ["Статус", STATUS_LABEL[p.status]],
         ["Сума", formatAmount(p.amount)],
-        ["Фіскальний чек продавця", fr?.status === "done" && fr.receipt_url ? `${fr.fiscal_code ? `№ ${fr.fiscal_code} · ` : ""}${fr.receipt_url}` : "надійде на вашу пошту після формування"],
+        ["Фіскальний чек продавця", fr?.ready && fr.url ? `${fr.fiscalCode ? `№ ${fr.fiscalCode} · ` : ""}${fr.url}` : "надійде на вашу пошту після формування"],
       ];
       await downloadReceiptPdf(
         lines,
@@ -157,14 +165,33 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
     ) : (
       <span className={`${className} ${p.title ? "text-[#12172b]" : "text-black/60"}`}>{title(p)}</span>
     );
-  const ReceiptButton = ({ p }: { p: PurchaseView }) =>
-    hasReceipt(p) ? (
-      <button type="button" onClick={() => void receipt(p)} disabled={pdfBusy === p.id} aria-label={`Квитанція PDF: ${title(p)}`} className="disabled:opacity-50 inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap rounded-lg bg-white px-3 text-[13px] font-semibold text-[#4338ca] ring-1 ring-[#e3def9] hover:ring-[#c9bff7]">
-        {pdfBusy === p.id ? "Створюємо…" : "Квитанція PDF"}
-      </button>
-    ) : (
-      <span className="text-[13px] text-black/40">Без оплати</span>
+  // the seller's fiscal receipt from Checkbox (the same one sent by email) first; our own confirmation with the
+  // immediate-access request stays next to it
+  const ReceiptButton = ({ p }: { p: PurchaseView }) => {
+    if (!hasReceipt(p)) return <span className="text-[13px] text-black/40">Без оплати</span>;
+    const sale = fiscal[p.id]?.sale;
+    const ret = fiscal[p.id]?.return;
+    const link = "inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold";
+    return (
+      <span className="inline-flex flex-wrap items-center gap-2">
+        {sale?.ready && sale.url ? (
+          <a href={sale.url} target="_blank" rel="noopener noreferrer" aria-label={`Фіскальний чек: ${title(p)}`} className={`${link} bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white hover:opacity-95`}>
+            Чек
+          </a>
+        ) : sale ? (
+          <span className={`${link} bg-[#f6f5ff] text-black/45`} title="Фіскальний чек продавця формується й надійде на вашу пошту">Чек формується</span>
+        ) : null}
+        {ret?.ready && ret.url && (
+          <a href={ret.url} target="_blank" rel="noopener noreferrer" aria-label={`Чек повернення: ${title(p)}`} className={`${link} bg-white text-[#4338ca] ring-1 ring-[#e3def9] hover:ring-[#c9bff7]`}>
+            Чек повернення
+          </a>
+        )}
+        <button type="button" onClick={() => void receipt(p)} disabled={pdfBusy === p.id} aria-label={`Квитанція PDF: ${title(p)}`} className={`${link} bg-white text-[#4338ca] ring-1 ring-[#e3def9] hover:ring-[#c9bff7] disabled:opacity-50`}>
+          {pdfBusy === p.id ? "Створюємо…" : "Квитанція PDF"}
+        </button>
+      </span>
     );
+  };
 
   return (
     <div className="flex flex-col gap-5">

@@ -1166,6 +1166,19 @@ Deno.serve(async (req) => {
       if (!prof) return json({ error: "Не авторизовано." }, 401);
       return json({ ok: true, ...(await sellerInfoFor(payload)) });
     }
+    // «Оплати» of a participant: the seller's fiscal receipts (Checkbox) of their own purchases — sale and return
+    if (action === "myFiscalReceipts") {
+      if (!prof) return json({ error: "Не авторизовано." }, 401);
+      const { data: invs } = await admin.from("mono_invoices").select("id").eq("buyer_id", user.id).in("status", ["success", "reversed"]).order("created_at", { ascending: false }).limit(200);
+      const ids = (invs ?? []).map((i) => i.id as string);
+      const { data: rec } = ids.length
+        ? await admin.from("fiscal_receipts").select("invoice_id, kind, status, fiscal_code, receipt_url").eq("issuer", "author").in("invoice_id", ids)
+        : { data: [] };
+      return json({
+        ok: true,
+        receipts: (rec ?? []).map((r) => ({ invoiceId: r.invoice_id, kind: r.kind, ready: r.status === "done" && !!r.receipt_url, fiscalCode: r.fiscal_code ?? null, url: r.status === "done" ? r.receipt_url ?? null : null })),
+      });
+    }
     if (action === "promoQuote") {
       if (!prof) return json({ error: "Не авторизовано." }, 401);
       return json({ ok: true, ...(await promoQuoteFor(payload)) });

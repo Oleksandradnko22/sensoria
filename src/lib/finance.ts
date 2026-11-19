@@ -227,6 +227,9 @@ export async function uploadSignedAct(who: "operator" | "author", actId: string,
   if (error) throw new Error("Файл не завантажився. Спробуйте ще раз.");
   await callFinance({ action: who === "operator" ? "actSigned" : "actAuthorSigned", actId, path: slot.path, reason: "КЕП" });
 }
+/** The seller's fiscal receipts (Checkbox) of the participant's own purchases: a sale and, after a refund, a return. */
+export type MyFiscalReceipt = { invoiceId: string; kind: "sale" | "return"; ready: boolean; fiscalCode: string | null; url: string | null };
+export const fetchMyFiscalReceipts = () => callFinance<{ ok: true; receipts: MyFiscalReceipt[] }>({ action: "myFiscalReceipts" });
 export const decideAct = (actId: string, decision: "accept" | "object", objection?: string) => callFinance<{ ok: true }>({ action: "actDecision", actId, decision, objection });
 
 /** The author's cash register for fiscal receipts (ТЗ 3.4): the key and PIN go to the server only (Vault). */

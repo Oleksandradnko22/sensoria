@@ -130,6 +130,17 @@ export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { 
     ...(d.kind === "return" ? { is_return: true } : {}),
     ...(d.discountKop > 0 ? { discounts: [{ type: "DISCOUNT", mode: "VALUE", value: d.discountKop, name: "Знижка" }] } : {}),
   };
+  // Sensoria's tariff receipt goes to the AUTHOR: no buyer card data in it. Card requisites (ЕПЗ, auth code, RRN,
+  // acquirer fee) are mandatory for payments through a payment device (POS / Tap to phone), not for internet acquiring
+  // (Положення № 13; Checkbox support and ЗІР 42872, 19.11.2026), so the buyer's data is not passed on needlessly.
+  if (d.issuer === "sensoria") {
+    return {
+      goods: [good],
+      payments: [{ type: "CASHLESS", value: d.amountKop, label: "Інтернет-еквайринг (розподіл платежу)" }],
+      ...(opts.relatedReceiptId ? { related_receipt_id: opts.relatedReceiptId } : {}),
+      ...(opts.email ? { delivery: { email: opts.email } } : {}),
+    };
+  }
   return {
     goods: [good],
     payments: [{
@@ -193,6 +204,8 @@ export const checkboxReceiptUrl = (id: string) => `https://check.checkbox.ua/${i
 /** Waiting for a shift to open: up to 10 × 1.5 s. */
 export const SHIFT_WAIT_MS = 1500;
 export const SHIFT_WAIT_TRIES = 10;
+/** A shift may stay open for at most 24 h (Checkbox: shift.opened_too_long); we close and reopen it after 23 h. */
+export const SHIFT_MAX_AGE_MS = 23 * 3_600_000;
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export function checkboxClient(creds: CheckboxCreds, fetchFn: FetchLike, base = CHECKBOX_API) {
@@ -221,19 +234,32 @@ export function checkboxClient(creds: CheckboxCreds, fetchFn: FetchLike, base = 
     /**
      * Opens a shift if there is none, and WAITS until it is OPENED: Checkbox opens a shift asynchronously
      * (OPENING for a few seconds while the opening is signed), and a receipt sent meanwhile gets
-     * 400 shift.not_opened (seen on the test register, 18.11.2026).
+     * 400 shift.not_opened (seen on the test register, 18.11.2026). A shift open for 23 h or more is closed first
+     * (Z-report) and a new one opened: after 24 h Checkbox refuses receipts with shift.opened_too_long (20.11.2026).
      */
-    async ensureShift(token: string, wait: (ms: number) => Promise<void> = sleep): Promise<void> {
-      const statusOf = async () => {
+    async ensureShift(token: string, wait: (ms: number) => Promise<void> = sleep, now = Date.now(), forceNew = false): Promise<void> {
+      const shiftOf = async () => {
         const cur = await call("/api/v1/cashier/shift", "GET", token).catch(() => null);
-        return cur && typeof cur.status === "string" ? cur.status : null;
+        const status = cur && typeof cur.status === "string" ? cur.status : null;
+        const openedAt = cur && typeof cur.opened_at === "string" ? Date.parse(cur.opened_at) : NaN;
+        return { status, openedAt };
       };
-      const first = await statusOf();
-      if (first === "OPENED") return;
-      if (first !== "OPENING") await call("/api/v1/shifts", "POST", token, {});
+      let cur = await shiftOf();
+      const tooOld = cur.status === "OPENED" && (forceNew || (Number.isFinite(cur.openedAt) && now - cur.openedAt >= SHIFT_MAX_AGE_MS));
+      if (cur.status === "OPENED" && !tooOld) return;
+      if (tooOld || cur.status === "CLOSING") {
+        if (tooOld) await call("/api/v1/shifts/close", "POST", token, {});
+        for (let i = 0; i < SHIFT_WAIT_TRIES; i++) {
+          await wait(SHIFT_WAIT_MS);
+          cur = await shiftOf();
+          if (cur.status !== "OPENED" && cur.status !== "CLOSING") break;
+        }
+        if (cur.status === "OPENED" || cur.status === "CLOSING") throw new FiscalError("prro_error", "Зміна в касі закривається довше, ніж очікувалося. Чек буде надіслано повторно.");
+      }
+      if (cur.status !== "OPENING") await call("/api/v1/shifts", "POST", token, {});
       for (let i = 0; i < SHIFT_WAIT_TRIES; i++) {
         await wait(SHIFT_WAIT_MS);
-        if ((await statusOf()) === "OPENED") return;
+        if ((await shiftOf()).status === "OPENED") return;
       }
       throw new FiscalError("prro_error", "Зміна в касі відкривається довше, ніж очікувалося. Чек буде надіслано повторно.");
     },
@@ -308,5 +334,14 @@ export async function sendViaCheckbox(creds: CheckboxCreds, body: unknown, fetch
   const c = checkboxClient(creds, fetchFn, base);
   const token = await c.signIn();
   await c.ensureShift(token, wait);
-  return c.sell(token, body);
+  try {
+    return await c.sell(token, body);
+  } catch (e) {
+    // the shift outlived 24 h (its opening time was unknown) or closed meanwhile: a new shift, then one more try
+    if (e instanceof FiscalError && /shift\.(opened_too_long|not_opened)/.test(e.message)) {
+      await c.ensureShift(token, wait, Date.now(), /opened_too_long/.test(e.message));
+      return c.sell(token, body);
+    }
+    throw e;
+  }
 }

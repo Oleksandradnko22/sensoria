@@ -1622,6 +1622,8 @@ export const checkboxReceiptUrl = (id: string) => `https://check.checkbox.ua/${i
 /** Waiting for a shift to open: up to 10 × 1.5 s. */
 export const SHIFT_WAIT_MS = 1500;
 export const SHIFT_WAIT_TRIES = 10;
+/** A shift may stay open for at most 24 h (Checkbox: shift.opened_too_long); we close and reopen it after 23 h. */
+export const SHIFT_MAX_AGE_MS = 23 * 3_600_000;
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export function checkboxClient(creds: CheckboxCreds, fetchFn: FetchLike, base = CHECKBOX_API) {
@@ -1650,19 +1652,32 @@ export function checkboxClient(creds: CheckboxCreds, fetchFn: FetchLike, base = 
     /**
      * Opens a shift if there is none, and WAITS until it is OPENED: Checkbox opens a shift asynchronously
      * (OPENING for a few seconds while the opening is signed), and a receipt sent meanwhile gets
-     * 400 shift.not_opened (seen on the test register, 18.11.2026).
+     * 400 shift.not_opened (seen on the test register, 18.11.2026). A shift open for 23 h or more is closed first
+     * (Z-report) and a new one opened: after 24 h Checkbox refuses receipts with shift.opened_too_long (20.11.2026).
      */
-    async ensureShift(token: string, wait: (ms: number) => Promise<void> = sleep): Promise<void> {
-      const statusOf = async () => {
+    async ensureShift(token: string, wait: (ms: number) => Promise<void> = sleep, now = Date.now(), forceNew = false): Promise<void> {
+      const shiftOf = async () => {
         const cur = await call("/api/v1/cashier/shift", "GET", token).catch(() => null);
-        return cur && typeof cur.status === "string" ? cur.status : null;
+        const status = cur && typeof cur.status === "string" ? cur.status : null;
+        const openedAt = cur && typeof cur.opened_at === "string" ? Date.parse(cur.opened_at) : NaN;
+        return { status, openedAt };
       };
-      const first = await statusOf();
-      if (first === "OPENED") return;
-      if (first !== "OPENING") await call("/api/v1/shifts", "POST", token, {});
+      let cur = await shiftOf();
+      const tooOld = cur.status === "OPENED" && (forceNew || (Number.isFinite(cur.openedAt) && now - cur.openedAt >= SHIFT_MAX_AGE_MS));
+      if (cur.status === "OPENED" && !tooOld) return;
+      if (tooOld || cur.status === "CLOSING") {
+        if (tooOld) await call("/api/v1/shifts/close", "POST", token, {});
+        for (let i = 0; i < SHIFT_WAIT_TRIES; i++) {
+          await wait(SHIFT_WAIT_MS);
+          cur = await shiftOf();
+          if (cur.status !== "OPENED" && cur.status !== "CLOSING") break;
+        }
+        if (cur.status === "OPENED" || cur.status === "CLOSING") throw new FiscalError("prro_error", "Зміна в касі закривається довше, ніж очікувалося. Чек буде надіслано повторно.");
+      }
+      if (cur.status !== "OPENING") await call("/api/v1/shifts", "POST", token, {});
       for (let i = 0; i < SHIFT_WAIT_TRIES; i++) {
         await wait(SHIFT_WAIT_MS);
-        if ((await statusOf()) === "OPENED") return;
+        if ((await shiftOf()).status === "OPENED") return;
       }
       throw new FiscalError("prro_error", "Зміна в касі відкривається довше, ніж очікувалося. Чек буде надіслано повторно.");
     },
@@ -1737,7 +1752,16 @@ export async function sendViaCheckbox(creds: CheckboxCreds, body: unknown, fetch
   const c = checkboxClient(creds, fetchFn, base);
   const token = await c.signIn();
   await c.ensureShift(token, wait);
-  return c.sell(token, body);
+  try {
+    return await c.sell(token, body);
+  } catch (e) {
+    // the shift outlived 24 h (its opening time was unknown) or closed meanwhile: a new shift, then one more try
+    if (e instanceof FiscalError && /shift\.(opened_too_long|not_opened)/.test(e.message)) {
+      await c.ensureShift(token, wait, Date.now(), /opened_too_long/.test(e.message));
+      return c.sell(token, body);
+    }
+    throw e;
+  }
 }
 
 // ── /fiscal receipts ──────────────────────────────────────────────────────
@@ -3128,6 +3152,19 @@ Deno.serve(async (req) => {
     if (action === "sellerInfo") {
       if (!prof) return json({ error: "Не авторизовано." }, 401);
       return json({ ok: true, ...(await sellerInfoFor(payload)) });
+    }
+    // «Оплати» of a participant: the seller's fiscal receipts (Checkbox) of their own purchases — sale and return
+    if (action === "myFiscalReceipts") {
+      if (!prof) return json({ error: "Не авторизовано." }, 401);
+      const { data: invs } = await admin.from("mono_invoices").select("id").eq("buyer_id", user.id).in("status", ["success", "reversed"]).order("created_at", { ascending: false }).limit(200);
+      const ids = (invs ?? []).map((i) => i.id as string);
+      const { data: rec } = ids.length
+        ? await admin.from("fiscal_receipts").select("invoice_id, kind, status, fiscal_code, receipt_url").eq("issuer", "author").in("invoice_id", ids)
+        : { data: [] };
+      return json({
+        ok: true,
+        receipts: (rec ?? []).map((r) => ({ invoiceId: r.invoice_id, kind: r.kind, ready: r.status === "done" && !!r.receipt_url, fiscalCode: r.fiscal_code ?? null, url: r.status === "done" ? r.receipt_url ?? null : null })),
+      });
     }
     if (action === "promoQuote") {
       if (!prof) return json({ error: "Не авторизовано." }, 401);

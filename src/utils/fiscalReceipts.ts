@@ -114,7 +114,14 @@ export function plannedReceipts(i: ReceiptInput): ReceiptDraft[] {
 // Body for POST /api/v1/receipts/sell. Quantity is in thousandths (1000 = 1 pc).
 // Звірити назви полів платежу карткою й повернення з документацією Checkbox перед підключенням каси.
 
-export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { email?: string | null; relatedReceiptId?: string | null } = {}) {
+/**
+ * `commissionKop` — the acquirer's fee deducted from THIS payment under the acquiring contract (receipt line
+ * «Комісія еквайра»; Checkbox support 19.11.2026, ЗІР id 42872). For the author's sale it is the bank's real fee
+ * (monobank withholds it from the author's share); Sensoria's tariff carries none. Field name `commission` —
+ * to be confirmed on the test register (the line must show the amount).
+ */
+export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { email?: string | null; relatedReceiptId?: string | null; commissionKop?: number | null } = {}) {
+  const commission = opts.commissionKop != null && Number.isInteger(opts.commissionKop) && opts.commissionKop > 0 ? opts.commissionKop : null;
   if (d.priceKop - d.discountKop !== d.amountKop) throw new FiscalError("bad_amount", "Сума чека не збігається з ціною та знижкою.");
   if (d.kind === "return" && !opts.relatedReceiptId) throw new FiscalError("no_related", "Чек повернення потребує фіскального чека продажу.");
   const good = {
@@ -134,6 +141,7 @@ export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { 
       rrn: card.rrn,
       payment_system: card.paymentSystem,
       bank_name: ACQUIRER_NAME,
+      ...(commission != null ? { commission } : {}),
     }],
     ...(opts.relatedReceiptId ? { related_receipt_id: opts.relatedReceiptId } : {}),
     ...(opts.email ? { delivery: { email: opts.email } } : {}),

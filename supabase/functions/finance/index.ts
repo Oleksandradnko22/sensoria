@@ -1543,7 +1543,14 @@ export function plannedReceipts(i: ReceiptInput): ReceiptDraft[] {
 // Body for POST /api/v1/receipts/sell. Quantity is in thousandths (1000 = 1 pc).
 // Звірити назви полів платежу карткою й повернення з документацією Checkbox перед підключенням каси.
 
-export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { email?: string | null; relatedReceiptId?: string | null } = {}) {
+/**
+ * `commissionKop` — the acquirer's fee deducted from THIS payment under the acquiring contract (receipt line
+ * «Комісія еквайра»; Checkbox support 19.11.2026, ЗІР id 42872). For the author's sale it is the bank's real fee
+ * (monobank withholds it from the author's share); Sensoria's tariff carries none. Field name `commission` —
+ * to be confirmed on the test register (the line must show the amount).
+ */
+export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { email?: string | null; relatedReceiptId?: string | null; commissionKop?: number | null } = {}) {
+  const commission = opts.commissionKop != null && Number.isInteger(opts.commissionKop) && opts.commissionKop > 0 ? opts.commissionKop : null;
   if (d.priceKop - d.discountKop !== d.amountKop) throw new FiscalError("bad_amount", "Сума чека не збігається з ціною та знижкою.");
   if (d.kind === "return" && !opts.relatedReceiptId) throw new FiscalError("no_related", "Чек повернення потребує фіскального чека продажу.");
   const good = {
@@ -1563,6 +1570,7 @@ export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { 
       rrn: card.rrn,
       payment_system: card.paymentSystem,
       bank_name: ACQUIRER_NAME,
+      ...(commission != null ? { commission } : {}),
     }],
     ...(opts.relatedReceiptId ? { related_receipt_id: opts.relatedReceiptId } : {}),
     ...(opts.email ? { delivery: { email: opts.email } } : {}),
@@ -2906,7 +2914,7 @@ async function fiscalSendDue(onlyInvoice?: string): Promise<{ sent: number; fail
     if (!ready.length) break;
     for (const qr of ready) {
       const r = rows.find((x) => x.id === qr.id)!;
-      const { data: inv } = await admin.from("mono_invoices").select("buyer_id, author_id, mode, payment_info").eq("id", r.invoice_id).single();
+      const { data: inv } = await admin.from("mono_invoices").select("buyer_id, author_id, mode, payment_info, bank_fee_kop, card_origin, amount_kop").eq("id", r.invoice_id).single();
       const live = inv?.mode === "live";
       const base = CHECKBOX_API;
       const creds = await fiscalCredsFor(r.issuer, r.author_id, live);
@@ -2928,8 +2936,15 @@ async function fiscalSendDue(onlyInvoice?: string): Promise<{ sent: number; fail
       const { data: who } = to ? await admin.from("profiles").select("email").eq("id", to).maybeSingle() : { data: null };
       const related = r.kind === "return" ? rows.find((x) => x.invoice_id === r.invoice_id && x.issuer === r.issuer && x.kind === "sale")?.provider_receipt_id : null;
       try {
+        // «Комісія еквайра»: the bank's fee on the author's sale (withheld from the author's share); none on Sensoria's
+        // tariff or on returns. The bank's real fee when it said so; the 1.3 % / 2 % estimate otherwise (and in test
+        // mode, where the test token reports no fee, so that the line can be checked on the test register).
+        const bankFee = inv?.bank_fee_kop != null && (live || Number(inv.bank_fee_kop) > 0) ? Number(inv.bank_fee_kop) : null;
+        const commissionKop = r.issuer === "author" && r.kind === "sale"
+          ? bankFee ?? estimatedBankFeeKop(Number(inv?.amount_kop ?? r.amount_kop), inv?.card_origin === "foreign")
+          : null;
         const draft: ReceiptDraft = { issuer: r.issuer, kind: r.kind, deliverTo: r.deliver_to, itemCode: r.item_code, itemName: r.item_name, priceKop: Number(r.price_kop), discountKop: Number(r.discount_kop), amountKop: Number(r.amount_kop) };
-        const res = await sendViaCheckbox(creds, checkboxReceiptBody(draft, card, { email: who?.email ?? null, relatedReceiptId: related ?? null }), fetch as unknown as FetchLike, base);
+        const res = await sendViaCheckbox(creds, checkboxReceiptBody(draft, card, { email: who?.email ?? null, relatedReceiptId: related ?? null, commissionKop }), fetch as unknown as FetchLike, base);
         await admin.from("fiscal_receipts").update({
           status: "done", provider_receipt_id: res.providerReceiptId, fiscal_code: res.fiscalCode, receipt_url: res.receiptUrl, done_at: nowIso(), last_error: null, attempts: Number(r.attempts) + 1,
         }).eq("id", r.id);

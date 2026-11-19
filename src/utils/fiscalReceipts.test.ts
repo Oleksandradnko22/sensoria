@@ -187,3 +187,10 @@ test("register check over the API: a register that does not answer is not «brok
     : { ok: false, status: 502, json: async () => ({}), text: async () => "bad gateway" });
   await assert.rejects(verifyViaCheckbox({ licenseKey: "LK", pin: "1" }, "3837304242", flaky, "https://x"), (e: unknown) => e instanceof FiscalError && e.code === "prro_error");
 });
+
+test("«Комісія еквайра»: the bank's fee goes to the payment as `commission` (kopecks); none when absent or zero", () => {
+  const draft = plannedReceipts({ kind: "sale", ...ids, amountKop: 45000, sensoriaKop: 13500, feeFiscal: true })[0];
+  assert.equal(checkboxReceiptBody(draft, card, { commissionKop: 585 }).payments[0].commission, 585);
+  assert.equal("commission" in checkboxReceiptBody(draft, card, { commissionKop: 0 }).payments[0], false);
+  assert.equal("commission" in checkboxReceiptBody(draft, card).payments[0], false);
+});

@@ -9,6 +9,7 @@ import { acceptLegal, sendLegalOtp, verifyLegalOtp } from "../../lib/legalGate";
 import { AUTHOR_PAID_ITEM, OTP_TEXT } from "../../data/consentTexts";
 import { DPS_NON_MONETARY_NOTE } from "../../data/ipkTemplate";
 import AuthorActs from "./AuthorActs";
+import FinanceSetupCard from "./FinanceSetupCard";
 import { connectPrro, fetchPrroStatus, type PrroStatus } from "../../lib/finance";
 import { fetchMonoConnection, fetchMyFinance, markFinanceNotificationsRead, requestMonoConnection, touchFinanceActivity, type FinanceSale, type MonoConnection, type MyFinance } from "../../lib/finance";
 import { STATUS_LABEL, type HistoryRow, authorBankFeeKop, financeTotals, historyRows, incomeByMaterial, isFullyRefunded, monthReportCsv, monthlyIncome, priceBreakdown, statusExplanation, toAccountKop, uahFromKop } from "../../utils/financeView";
@@ -177,8 +178,10 @@ export default function AuthorFinance() {
           <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">Фінанси</h1>
           <p className="mt-1 text-[15px] text-black/55">Ваш дохід, продажі, повернення й документи.</p>
         </div>
-        {terms?.mode === "test" && <span className="rounded-full bg-amber-50 px-3 py-1.5 text-[13px] font-semibold text-amber-800 ring-1 ring-amber-200">Тестовий режим: реальні гроші не рухаються</span>}
       </div>
+
+      {/* what is missing for paid sales + a Zoom consultation with the team (replaces the «test mode» badge) */}
+      <FinanceSetupCard card={card} />
 
       {ready && loadError && <Notice tone="danger">{loadError} <button type="button" onClick={() => void reload()} className="ml-2 font-semibold underline">Спробувати ще раз</button></Notice>}
       {demo && <Notice tone="info">Демо-дані: так виглядатиме розділ, коли з’являться ваші перші продажі.</Notice>}
@@ -771,8 +774,8 @@ function PrroCard() {
       {!failed && st && status !== "active" && <PrroGuide />}
       {editing ? (
         <div className="mt-4 grid gap-3">
-          <label className="text-[13px] font-semibold text-[#2d2a5c]">Ключ ліцензії каси<input value={licenseKey} onChange={(e) => setLicenseKey(e.target.value)} autoComplete="off" className={`${input} mt-1`} /></label>
-          <label className="text-[13px] font-semibold text-[#2d2a5c]">PIN касира<input type="password" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" autoComplete="off" className={`${input} mt-1 max-w-[220px]`} /></label>
+          <label className="grid gap-1 text-[13px] font-semibold text-[#2d2a5c]">Ключ ліцензії каси<input type="password" value={licenseKey} onChange={(e) => setLicenseKey(e.target.value.trim())} autoComplete="new-password" spellCheck={false} className={input} /></label>
+          <label className="grid gap-1 text-[13px] font-semibold text-[#2d2a5c]">PIN касира<input type="password" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" autoComplete="new-password" className={`${input} w-full max-w-[220px]`} /></label>
           <p className="text-[12px] text-black/50">Дані зберігаються лише на сервері в зашифрованому сховищі й потрібні тільки для чеків за вашими продажами на Sensoria. Особистий ключ КЕП не потрібен і не приймається.</p>
           {error && <p role="alert" className="text-[13px] text-rose-700">{error}</p>}
           <div className="flex flex-wrap gap-3">

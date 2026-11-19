@@ -374,6 +374,7 @@ export default function AuthorDashboardPage({
               }}
               onCancel={() => leaveWith(() => setEditorTarget(null))}
               onGuardChange={setGuard}
+              onOpenFinance={() => openSection("finance")}
             />
           ) : (
             // Each block below is gated on visitedSections (mount once,

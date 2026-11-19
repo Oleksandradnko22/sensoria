@@ -49,6 +49,7 @@ import AuthorAgreementDialog from "./AuthorAgreementDialog";
 import { emptyStudioState, type StudioState } from "../../utils/meditationStudio";
 import { toStaticBlocks } from "../../data/guideStatic";
 import { buildLessonGuidePdf } from "../../lib/guidePdfExport";
+import { PAID_NOT_READY_TEXT, fetchPaidReadiness, isPaidNotReadyError, type PaidReadiness } from "../../lib/paidReadiness";
 // the studio (and its MP3 packer) is loaded only when an author opens it
 const MeditationStudio = lazy(() => import("./MeditationStudio"));
 
@@ -97,6 +98,8 @@ type Props = {
   // Tells the page whether there is unsaved work, and how to save it, so leaving (another tab, «Назад»,
   // closing the page) can ask "save the draft?". `null` once the editor is gone.
   onGuardChange?: (guard: EditorGuard | null) => void;
+  /** «Фінанси» from the paid-price lock (the page asks to save unsaved work first) */
+  onOpenFinance?: () => void;
 };
 
 export type EditorGuard = { dirty: boolean; save: () => Promise<boolean>; published: boolean; noun: string; hasTitle: boolean };
@@ -127,6 +130,7 @@ export default function AuthorCourseEditor({
   onSave,
   onCancel,
   onGuardChange,
+  onOpenFinance,
 }: Props) {
   const editing =
     target?.mode === "edit"
@@ -180,6 +184,14 @@ export default function AuthorCourseEditor({
   // Free = the price is exactly "0" (the existing convention). «Paid» keeps the amount empty until the author types
   // one, so an unfinished paid price is never mistaken for free.
   const [priceMode, setPriceMode] = useState<"free" | "paid">(Number(editing?.price ?? 0) > 0 ? "paid" : "free");
+  // paid sales need the FOP in monobank, the cash register and the A6 consent (supabase/paid-readiness.sql)
+  const [paidReadiness, setPaidReadiness] = useState<PaidReadiness | null>(null);
+  const [paidLocked, setPaidLocked] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void fetchPaidReadiness().then((r) => { if (alive) setPaidReadiness(r); });
+    return () => { alive = false; };
+  }, []);
   // A saved draft reopens on the step where the author stopped; anything else starts at the first step.
   const [step, setStep] = useState(() => (editing?.status === "draft" && editing.draftStep ? Math.min(Math.max(editing.draftStep, 1), STEPS.length) : 1));
   const [maxStep, setMaxStep] = useState(editing ? STEPS.length : 1);
@@ -990,7 +1002,7 @@ export default function AuthorCourseEditor({
       }
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Не вдалося зберегти — спробуйте ще раз.");
+      setError(isPaidNotReadyError(e) ? PAID_NOT_READY_TEXT : e instanceof Error ? e.message : "Не вдалося зберегти — спробуйте ще раз.");
       return false;
     } finally {
       setSaving(false);
@@ -1074,6 +1086,12 @@ export default function AuthorCourseEditor({
   ];
   const choosePriceMode = (value: "free" | "paid") => {
     if (value === priceMode) return;
+    // a free material becomes paid only once the author can sell (an already paid one may change its price)
+    if (value === "paid" && paidReadiness && !paidReadiness.ready && !(Number(editing?.price) > 0)) {
+      setPaidLocked(true);
+      return;
+    }
+    setPaidLocked(false);
     if (value === "free") paidPriceRef.current = price;
     setPriceMode(value);
     setPrice(value === "free" ? "0" : paidPriceRef.current);
@@ -1766,6 +1784,30 @@ export default function AuthorCourseEditor({
             );
           })}
         </div>
+
+        {paidLocked && paidReadiness && (
+          <div role="alert" className="rounded-2xl bg-[#faf9ff] p-4 ring-1 ring-[#e3def9] sm:p-5">
+            <div className="text-[15px] font-semibold text-[#1d1a3b]">Щоб продавати {W.acc}, підключіть платні продажі</div>
+            <ul className="mt-3 flex flex-col gap-2 text-[14px]">
+              {([
+                ["Приймання оплат (ФОП у monobank)", paidReadiness.mono || !paidReadiness.live],
+                ["Каса для чеків (ПРРО)", paidReadiness.prro || !paidReadiness.live],
+                ["Умови платних продажів (підпис кодом з листа)", paidReadiness.consent],
+              ] as const).map(([label, done]) => (
+                <li key={label} className="flex items-center gap-2.5">
+                  <span aria-hidden="true" className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${done ? "bg-emerald-100 text-emerald-700" : "bg-white text-black/30 ring-1 ring-[#d9d4f7]"}`}>
+                    {done && <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>}
+                  </span>
+                  <span className={done ? "text-black/55" : "text-[#1d1a3b]"}>{label}<span className="sr-only">{done ? ": готово" : ": не підключено"}</span></span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-[13px] leading-relaxed text-black/60">Усе це — у розділі «Фінанси». Якщо потрібна допомога, там можна записатися на консультацію з командою Sensoria в Zoom. Поки що матеріал можна зберегти безкоштовним.</p>
+            {onOpenFinance && (
+              <button type="button" onClick={onOpenFinance} className="mt-3 min-h-[44px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[14px] font-semibold text-white hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2">Перейти до «Фінансів»</button>
+            )}
+          </div>
+        )}
 
         {livePriceChange && (
           <div role="note" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-snug text-amber-900">

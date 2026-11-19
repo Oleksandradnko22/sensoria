@@ -340,14 +340,23 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
     <>
       <main className="min-h-screen pt-[112px] text-white sm:pt-[132px] lg:pt-[150px]">
         <div className="page-container pb-16">
-          {/* the same size as «Каталог програм»; on the confirm step it keeps its place unseen, so the confirmation starts
+          {/* the same size as «Каталог програм»; the confirm step has its own title in the same place, so its block starts
               exactly where the cart's first card does */}
-          <div className={step === "confirm" && payable.length > 0 ? "invisible" : ""} aria-hidden={step === "confirm" && payable.length > 0 ? true : undefined}>
-            <h1 className="mb-2 text-[32px] font-bold leading-tight sm:text-[40px]">Кошик</h1>
-            <p className="mb-6 text-[16px] text-white/70">
-              {lines.length > 0 ? `${lines.length} ${materialsWord(lines.length)} у кошику` : "Тут зібрано те, що ви хочете почати."}
-            </p>
-          </div>
+          {step === "confirm" && payable.length > 0 ? (
+            <div>
+              <h1 className="mb-2 text-[32px] font-bold leading-tight sm:text-[40px]">Оформлення замовлення</h1>
+              <p className="mb-6 text-[16px] text-white/70">
+                {payable.length} {materialsWord(payable.length)} до оплати · перевірте продавця й підтвердьте згоду
+              </p>
+            </div>
+          ) : (
+            <div>
+              <h1 className="mb-2 text-[32px] font-bold leading-tight sm:text-[40px]">Кошик</h1>
+              <p className="mb-6 text-[16px] text-white/70">
+                {lines.length > 0 ? `${lines.length} ${materialsWord(lines.length)} у кошику` : "Тут зібрано те, що ви хочете почати."}
+              </p>
+            </div>
+          )}
 
           {addedCount > 0 && (
             <div role="status" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-gradient-to-r from-[#eef0fd] to-[#f6f1ff] ring-1 ring-[#e4def9] px-5 py-4 text-slate-900 shadow-[0_16px_40px_-26px_rgba(30,41,99,0.45)]">

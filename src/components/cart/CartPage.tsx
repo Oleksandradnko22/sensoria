@@ -419,7 +419,7 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
           ) : lines.length === 0 ? (
             <EmptyCart onOpenCatalog={onOpenCatalog} onOpenGuides={onOpenGuides} onOpenMeditations={onOpenMeditations} />
           ) : (
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+            <div className="flex flex-col gap-6">
               <ul className="flex flex-col gap-3">
                 {[...lines].sort((a, b) => Number(isFreePrice(a.item.price)) - Number(isFreePrice(b.item.price))).map(({ entry, item }, idx, arr) => {
                   const isOwned = owned.has(cartKey(entry));
@@ -469,90 +469,101 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                 })}
               </ul>
 
-              <aside aria-label="Ваше замовлення" className="rounded-[22px] bg-gradient-to-br from-white to-[#f1f1ff] p-5 text-slate-900 shadow-[0_16px_40px_-26px_rgba(30,41,99,0.55)] sm:p-6">
-                <h2 className="text-[18px] font-bold leading-tight">Ваше замовлення</h2>
+              {/* the summary under the materials, full width: what is paid and for how much on the left, the promo code and
+                  the next step on the right */}
+              <section aria-label="Ваше замовлення" className="rounded-[22px] bg-gradient-to-br from-white to-[#f1f1ff] p-5 text-slate-900 shadow-[0_16px_40px_-26px_rgba(30,41,99,0.55)] sm:p-7">
+                <h2 className="text-[20px] font-bold leading-tight">Ваше замовлення</h2>
 
                 {payable.length > 0 && (
-                  <div className="mt-4 text-[15px]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Платні матеріали:</span>
-                      <span className="font-medium">{payable.length}</span>
-                    </div>
-                    {discountTotal > 0 && (
-                      <>
-                        <div className="mt-3 flex items-center justify-between">
-                          <span className="text-slate-500">Ціна:</span>
-                          <span className="font-medium">{totals.paidTotal.toLocaleString("uk-UA")} ₴</span>
+                  <div className="mt-5 grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,380px)] md:gap-10">
+                    <div className="text-[15px]">
+                      <ul className="flex flex-col divide-y divide-slate-200/80">
+                        {payable.map((l) => (
+                          <li key={cartKey(l.entry)} className="flex items-baseline justify-between gap-4 py-2.5 first:pt-0">
+                            <span className="min-w-0 flex-1 truncate text-slate-700">{l.item.title}</span>
+                            <span className="shrink-0 font-medium">
+                              {quoteFor(l.item) && <span className="mr-2 text-[13px] font-normal text-slate-400 line-through">{formatPrice(l.item.price)}</span>}
+                              {priceLabel(l.item)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="mt-3 border-t border-slate-200 pt-3">
+                        {discountTotal > 0 && (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500">Ціна:</span>
+                              <span className="font-medium">{totals.paidTotal.toLocaleString("uk-UA")} ₴</span>
+                            </div>
+                            <div className="mt-1.5 flex items-center justify-between">
+                              <span className="text-slate-500">Знижка за промокодом автора:</span>
+                              <span className="font-medium text-[#4338ca]">−{discountTotal.toLocaleString("uk-UA")} ₴</span>
+                            </div>
+                          </>
+                        )}
+                        <div className={`flex items-baseline justify-between ${discountTotal > 0 ? "mt-3" : ""}`}>
+                          <span className="text-slate-500">До сплати{payable.length > 1 ? ` · ${payable.length} ${materialsWord(payable.length)}` : ""}:</span>
+                          <span className="text-[28px] font-bold leading-none">{(totals.paidTotal - discountTotal).toLocaleString("uk-UA")} ₴</span>
                         </div>
-                        <div className="mt-1.5 flex items-center justify-between">
-                          <span className="text-slate-500">Знижка за промокодом автора:</span>
-                          <span className="font-medium text-[#4338ca]">−{discountTotal.toLocaleString("uk-UA")} ₴</span>
-                        </div>
-                      </>
-                    )}
-                    <div className="mt-3 flex items-baseline justify-between">
-                      <span className="text-slate-500">До сплати:</span>
-                      <span className="text-[26px] font-bold leading-none">{(totals.paidTotal - discountTotal).toLocaleString("uk-UA")} ₴</span>
-                    </div>
-                    <form
-                      className="mt-4"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void applyPromo();
-                      }}
-                    >
-                      <label htmlFor="cart-promo" className="text-[13px] font-semibold text-slate-600">Промокод автора</label>
-                      <div className="mt-1.5 flex gap-2">
-                        <input
-                          id="cart-promo"
-                          value={promoInput}
-                          onChange={(e) => setPromoInput(e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 20))}
-                          autoComplete="off"
-                          placeholder="Наприклад, STRESS20"
-                          className="min-h-[44px] min-w-0 flex-1 rounded-[14px] bg-white px-3.5 text-[15px] uppercase tracking-wide ring-1 ring-[#d9d4f7] placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]"
-                        />
-                        <button
-                          type="submit"
-                          disabled={promoBusy || !promoInput.trim()}
-                          className="min-h-[44px] shrink-0 rounded-[14px] bg-white px-4 text-[14px] font-semibold text-[#3b27a8] ring-1 ring-[#c9cffa] hover:bg-[#f3f4ff] disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]"
-                        >
-                          {promoBusy ? "Перевіряємо…" : "Застосувати"}
-                        </button>
+                        {payable.length > 1 && <p className="mt-2 text-[13px] text-slate-500">Кожен матеріал оплачується окремо.</p>}
+                        {unpriced > 0 && <p className="mt-2 text-[13px] text-slate-500">Для частини матеріалів ціна не вказана, вони не входять до суми.</p>}
                       </div>
-                      {promoMsg && <p role="status" className={`mt-2 text-[13px] ${promo ? "text-[#4338ca]" : "text-red-700"}`}>{promoMsg}</p>}
-                    </form>
+                    </div>
+
+                    <div>
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void applyPromo();
+                        }}
+                      >
+                        <label htmlFor="cart-promo" className="text-[13px] font-semibold text-slate-600">Промокод автора</label>
+                        <div className="mt-1.5 flex gap-2">
+                          <input
+                            id="cart-promo"
+                            value={promoInput}
+                            onChange={(e) => setPromoInput(e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 20))}
+                            autoComplete="off"
+                            placeholder="Наприклад, STRESS20"
+                            className="min-h-[44px] min-w-0 flex-1 rounded-[14px] bg-white px-3.5 text-[15px] uppercase tracking-wide ring-1 ring-[#d9d4f7] placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]"
+                          />
+                          <button
+                            type="submit"
+                            disabled={promoBusy || !promoInput.trim()}
+                            className="min-h-[44px] shrink-0 rounded-[14px] bg-white px-4 text-[14px] font-semibold text-[#3b27a8] ring-1 ring-[#c9cffa] hover:bg-[#f3f4ff] disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]"
+                          >
+                            {promoBusy ? "Перевіряємо…" : "Застосувати"}
+                          </button>
+                        </div>
+                        {promoMsg && <p role="status" className={`mt-2 text-[13px] ${promo ? "text-[#4338ca]" : "text-red-700"}`}>{promoMsg}</p>}
+                      </form>
+                      <button type="button" onClick={checkout} className={`${BTN} mt-4 min-h-[50px] text-[15px]`}>
+                        Оформити замовлення <span aria-hidden="true" className="ml-2">→</span>
+                      </button>
+                      <p className="mt-2 text-center text-[12px] text-slate-500">Далі — продавець і підтвердження, потім сторінка оплати банку.</p>
+                      {payError && step === "cart" && (
+                        <p role="alert" className="mt-3 rounded-[14px] bg-red-50 px-4 py-3 text-[14px] leading-relaxed text-red-700">
+                          {payError}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
 
-                {payable.length > 0 ? (
-                  <>
-                    <button type="button" onClick={checkout} className={`${BTN} mt-5 min-h-[48px] text-[15px]`}>
-                      Оформити замовлення <span aria-hidden="true" className="ml-2">→</span>
-                    </button>
-                    <p className="mt-2 text-center text-[12px] text-slate-500">Далі — продавець і підтвердження, потім сторінка оплати банку.</p>
-                    {payError && step === "cart" && (
-                      <p role="alert" className="mt-3 rounded-[14px] bg-red-50 px-4 py-3 text-[14px] leading-relaxed text-red-700">
-                        {payError}
-                      </p>
-                    )}
-                  </>
-                ) : inOrder.length === 0 ? (
-                  <p className="mt-5 text-[14px] text-slate-500">Усе з кошика вже у вашому кабінеті.</p>
-                ) : null}
-
-                {unpriced > 0 && <p className="mt-4 text-[14px] text-slate-500">Для частини матеріалів ціна не вказана, вони не входять до суми.</p>}
+                {payable.length === 0 && inOrder.length === 0 && <p className="mt-4 text-[14px] text-slate-500">Усе з кошика вже у вашому кабінеті.</p>}
+                {payable.length === 0 && unpriced > 0 && <p className="mt-4 text-[14px] text-slate-500">Для частини матеріалів ціна не вказана, вони не входять до суми.</p>}
 
                 {free.length > 0 && (isParticipant || isGuest) && (
-                  <div className={`mt-5 ${payable.length > 0 ? "border-t border-slate-200 pt-4" : ""}`}>
-                    <div className="mb-3 flex items-center justify-between text-[15px]">
-                      <span className="text-slate-500">Безкоштовні матеріали:</span>
-                      <span className="font-medium">{free.length}</span>
+                  <div className={`mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${payable.length > 0 ? "border-t border-slate-200 pt-5" : ""}`}>
+                    <div className="text-[15px]">
+                      <span className="text-slate-500">Безкоштовні матеріали:</span> <span className="font-medium">{free.length}</span>
+                      <div className="text-[13px] text-slate-500">Додаються в кабінет без оплати.</div>
                     </div>
                     <button
                       type="button"
                       onClick={() => claim(free.map((l) => l.item))}
                       disabled={claiming}
-                      className="flex min-h-[52px] w-full items-center justify-center gap-2.5 rounded-[16px] bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-5 text-[16px] font-semibold text-white shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] transition hover:opacity-90 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#059669] focus-visible:ring-offset-2 disabled:opacity-60"
+                      className="flex min-h-[50px] w-full items-center justify-center gap-2.5 rounded-[16px] bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-6 text-[15px] font-semibold text-white shadow-[0_10px_24px_-12px_rgba(91,61,245,0.7)] transition hover:opacity-90 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2 disabled:opacity-60 sm:w-auto sm:min-w-[260px]"
                     >
                       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         {isParticipant ? <path d="M12 5v14M5 12h14" /> : <path d="M15 4h4v16h-4M10 8l4 4-4 4M14 12H4" />}
@@ -561,7 +572,7 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                     </button>
                   </div>
                 )}
-              </aside>
+              </section>
             </div>
           )}
         </div>

@@ -3564,6 +3564,67 @@ Deno.serve(async (req) => {
       await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: "dispute_lost", entity_type: "payment", entity_id: pay.id, reason, new_value: { debitedFrom, debitedAt } });
       return json({ ok: true });
     }
+    // Книга обліку доходів Sensoria (ФОП, 3 група): дохід = зарахований тариф, за ДАТОЮ ЗАРАХУВАННЯ (п. 292.6 ПКУ);
+    // повернення тарифу — окремо з мінусом. Сума тарифу — фактична від банку (paymentInfo.agentFee), інакше розрахункова.
+    // Дату зарахування банк не повідомляє: «наступного дня» (оцінка) — звіряти з випискою рахунку ФОП перед внесенням.
+    if (action === "incomeBook") {
+      if (adminRole !== "owner") return json({ error: "Лише для власниці." }, 403);
+      const year = Number(payload.year) || new Date().getUTCFullYear();
+      const mode = payload.mode === "test" ? "test" : "live";
+      const from = `${year - 1}-01-01T00:00:00Z`; // the year before too: the rolling 12 months for the VAT watch
+      const to = `${year + 1}-01-01T00:00:00Z`;
+      const { data: pays, error: pErr } = await admin.from("finance_payments")
+        .select("id, purchase_id, sensoria_kop, split_sensoria_kop, confirmed_at").eq("mode", mode).gte("confirmed_at", from).lt("confirmed_at", to).limit(20000);
+      if (pErr) throw new FinanceError("book_failed", pErr.message);
+      const ids = (pays ?? []).map((p) => p.purchase_id as string);
+      const invs: { id: string; payment_info: unknown }[] = [];
+      for (let i = 0; i < ids.length; i += 500) {
+        const { data } = await admin.from("mono_invoices").select("id, payment_info").in("id", ids.slice(i, i + 500));
+        invs.push(...((data ?? []) as { id: string; payment_info: unknown }[]));
+      }
+      const payIds = (pays ?? []).map((p) => p.id as string);
+      const refunds: { payment_id: string; sensoria_share_kop: number; created_at: string; completed_at: string | null; refund_type: string }[] = [];
+      for (let i = 0; i < payIds.length; i += 500) {
+        const { data } = await admin.from("finance_refunds").select("payment_id, sensoria_share_kop, created_at, completed_at, refund_type")
+          .in("payment_id", payIds.slice(i, i + 500)).in("status", ["approved", "completed"]);
+        refunds.push(...((data ?? []) as typeof refunds));
+      }
+      const { data: tariffBack } = await admin.from("tariff_refund_tasks").select("payment_id, amount_kop, paid_at").eq("status", "paid").gte("paid_at", from).lt("paid_at", to);
+      const paidAtOf = new Map((pays ?? []).map((p) => [p.id as string, p.confirmed_at as string]));
+      const entries: BookEntry[] = [];
+      let estimatedFee = 0;
+      for (const p of pays ?? []) {
+        const bank = mode === "live" ? agentFeeKopOf(invs.find((v) => v.id === p.purchase_id)?.payment_info) : null;
+        if (bank == null) estimatedFee += 1;
+        const tariff = bank ?? Number(p.split_sensoria_kop ?? p.sensoria_kop ?? 0);
+        if (tariff > 0) entries.push({ kind: "income", tariffKop: tariff, creditedAt: new Date(Date.parse(p.confirmed_at as string) + 86_400_000).toISOString(), paidAt: p.confirmed_at as string });
+      }
+      const earlier: { paidAt: string; refundedAt: string; tariffKop: number }[] = [];
+      for (const r of refunds) {
+        const t = Number(r.sensoria_share_kop);
+        if (t <= 0) continue;
+        const at = r.completed_at ?? r.created_at;
+        entries.push({ kind: "refund", tariffKop: t, creditedAt: at });
+        const paidAt = paidAtOf.get(r.payment_id);
+        if (paidAt && refundOfEarlierQuarter(paidAt, at)) earlier.push({ paidAt, refundedAt: at, tariffKop: t });
+      }
+      for (const t of tariffBack ?? []) {
+        if (Number(t.amount_kop) > 0 && t.paid_at) entries.push({ kind: "refund", tariffKop: Number(t.amount_kop), creditedAt: t.paid_at as string });
+      }
+      const inYear = entries.filter((e) => kyivDay(e.creditedAt).startsWith(String(year)));
+      const ytd = inYear.reduce((n, e) => n + (e.kind === "income" ? e.tariffKop : -e.tariffKop), 0);
+      const now = nowIso();
+      const rolling = rolling12Kop(entries, now);
+      return json({
+        year, mode,
+        days: incomeBook(inYear),
+        quarters: [1, 2, 3, 4].map((q) => ({ quarter: `${year}-Q${q}`, kop: quarterIncomeKop(inYear, `${year}-Q${q}`) })),
+        ytdKop: ytd, limitKop: GROUP3_LIMIT_2026_KOP, limit: limitLevel(ytd),
+        rolling12Kop: rolling, vat: vatLevel(rolling),
+        earlierQuarterRefunds: earlier.filter((e) => kyivDay(e.refundedAt).startsWith(String(year))),
+        estimatedTariffs: estimatedFee,
+      });
+    }
     if (action === "tariffTasks") {
       const { data } = await admin.from("tariff_refund_tasks").select("*").eq("status", "open").order("due_date");
       const ids = [...new Set((data ?? []).map((t) => t.author_id))];

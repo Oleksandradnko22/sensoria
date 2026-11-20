@@ -183,7 +183,7 @@ export default function AdminFinance() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Stat label="Загальний оборот" value={k(ov.totals.turnover_kop)} />
             <Stat label="Нараховано авторам (нетто)" value={k(ov.totals.earned_kop)} />
-            <Stat label="Комісія Sensoria" value={k(ov.totals.sensoria_revenue_kop)} />
+            <Stat label="Тариф Sensoria" value={k(ov.totals.sensoria_revenue_kop)} />
             <Stat label="Виплачено авторам" value={k(ov.totals.paid_out_kop)} />
             <Stat label="Повернено покупцям" value={k(ov.totals.refunded_kop)} />
             <Stat label="Резерви" value={k(ov.totals.author_reserved_kop)} />
@@ -203,6 +203,8 @@ export default function AdminFinance() {
           </div>
         </>
       )}
+
+      {owner && <IncomeBook />}
 
       {/* Б39: lost chargebacks where the bank took everything from the author — Sensoria repays its tariff */}
       {owner && tariffTasks.length > 0 && (
@@ -604,7 +606,7 @@ export default function AdminFinance() {
             {([
               ["authorPercent", "Частка автора (каталог), %"], ["referralPercent", "Комісія за реферальним посиланням, %"], ["holdDays", "Підтвердження, днів"], ["reservePercent", "Резерв, %"],
               ["reserveDays", "Строк резерву, днів"], ["inactivityDays", "Неактивність, днів"], ["warningGraceDays", "Після попередження, днів"], ["minPayoutUah", "Мінімальна виплата, ₴"],
-              ["bankFeePercent", "Комісія банку, % (за рахунок Sensoria)"], ["bankFeeFixedUah", "Комісія банку фіксована, ₴"], ["sensoriaIban", "IBAN рахунку Sensoria"], ["sensoriaHolder", "Власник рахунку Sensoria"],
+              ["bankFeePercent", "Комісія банку, % (з частки автора)"], ["bankFeeFixedUah", "Комісія банку фіксована, ₴"], ["sensoriaIban", "IBAN рахунку Sensoria"], ["sensoriaHolder", "Власник рахунку Sensoria"],
             ] as const).map(([f, label]) => (
               <label key={f} className="flex flex-col gap-1">
                 <span className="text-black/50">{label}</span>
@@ -620,7 +622,7 @@ export default function AdminFinance() {
             <input type="checkbox" disabled={!owner} checked={form.autoPayout === "1"} onChange={(e) => setForm({ ...form, autoPayout: e.target.checked ? "1" : "0" })} />
             Автороздача (запасний режим з утриманням): після періоду підтвердження частка автора автоматично йде на підтверджений рахунок (без мінімуму й ручних запитів)
           </label>
-          <div className="text-[12px] text-black/45 mt-2">Комісія Sensoria рахується як решта до 100 %: {Math.round((100 - Number(form.authorPercent || 0)) * 100) / 100} %.</div>
+          <div className="text-[12px] text-black/45 mt-2">Тариф Sensoria рахується як решта до 100 %: {Math.round((100 - Number(form.authorPercent || 0)) * 100) / 100} %.</div>
           <button
             disabled={!owner}
             onClick={() => ask({
@@ -651,5 +653,127 @@ export default function AdminFinance() {
         />
       )}
     </div>
+  );
+}
+
+// ── Книга обліку доходів Sensoria (ФОП, 3 група) ──────────────────────────────
+// Дохід — тариф за ДАТОЮ ЗАРАХУВАННЯ (п. 292.6 ПКУ), повернення — з мінусом. Дата зарахування — оцінка «наступного
+// дня»: перед внесенням в Електронний кабінет звірити з випискою рахунку ФОП. Плюс ліміт 3 групи й поріг ПДВ.
+type BookData = {
+  year: number; mode: "live" | "test";
+  days: { day: string; incomeKop: number; refundKop: number; totalKop: number }[];
+  quarters: { quarter: string; kop: number }[];
+  ytdKop: number; limitKop: number; limit: "ok" | "warn80" | "warn95" | "over";
+  rolling12Kop: number; vat: "ok" | "warn800k" | "warn1m";
+  earlierQuarterRefunds: { paidAt: string; refundedAt: string; tariffKop: number }[];
+  estimatedTariffs: number;
+};
+
+const LIMIT_TEXT: Record<BookData["limit"], string | null> = {
+  ok: null,
+  warn80: "Дохід з початку року перевищив 80 % ліміту 3 групи. Плануйте наперед.",
+  warn95: "Дохід з початку року перевищив 95 % ліміту 3 групи. Негайно до бухгалтера.",
+  over: "Ліміт 3 групи перевищено: до суми перевищення — 15 %, з наступного кварталу — інша система. Негайно до бухгалтера.",
+};
+const VAT_TEXT: Record<BookData["vat"], string | null> = {
+  ok: null,
+  warn800k: "Тарифи за останні 12 місяців — понад 800 000 ₴. Стежте за законом про ПДВ для ФОП (поріг 1 млн).",
+  warn1m: "Тарифи за останні 12 місяців — понад 1 000 000 ₴. Якщо закон про ПДВ для ФОП ухвалено — реєстрація платником ПДВ. До бухгалтера.",
+};
+const dayUa = (d: string) => d.split("-").reverse().join(".");
+
+function IncomeBook() {
+  const thisYear = new Date().getFullYear();
+  const [year, setYear] = useState(thisYear);
+  const [mode, setMode] = useState<"live" | "test">("live");
+  const [data, setData] = useState<BookData | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    setErr(null);
+    callFinance<BookData>({ action: "incomeBook", year, mode }).then(setData, (e) => setErr(e instanceof Error ? e.message : "Не вдалося завантажити книгу."));
+  }, [year, mode]);
+  const csv = () => {
+    if (!data) return;
+    const num = (kop: number) => (kop / 100).toFixed(2).replace(".", ",");
+    const lines = [["Дата зарахування", "Дохід (тариф), грн", "Повернення, грн", "Разом за день, грн"].join(";")]
+      .concat(data.days.map((d) => [dayUa(d.day), num(d.incomeKop), num(d.refundKop), num(d.totalKop)].join(";")));
+    const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "sensoria-knyha-dokhodiv-" + data.year + (data.mode === "test" ? "-TEST" : "") + ".csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  const limitText = data ? LIMIT_TEXT[data.limit] : null;
+  const vatText = data ? VAT_TEXT[data.vat] : null;
+  return (
+    <section className="rounded-2xl bg-white border border-black/[0.06] p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-[16px] font-semibold">Книга обліку доходів Sensoria</h3>
+          <p className="text-[13px] text-black/50">Дохід — тариф за датою зарахування; повернення — з мінусом. Вносьте в Електронний кабінет щодня або підсумком за кожен день.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="min-h-[38px] rounded-xl border border-black/10 px-3 text-[13px]">
+            {[thisYear - 1, thisYear, thisYear + 1].map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <select value={mode} onChange={(e) => setMode(e.target.value as "live" | "test")} className="min-h-[38px] rounded-xl border border-black/10 px-3 text-[13px]">
+            <option value="live">Реальні оплати</option>
+            <option value="test">Тестові (перевірка)</option>
+          </select>
+          <button type="button" onClick={csv} disabled={!data || data.days.length === 0} className="min-h-[38px] rounded-xl bg-[#1d1d1f] px-4 text-[13px] font-semibold text-white disabled:opacity-40">CSV</button>
+        </div>
+      </div>
+      {err && <p className="mt-3 text-[13px] text-rose-700">{err}</p>}
+      {data && (
+        <div className="mt-4 grid gap-3">
+          {limitText && <div className="rounded-xl bg-rose-50 px-4 py-3 text-[13px] text-rose-800">{limitText}</div>}
+          {vatText && <div className="rounded-xl bg-amber-50 px-4 py-3 text-[13px] text-amber-900">{vatText}</div>}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {data.quarters.map((q) => (
+              <div key={q.quarter} className="rounded-xl bg-[#faf9ff] px-3 py-2">
+                <div className="text-[12px] text-black/50">{q.quarter.replace("-Q", " · ")} квартал</div>
+                <div className="text-[15px] font-semibold">{uahFromKop(q.kop)}</div>
+              </div>
+            ))}
+          </div>
+          <p className="text-[13px] text-black/60">
+            З початку року: <b>{uahFromKop(data.ytdKop)}</b> із {uahFromKop(data.limitKop)} (ліміт 3 групи на 2026 рік; на інший рік уточніть у бухгалтера). За 12 місяців (для ПДВ): <b>{uahFromKop(data.rolling12Kop)}</b>.
+          </p>
+          <p className="rounded-xl bg-[#faf9ff] px-4 py-3 text-[12px] text-black/55">
+            Дата зарахування — орієнтовна («наступного дня після оплати»): перед внесенням звірте суми за днями з випискою рахунку ФОП у monobank і вносьте суму з виписки.
+            {data.estimatedTariffs > 0 ? " Для " + data.estimatedTariffs + " оплат(и) банк не повідомив фактичний тариф — показано розрахунковий." : ""}
+          </p>
+          {data.earlierQuarterRefunds.length > 0 && (
+            <div className="rounded-xl bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+              Повернення оплат попереднього кварталу ({data.earlierQuarterRefunds.length}):{" "}
+              {data.earlierQuarterRefunds.map((r) => uahFromKop(r.tariffKop) + " (оплата " + new Date(r.paidAt).toLocaleDateString("uk-UA") + ")").join(", ")}.
+              Як їх відобразити (зменшення в кварталі повернення чи уточнююча декларація) — вирішує бухгалтер.
+            </div>
+          )}
+          {data.days.length === 0 ? (
+            <p className="text-[13px] text-black/45">За {data.year} рік записів немає.</p>
+          ) : (
+            <div className="max-h-[320px] overflow-auto rounded-xl border border-black/[0.06]">
+              <table className="w-full text-[13px]">
+                <thead className="sticky top-0 bg-white text-left text-black/50">
+                  <tr><th className="px-3 py-2">Дата зарахування</th><th className="px-3 py-2 text-right">Дохід</th><th className="px-3 py-2 text-right">Повернення</th><th className="px-3 py-2 text-right">Разом</th></tr>
+                </thead>
+                <tbody>
+                  {data.days.map((d) => (
+                    <tr key={d.day} className="border-t border-black/[0.05]">
+                      <td className="px-3 py-1.5">{dayUa(d.day)}</td>
+                      <td className="px-3 py-1.5 text-right">{uahFromKop(d.incomeKop)}</td>
+                      <td className="px-3 py-1.5 text-right">{d.refundKop ? "−" + uahFromKop(d.refundKop) : "—"}</td>
+                      <td className="px-3 py-1.5 text-right font-semibold">{uahFromKop(d.totalKop)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

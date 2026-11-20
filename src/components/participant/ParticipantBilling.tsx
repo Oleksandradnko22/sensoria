@@ -129,7 +129,7 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
       await downloadReceiptPdf(
         lines,
         number,
-        `${pc?.consent_text ? `${pc.consent_text} ` : ""}Не є фіскальним чеком. Фіскальний чек видає продавець. Оплату прийнято через monobank; дані картки Sensoria не отримує й не зберігає.`,
+        `${pc?.consent_text ? `${pc.consent_text} ` : ""}Не є фіскальним чеком. Фіскальний чек видає продавець. Оплату прийнято через monobank; повного номера картки Sensoria не отримує й не зберігає.`,
       );
     } catch {
       setPdfError("Не вдалося створити PDF. Спробуйте ще раз.");

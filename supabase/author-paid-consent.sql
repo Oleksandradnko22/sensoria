@@ -76,7 +76,12 @@ begin
     insert into legal_consents (user_id, document, version, text_hash, items, context, ip, user_agent, viewed_ms, opened_docs, otp_verified_at, otp_channel)
     values (uid, doc, ver, hsh, p_items, ctx, v_ip, v_ua, p_viewed_ms, coalesce(p_opened_docs, '{}'),
             case when doc in ('author_agreement', 'author_paid_sales') then otp_at end, case when doc in ('author_agreement', 'author_paid_sales') then 'email' end)
-    on conflict (user_id, document, version) where withdrawn_at is null do nothing;
+    -- an earlier acceptance of the same edition without a code (e.g. made before the code was required) must not swallow
+    -- the signature: the code confirmation is added to it, otherwise the consent screen would come back forever
+    on conflict (user_id, document, version) where withdrawn_at is null do update set
+      otp_verified_at = coalesce(legal_consents.otp_verified_at, excluded.otp_verified_at),
+      otp_channel = coalesce(legal_consents.otp_channel, excluded.otp_channel),
+      text_hash = coalesce(legal_consents.text_hash, excluded.text_hash);
   end loop;
 end $$;
 grant execute on function public.accept_legal(text, jsonb, int, text[]) to authenticated;

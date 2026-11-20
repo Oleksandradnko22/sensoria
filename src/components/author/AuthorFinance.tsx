@@ -421,7 +421,7 @@ export default function AuthorFinance() {
                   </div>
                   <dl className="mt-3 flex flex-col gap-1.5 text-[14px]">
                     <div className="flex justify-between"><dt className="text-black/60">Ціна</dt><dd>{uahFromKop(calcKop)}</dd></div>
-                    <div className="flex justify-between"><dt className="text-black/60">Комісія Sensoria, {Math.round((100 - pct) * 100) / 100} %</dt><dd>−{uahFromKop(b.sensoriaKop)}</dd></div>
+                    <div className="flex justify-between"><dt className="text-black/60">Тариф Sensoria, {Math.round((100 - pct) * 100) / 100} %</dt><dd>−{uahFromKop(b.sensoriaKop)}</dd></div>
                     <div className="flex justify-between font-semibold"><dt>Ваша частка, {pct} %</dt><dd>{uahFromKop(b.authorKop)}</dd></div>
                     <div className="flex justify-between"><dt className="text-black/60">Комісія банку, {calcCard === "foreign" ? "2" : "1,3"} %</dt><dd>−{uahFromKop(b.feeKop)}</dd></div>
                     <div className={`mt-1 flex items-baseline justify-between border-t pt-2 ${accent ? "border-emerald-100" : "border-[#ebe8ff]"}`}><dt className="font-semibold text-[#12172b]">На ваш рахунок</dt><dd className="text-[22px] font-bold text-[#1d7a45]">{uahFromKop(b.toAccountKop)}</dd></div>
@@ -429,7 +429,7 @@ export default function AuthorFinance() {
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-[12px] leading-relaxed text-black/50">Комісію банку (1,3 % або 2 % від усієї оплати) банк утримує з вашої частки до зарахування; комісія Sensoria надходить без вирахувань. Знижка банку «0 % на 30 днів» на цю схему не поширюється.</p>
+            <p className="mt-3 text-[12px] leading-relaxed text-black/50">Комісію банку (1,3 % або 2 % від усієї оплати) банк утримує з вашої частки до зарахування; тариф Sensoria надходить без вирахувань. Знижка банку «0 % на 30 днів» на цю схему не поширюється.</p>
           </section>
 
           {/* HOW THE MONEY ARRIVES */}
@@ -442,7 +442,7 @@ export default function AuthorFinance() {
               </div>
             </div>
             <dl className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              <Row label="Хто переказує" value="monobank, напряму" note={`Банк ділить кожну оплату: ${catalogPct} % (або ${referralPct} % за вашим посиланням) — на ваш рахунок, комісія Sensoria — на рахунок Sensoria.`} />
+              <Row label="Хто переказує" value="monobank, напряму" note={`Банк ділить кожну оплату: ${catalogPct} % (або ${referralPct} % за вашим посиланням) — на ваш рахунок, тариф Sensoria — на рахунок Sensoria.`} />
               <Row label="Куди" value="Основний гривневий рахунок" note="Рахунок вашого ФОП або ТОВ у monobank. Інший рахунок указати не можна." />
               <Row label="Коли" value="Наступного дня" note="І вам, і Sensoria банк зараховує кошти наступного дня після оплати." />
               <Row label="Мінімальна сума" value="Немає" note="Запитувати виплату не потрібно: кожна оплата надходить окремо." />

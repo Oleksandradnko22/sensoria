@@ -4,6 +4,7 @@
 // action "verify": checks the code (5 attempts); on success accept_legal('author', …) may run within 30 minutes.
 // Only a hash of the code is stored.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { renderBrandEmail } from "../_shared/brandEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,7 +65,17 @@ Deno.serve(async (req) => {
           from: Deno.env.get("RESEND_FROM") ?? "Sensoria <onboarding@resend.dev>",
           to: user.email,
           subject: `Код для ${what}: ${code}`,
-          text: `Ваш код для ${what} на Sensoria: ${code}\n\nКод дійсний 10 хвилин. Введення коду є підписанням договору одноразовим ідентифікатором.\nЯкщо ви не запитували код, просто проігноруйте цей лист.`,
+          ...renderBrandEmail({
+            preheader: `Код ${code} — дійсний 10 хвилин.`,
+            heading: purpose === "author_paid_sales" ? "Підтвердження умов платних продажів" : "Підписання договору з автором",
+            blocks: [
+              { type: "text", text: `Введіть цей код на сторінці Sensoria, щоб завершити ${what}.` },
+              { type: "code", code, note: "Код дійсний 10 хвилин" },
+              { type: "text", text: "Введення коду є підписанням договору одноразовим ідентифікатором (стаття 12 Закону України «Про електронну комерцію»)." },
+              { type: "note", text: "Якщо ви не запитували код, просто проігноруйте цей лист — без коду нічого не зміниться. Нікому не повідомляйте цей код." },
+            ],
+            reason: "Ви отримали цей лист, бо на Sensoria запросили код для вашого облікового запису автора.",
+          }),
         }),
       });
       if (!res.ok) {

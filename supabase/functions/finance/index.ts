@@ -25,6 +25,8 @@
 //   cron:               runJobs
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { brandFromText, renderBrandEmail, type BrandEmail } from "../_shared/brandEmail.ts";
+import { OPERATOR } from "../_shared/operator.ts";
 
 // ── engine (src/utils/financeEngine.ts) ───────────────────────────────────
 // Sensoria — own finance engine (pure logic, no I/O).
@@ -2202,7 +2204,7 @@ async function sendPendingEmails(): Promise<{ sent: number; skipped: number; fai
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ from, to: prof.email, subject: "Sensoria: фінансове сповіщення", text: n.message }),
+          body: JSON.stringify({ from, to: prof.email, subject: "Sensoria: фінансове сповіщення", ...brandFromText("Фінансове сповіщення", n.message, "Ви отримали цей лист як автор Sensoria. Усі сповіщення — у кабінеті, розділ «Фінанси».") }),
         });
         status = res.ok ? "sent" : "failed";
       } catch {
@@ -2326,6 +2328,13 @@ async function runJobs() {
     res.fiscalQueued = await fiscalRequeueMissing();
   } catch (e) {
     res.errors.push(`fiscal queue: ${e instanceof Error ? e.message : e}`);
+  }
+
+  // 6b) buyers' order confirmations that failed right after the payment
+  try {
+    (res as Record<string, unknown>).confirmations = await resendPurchaseConfirmations();
+  } catch (e) {
+    res.errors.push(`purchase confirmations: ${e instanceof Error ? e.message : e}`);
   }
 
   // 7) authors' registers: still the author's own, real, working register? (a broken one stops the author's sales)
@@ -2663,6 +2672,104 @@ async function recordPaid(row: MonoRow, p: Record<string, unknown>) {
     if (e instanceof FinanceError && e.code === "duplicate") return null; // the same payment was already recorded
     throw e;
   });
+}
+
+// ── the buyer's order confirmation (ЗУ «Про захист прав споживачів», ст. 13: confirmation of a distance contract on a
+// durable medium) ── once per order, right after the bank confirms the payment; the night jobs retry what failed.
+// What it confirms: the order, the seller, the price, and the immediate-access request exactly as recorded with the order.
+const KIND_UA: Record<string, string> = { program: "Програма", guide: "Гайд", meditation: "Медитація" };
+const uahText = (kop: number) => `${(kop / 100).toLocaleString("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} грн`;
+const kyivTime = (iso: string) => new Date(iso).toLocaleString("uk-UA", { timeZone: "Europe/Kyiv", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+function purchaseConfirmationEmail(o: {
+  order: string; title: string; kind: string | null; listKop: number; discountKop: number; paidKop: number; paidAt: string;
+  seller: string; sellerCode: string; consentText: string; consentAt: string; test: boolean; site: string; agreementEdition: string;
+}): { subject: string } & BrandEmail {
+  const rows = [
+    { label: "Замовлення", value: `№ ${o.order}` },
+    { label: "Дата", value: kyivTime(o.paidAt) },
+    { label: "Матеріал", value: `${o.kind && KIND_UA[o.kind] ? `${KIND_UA[o.kind]} ` : ""}«${o.title}»` },
+    ...(o.discountKop > 0 ? [{ label: "Ціна", value: uahText(o.listKop) }, { label: "Знижка за промокодом автора", value: `−${uahText(o.discountKop)}` }] : []),
+    { label: "Сплачено", value: `${uahText(o.paidKop)} · карткою через monobank` },
+    { label: "У виписці", value: "оплата може відображатися з назвою «Sensoria»" },
+    { label: "Продавець", value: `${o.seller} (${o.sellerCode})` },
+  ];
+  return {
+    subject: `${o.test ? "[ТЕСТ] " : ""}Замовлення № ${o.order} на Sensoria: оплату отримано`,
+    preheader: `«${o.title}» уже у вашому кабінеті. Деталі замовлення й продавець — у листі.`,
+    heading: "Дякуємо! Оплату отримано",
+    blocks: [
+      ...(o.test ? [{ type: "badge" as const, text: "Тестове замовлення: справжні гроші не списано" }] : []),
+      { type: "text", text: `Матеріал «${o.title}» уже відкрито у вашому кабінеті, у розділі «Моє навчання». Цей лист підтверджує ваше замовлення — збережіть його.` },
+      { type: "button", label: "Перейти до навчання", url: `${o.site}/account` },
+      { type: "details", title: "Деталі замовлення", rows },
+      { type: "note", text: "Sensoria — оператор платформи: надає технічні послуги з розміщення матеріалу, оформлення замовлення та надання доступу й не є продавцем матеріалу." },
+      { type: "quote", label: `Ваш запит на доступ одразу після оплати (зафіксовано ${kyivTime(o.consentAt)})`, text: o.consentText },
+      { type: "text", text: "Фіскальний чек продавця надійде окремим листом від касового сервісу Checkbox. Чек і квитанцію також можна відкрити в кабінеті, у розділі «Оплати»." },
+      { type: "details", title: "Повернення й претензії", rows: [
+        { label: "Повернення коштів", value: `За Правилами повернення коштів (${o.site}/refunds) і законом; запит — у розділі «Оплати» під цією покупкою.` },
+        { label: "Претензії", value: `Щодо матеріалу й оплати приймає Sensoria за дорученням продавця: ${OPERATOR.email} або поштою — ${OPERATOR.mailingAddress}.` },
+        { label: "Умови, які ви прийняли", value: `Угода учасника (${o.agreementEdition}) — у кабінеті: «Профіль → Документи і згоди», там її можна завантажити в PDF.` },
+      ] },
+      { type: "note", text: `Оператор платформи: ${OPERATOR.operatorName}, РНОКПП ${OPERATOR.registration}, місцезнаходження: ${OPERATOR.address}. Питання: ${o.site}/contacts` },
+    ],
+    reason: "Ви отримали цей лист, бо оформили замовлення на Sensoria.",
+  };
+}
+
+/** Sends the confirmation once: the row is claimed first (confirmation_sent_at), released again if the email failed. */
+async function sendPurchaseConfirmation(invoiceId: string): Promise<"sent" | "skipped" | "failed"> {
+  const key = Deno.env.get("RESEND_API_KEY");
+  if (!key) return "skipped";
+  const { data: pc } = await admin.from("purchase_consents").update({ confirmation_sent_at: nowIso() })
+    .eq("invoice_id", invoiceId).is("confirmation_sent_at", null).select("*").maybeSingle();
+  if (!pc) return "skipped"; // already sent, or an order made before the consent record existed
+  const release = () => admin.from("purchase_consents").update({ confirmation_sent_at: null }).eq("invoice_id", invoiceId);
+  try {
+    const [{ data: inv }, { data: content }] = await Promise.all([
+      admin.from("mono_invoices").select("buyer_id, amount_kop, list_kop, discount_kop, mode, updated_at").eq("id", invoiceId).single(),
+      admin.from("content").select("title, kind").eq("id", pc.content_id).maybeSingle(),
+    ]);
+    const { data: buyer } = inv?.buyer_id ? await admin.from("profiles").select("email").eq("id", inv.buyer_id).maybeSingle() : { data: null };
+    if (!inv || !buyer?.email) { await release(); return "skipped"; }
+    const { data: pay } = await admin.from("finance_payments").select("confirmed_at").eq("purchase_id", invoiceId).maybeSingle();
+    // the edition of the participant agreement this buyer accepted (the current one carries its date)
+    const { data: consent } = await admin.from("legal_consents").select("version").eq("user_id", inv.buyer_id).eq("document", "participant_agreement")
+      .is("withdrawn_at", null).order("accepted_at", { ascending: false }).limit(1).maybeSingle();
+    const ver = consent?.version ?? OPERATOR.edition;
+    const agreementEdition = ver === OPERATOR.edition ? `редакція ${ver} від ${OPERATOR.effectiveDate}` : `редакція ${ver}`;
+    const paidKop = Number(inv.amount_kop);
+    const msg = purchaseConfirmationEmail({
+      order: invoiceId.replace(/-/g, "").slice(0, 8).toUpperCase(), title: content?.title ?? "Цифровий освітній матеріал", kind: content?.kind ?? null,
+      listKop: Number(inv.list_kop ?? paidKop), discountKop: Number(inv.discount_kop ?? 0), paidKop, paidAt: pay?.confirmed_at ?? nowIso(),
+      seller: pc.seller_legal_name, sellerCode: pc.seller_code_masked, consentText: pc.consent_text, consentAt: pc.accepted_at,
+      test: inv.mode !== "live", site: siteUrl(), agreementEdition,
+    });
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: Deno.env.get("RESEND_FROM") ?? "Sensoria <onboarding@resend.dev>", to: buyer.email, subject: msg.subject, ...renderBrandEmail(msg) }),
+    });
+    if (!res.ok) { await release(); return "failed"; }
+    return "sent";
+  } catch (e) {
+    console.error("purchase confirmation", invoiceId, e);
+    await release();
+    return "failed";
+  }
+}
+
+/** Night jobs: confirmations that did not go out right after the payment (mail down, no key yet) — last 7 days. */
+async function resendPurchaseConfirmations(): Promise<number> {
+  const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const { data: rows } = await admin.from("purchase_consents").select("invoice_id").is("confirmation_sent_at", null).gte("accepted_at", since).limit(200);
+  let sent = 0;
+  for (const r of rows ?? []) {
+    const { data: inv } = await admin.from("mono_invoices").select("status").eq("id", r.invoice_id).maybeSingle();
+    if (inv?.status !== "success") continue;
+    if ((await sendPurchaseConfirmation(r.invoice_id as string)) === "sent") sent += 1;
+  }
+  return sent;
 }
 
 /** A fully refunded purchase no longer gives access: it is marked refunded and leaves «Моє навчання». */
@@ -3050,6 +3157,7 @@ async function applyMonoStatus(row: MonoRow, p: Record<string, unknown>): Promis
     await admin.from("finance_payments").update({ card_origin: cardOrigin(p.paymentInfo) }).eq("purchase_id", row.id);
     await queueReceipts(row, "sale");
     await fiscalSendDue(row.id).catch((e) => console.error("fiscal send", row.id, e));
+    await sendPurchaseConfirmation(row.id).catch((e) => console.error("purchase confirmation", row.id, e));
   }
   if (effect === "reversed") {
     await recordReversal(row);

@@ -12,6 +12,7 @@
 // Deploy with --no-verify-jwt (the unsubscribe link and pg_cron carry no user token; each action checks itself).
 // Secrets: RESEND_API_KEY, RESEND_FROM, CRON_SECRET, SITE_URL (optional).
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { renderBrandEmail } from "../_shared/brandEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -107,9 +108,7 @@ Deno.serve(async (req) => {
           .filter((c) => c.at > last)
           .filter((c) => topics.length === 0 || ((c.tags as string[] | null) ?? []).some((t) => topics.includes(t)));
         if (mine.length === 0) continue;
-        const list = mine.map((c) => `• ${KIND_LABEL[c.kind as string] ?? "Матеріал"} · «${c.title}»`).join("\n");
         const unsub = `${supabaseUrl}/functions/v1/notify-new-content?action=unsubscribe&u=${pid}&t=${await hmac(cronSecret, pid)}`;
-        const text = `На Sensoria з’явилися нові матеріали, які можуть бути вам цікаві:\n\n${list}\n\nПереглянути їх можна в каталозі: ${site}/programs\n\n—\nВи отримали цей лист, бо ввімкнули «Нові матеріали» в профілі. Відписатися: ${unsub}`;
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
@@ -117,7 +116,17 @@ Deno.serve(async (req) => {
             from,
             to: p.email,
             subject: mine.length === 1 ? `Новий матеріал на Sensoria: ${mine[0].title}` : `Нові матеріали на Sensoria за тиждень: ${mine.length}`,
-            text,
+            ...renderBrandEmail({
+              preheader: mine.length === 1 ? `«${mine[0].title}» — новий матеріал, який може бути вам цікавим.` : `${mine.length} нових матеріалів за тиждень.`,
+              heading: mine.length === 1 ? "Новий матеріал для вас" : "Нові матеріали за тиждень",
+              blocks: [
+                { type: "text", text: "На Sensoria з’явилися матеріали, які можуть бути вам цікаві:" },
+                { type: "details", rows: mine.map((c) => ({ label: KIND_LABEL[c.kind as string] ?? "Матеріал", value: `«${c.title}»` })) },
+                { type: "button", label: "Переглянути в каталозі", url: `${site}/programs` },
+                { type: "note", text: `Не хочете отримувати такі листи? Відписатися: ${unsub}` },
+              ],
+              reason: "Ви отримали цей лист, бо ввімкнули «Нові матеріали» в профілі.",
+            }),
             headers: { "List-Unsubscribe": `<${unsub}>` },
           }),
         });

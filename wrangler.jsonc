@@ -1,6 +1,9 @@
 {
   "name": "sensoria",
   "compatibility_date": "2026-11-01",
+  // the site is static files only; no Workers Logs/Traces are collected, so Cloudflare Observability pricing
+  // (from 01.12.2026) never applies to it
+  "observability": { "enabled": false },
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application"

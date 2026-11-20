@@ -41,6 +41,7 @@
 // automatically, same as every other function here.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { brandFromText } from "../_shared/brandEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -275,7 +276,8 @@ Deno.serve(async (req) => {
         from: fromAddress,
         to: recipient.email,
         subject,
-        text,
+        // the same branded layout as every Sensoria letter; the text is composed by the trigger
+        ...brandFromText(subject, text, "Ви отримали цей лист, бо увімкнули сповіщення на пошту. Змінити це можна в кабінеті, у налаштуваннях сповіщень."),
       }),
     });
 

@@ -14,6 +14,7 @@
 // this whole file -> Deploy.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { brandFromText } from "../_shared/brandEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -876,7 +877,7 @@ Deno.serve(async (req) => {
                 from: fromAddress,
                 to: recipient.email,
                 subject: "Ваше звернення в підтримку Sensoria розглянуто",
-                text,
+                ...brandFromText("Ваше звернення розглянуто", text, "Ви отримали цей лист, бо зверталися в підтримку Sensoria."),
               }),
             }).catch(() => {});
           }
@@ -919,7 +920,7 @@ Deno.serve(async (req) => {
                 from: fromAddress,
                 to: who.email,
                 subject: "Чат на Sensoria знову доступний",
-                text: "Блокування вашого чату на Sensoria знято — ви знову можете надсилати повідомлення. Просимо дотримуватись правил спілкування на платформі.",
+                ...brandFromText("Чат знову доступний", "Блокування вашого чату на Sensoria знято — ви знову можете надсилати повідомлення. Просимо дотримуватись правил спілкування на платформі."),
               }),
             }).catch(() => {});
           }

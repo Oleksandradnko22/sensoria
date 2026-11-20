@@ -17,6 +17,7 @@
 // configure by hand for this one.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { brandFromText } from "../_shared/brandEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -807,7 +808,7 @@ Deno.serve(async (req) => {
                 from: Deno.env.get("RESEND_FROM") ?? "Sensoria <onboarding@resend.dev>",
                 to: who.email,
                 subject: "Чат на Sensoria тимчасово заблоковано",
-                text: `Через повторні порушення правил спілкування ваш чат на Sensoria заблоковано ${lengthText}. Решта можливостей платформи працює як раніше. Якщо це помилка — напишіть у підтримку на сайті.`,
+                ...brandFromText("Чат тимчасово заблоковано", `Через повторні порушення правил спілкування ваш чат на Sensoria заблоковано ${lengthText}. Решта можливостей платформи працює як раніше. Якщо це помилка — напишіть у підтримку на сайті.`),
               }),
             }).catch(() => {});
           }

@@ -80,16 +80,28 @@ Deno.serve(async (req) => {
     if (payload?.action === "verify") {
       const code = String(payload?.code ?? "").replace(/\D/g, "");
       if (code.length !== 6) return json({ error: "bad_code", message: "Введіть 6 цифр." }, 400);
-      const { data: row } = await admin.from("legal_otp").select("id, code_hash, expires_at, attempts, verified_at")
+      // any still-valid code of the last 10 minutes counts, not only the newest: with «Надіслати ще раз» or a slow
+      // letter people type the code from the email they opened first (20.11.2026, a new author got «Невірний код»)
+      const { data: rows } = await admin.from("legal_otp").select("id, code_hash, expires_at, attempts, verified_at")
         .eq("user_id", user.id).eq("purpose", purpose).is("consumed_at", null)
-        .order("sent_at", { ascending: false }).limit(1).maybeSingle();
-      if (!row) return json({ error: "no_code", message: "Спершу надішліть код." }, 400);
-      if (row.verified_at) return json({ verified: true });
-      if (Date.parse(row.expires_at) < Date.now()) return json({ error: "expired", message: "Строк дії коду минув. Надішліть новий." }, 400);
-      if (row.attempts >= 5) return json({ error: "too_many", message: "Забагато спроб. Надішліть новий код." }, 400);
-      const ok = (await sha256(`${user.id}:${code}`)) === row.code_hash;
-      await admin.from("legal_otp").update(ok ? { verified_at: new Date().toISOString() } : { attempts: row.attempts + 1 }).eq("id", row.id);
-      if (!ok) return json({ error: "wrong_code", message: `Невірний код. Залишилось спроб: ${4 - row.attempts}.` }, 400);
+        .order("sent_at", { ascending: false }).limit(5);
+      const list = rows ?? [];
+      if (!list.length) return json({ error: "no_code", message: "Спершу надішліть код." }, 400);
+      // already confirmed and still usable by accept_legal (it takes a confirmation of the last 30 minutes)
+      if (list.some((r) => r.verified_at && Date.now() - Date.parse(r.verified_at) < 25 * 60_000)) return json({ verified: true });
+      const live = list.filter((r) => Date.parse(r.expires_at) >= Date.now() && r.attempts < 5);
+      if (!live.length) {
+        const expired = list.every((r) => Date.parse(r.expires_at) < Date.now());
+        return json(expired ? { error: "expired", message: "Строк дії коду минув. Надішліть новий." } : { error: "too_many", message: "Забагато спроб. Надішліть новий код." }, 400);
+      }
+      const hash = await sha256(`${user.id}:${code}`);
+      const match = live.find((r) => r.code_hash === hash);
+      if (!match) {
+        const latest = live[0];
+        await admin.from("legal_otp").update({ attempts: latest.attempts + 1 }).eq("id", latest.id);
+        return json({ error: "wrong_code", message: `Невірний код. Введіть код з найновішого листа. Залишилось спроб: ${4 - latest.attempts}.` }, 400);
+      }
+      await admin.from("legal_otp").update({ verified_at: new Date().toISOString() }).eq("id", match.id);
       return json({ verified: true });
     }
 

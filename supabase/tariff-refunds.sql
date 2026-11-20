@@ -12,3 +12,10 @@ alter table public.tariff_refund_tasks add column if not exists reminded_at time
 update public.legal_documents set text_hash = '147e741b9a2eef66de8b74ce7f86744b442160e57368fa4c1a2fc8381d01bd98' where document = 'author_agreement' and is_current;
 update public.legal_documents set text_hash = '18b6ba6046055d3f9bc6d25ab642ad84837e513563bba5dc427053e5f5c6cac9' where document = 'terms' and is_current;
 update public.legal_documents set text_hash = 'dde3983d5fea131482d16cc8c63123d8e767e992eabc12d625166b187cbe995e' where document = 'refunds' and is_current;
+
+-- Межа «день у день» для повернень (відповідь monobank, питання 2 листа від 21.11.2026): до цього часу за Києвом
+-- повернення в день оплати — скасування (нічого не зараховано); пізніше — списання з Автора й повернення тарифу.
+-- '24:00' = уся календарна доба. Щойно банк відповість — змінити одним рядком, наприклад:
+--   update public.finance_settings set refund_same_day_cutoff = '23:00' where id = 1;
+alter table public.finance_settings add column if not exists refund_same_day_cutoff text not null default '24:00'
+  check (refund_same_day_cutoff ~ '^([01][0-9]|2[0-4]):[0-5][0-9]$');

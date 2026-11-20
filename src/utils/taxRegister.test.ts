@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   GROUP3_LIMIT_2026_KOP, differentQuarters, incomeBook, kyivDay, kyivQuarter, limitLevel, monthlyAct, quarterIncomeKop,
-  refundOfEarlierQuarter, registerRow, rolling12Kop, vatLevel, addWorkingDays, buildAct, uahInWords, type ActOrder,
+  refundOfEarlierQuarter, registerRow, rolling12Kop, vatLevel, addWorkingDays, buildAct, uahInWords, sameDayCancel, type ActOrder,
 } from "./taxRegister.ts";
 
 test("register: paid = tariff + bank fee + credited to the author, to the kopeck", () => {
@@ -99,4 +99,14 @@ test("lost chargeback, the bank took all 1000 from the author: the tariff (300) 
   // the service was rendered (line 1) and the tariff went back (line 3) — two lines, no net
   assert.deepEqual(act.lines.tariff30, { count: 1, sumKop: 30000 });
   assert.deepEqual(act.lines.returned, { count: 1, sumKop: 30000 });
+});
+
+test("refund on the day of payment cancels it; the boundary is a setting (whole Kyiv day by default)", () => {
+  // 20.11.2026, Kyiv = UTC+2
+  assert.equal(sameDayCancel("2026-11-20T08:00:00Z", "2026-11-20T21:30:00Z"), true); // 10:00 → 23:30 Kyiv
+  assert.equal(sameDayCancel("2026-11-20T08:00:00Z", "2026-11-20T22:30:00Z"), false); // → 00:30 next day
+  // the bank's operational day closes at 23:00
+  assert.equal(sameDayCancel("2026-11-20T08:00:00Z", "2026-11-20T21:30:00Z", "23:00"), false); // 23:30 is already the next day
+  assert.equal(sameDayCancel("2026-11-20T21:30:00Z", "2026-11-21T07:00:00Z", "23:00"), true); // paid 23:30, refunded 09:00 next morning
+  assert.equal(sameDayCancel("2026-11-20T21:30:00Z", "2026-11-21T21:30:00Z", "23:00"), false);
 });

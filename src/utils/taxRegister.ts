@@ -46,6 +46,30 @@ export function kyivDay(iso: string): string {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
+/** "HH:MM" in Kyiv time. */
+export function kyivTime(iso: string): string {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: KYIV, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
+}
+
+/**
+ * Did a refund CANCEL the payment (nothing was credited to anyone) or come later (debited from the author, the tariff
+ * stays with Sensoria)? monobank, 20.11.2026: «день у день» — the same day as the payment. Where that day ends is the
+ * bank's to say (the end of the Kyiv calendar day or the close of its operational day): `cutoff` "HH:MM" Kyiv time,
+ * "24:00" = the whole calendar day (finance_settings.refund_same_day_cutoff). A payment made after the cutoff has
+ * its own «day» until the next cutoff.
+ */
+export function sameDayCancel(paidAtIso: string, refundAtIso: string, cutoff = "24:00"): boolean {
+  const opDay = (iso: string) => {
+    if (cutoff >= "24:00") return kyivDay(iso);
+    // after the cutoff the operational day is the next calendar day
+    if (kyivTime(iso) < cutoff) return kyivDay(iso);
+    const d = new Date(`${kyivDay(iso)}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+  };
+  return Date.parse(refundAtIso) >= Date.parse(paidAtIso) && opDay(paidAtIso) === opDay(refundAtIso);
+}
+
 /** "2026-Q2" in Kyiv time. */
 export function kyivQuarter(iso: string): string {
   const [y, m] = kyivDay(iso).split("-").map(Number);

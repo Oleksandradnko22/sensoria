@@ -716,7 +716,7 @@ async function recordPaid(row: MonoRow, p: Record<string, unknown>) {
 // What it confirms: the order, the seller, the price, and the immediate-access request exactly as recorded with the order.
 const KIND_UA: Record<string, string> = { program: "Програма", guide: "Гайд", meditation: "Медитація" };
 const uahText = (kop: number) => `${(kop / 100).toLocaleString("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} грн`;
-const kyivTime = (iso: string) => new Date(iso).toLocaleString("uk-UA", { timeZone: "Europe/Kyiv", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+const kyivDateTime = (iso: string) => new Date(iso).toLocaleString("uk-UA", { timeZone: "Europe/Kyiv", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 function purchaseConfirmationEmail(o: {
   order: string; title: string; kind: string | null; listKop: number; discountKop: number; paidKop: number; paidAt: string;
@@ -724,7 +724,7 @@ function purchaseConfirmationEmail(o: {
 }): { subject: string } & BrandEmail {
   const rows = [
     { label: "Замовлення", value: `№ ${o.order}` },
-    { label: "Дата", value: kyivTime(o.paidAt) },
+    { label: "Дата", value: kyivDateTime(o.paidAt) },
     { label: "Матеріал", value: `${o.kind && KIND_UA[o.kind] ? `${KIND_UA[o.kind]} ` : ""}«${o.title}»` },
     ...(o.discountKop > 0 ? [{ label: "Ціна", value: uahText(o.listKop) }, { label: "Знижка за промокодом автора", value: `−${uahText(o.discountKop)}` }] : []),
     { label: "Сплачено", value: `${uahText(o.paidKop)} · карткою через monobank` },
@@ -741,7 +741,7 @@ function purchaseConfirmationEmail(o: {
       { type: "button", label: "Перейти до навчання", url: `${o.site}/account` },
       { type: "details", title: "Деталі замовлення", rows },
       { type: "note", text: "Sensoria — оператор платформи: надає технічні послуги з розміщення матеріалу, оформлення замовлення та надання доступу й не є продавцем матеріалу." },
-      { type: "quote", label: `Ваш запит на доступ одразу після оплати (зафіксовано ${kyivTime(o.consentAt)})`, text: o.consentText },
+      { type: "quote", label: `Ваш запит на доступ одразу після оплати (зафіксовано ${kyivDateTime(o.consentAt)})`, text: o.consentText },
       { type: "text", text: "Фіскальний чек продавця надійде окремим листом від касового сервісу Checkbox. Чек і квитанцію також можна відкрити в кабінеті, у розділі «Оплати»." },
       { type: "details", title: "Повернення й претензії", rows: [
         { label: "Повернення коштів", value: `За Правилами повернення коштів (${o.site}/refunds) і законом; запит — у розділі «Оплати» під цією покупкою.` },
@@ -814,11 +814,17 @@ async function resendPurchaseConfirmations(): Promise<number> {
 // Sensoria's receipts are returned at once. A refund on a later day is debited in full from the AUTHOR's account and the
 // tariff stays with Sensoria: Sensoria transfers it back to the author within 5 working days («Тариф до повернення
 // авторам»); Sensoria's return receipt is issued on the day of that transfer, cashless, without the buyer's card data.
-async function paidDayOf(invoiceId: string): Promise<string | null> {
+async function paidAtOfInvoice(invoiceId: string): Promise<string | null> {
   const { data } = await admin.from("finance_payments").select("confirmed_at").eq("purchase_id", invoiceId).maybeSingle();
-  return data?.confirmed_at ? kyivDay(data.confirmed_at as string) : null;
+  return (data?.confirmed_at as string | undefined) ?? null;
 }
-const sameDayCancel = (paidDay: string | null, at = nowIso()) => paidDay !== null && paidDay === kyivDay(at);
+/** Where the bank's «day of payment» ends: finance_settings.refund_same_day_cutoff ("HH:MM" Kyiv; "24:00" = the whole
+ *  calendar day) — one setting to change when monobank answers (question 2 of the letter of 21.11.2026). */
+async function sameDayCutoff(): Promise<string> {
+  const { data, error } = await admin.from("finance_settings").select("refund_same_day_cutoff").eq("id", 1).maybeSingle();
+  const v = error ? null : (data?.refund_same_day_cutoff as string | null);
+  return v && /^([01]\d|2[0-4]):[0-5]\d$/.test(v) ? v : "24:00";
+}
 const tariffOf = (row: { mode?: string | null; payment_info?: unknown; sensoria_kop: number | string }) =>
   (row.mode === "live" ? agentFeeKopOf(row.payment_info) : null) ?? Number(row.sensoria_kop);
 
@@ -971,7 +977,8 @@ async function actDataFor(authorId: string, period: string) {
   // neither as a service nor as a return (М6, М8)
   const payIds = list.map((x) => x.id as string);
   const { data: ownRefunds } = payIds.length ? await admin.from("finance_refunds").select("payment_id, created_at").in("payment_id", payIds) : { data: [] };
-  const cancelled = new Set(list.filter((x) => (ownRefunds ?? []).some((r) => r.payment_id === x.id && kyivDay(r.created_at as string) === kyivDay(x.confirmed_at as string))).map((x) => x.id as string));
+  const cutoff = await sameDayCutoff();
+  const cancelled = new Set(list.filter((x) => (ownRefunds ?? []).some((r) => r.payment_id === x.id && sameDayCancel(x.confirmed_at as string, r.created_at as string, cutoff))).map((x) => x.id as string));
   // deno-lint-ignore no-explicit-any
   const inv = new Map<string, any>((invs ?? []).map((r: { id: string }) => [r.id, r]));
   const fno = (id: string, kind: string) => (rec ?? []).find((r) => r.invoice_id === id && r.kind === kind)?.fiscal_code ?? null;
@@ -1252,7 +1259,8 @@ async function applyMonoStatus(row: MonoRow, p: Record<string, unknown>): Promis
   }
   if (effect === "reversed") {
     await recordReversal(row);
-    if (sameDayCancel(await paidDayOf(row.id))) {
+    const paidAt = await paidAtOfInvoice(row.id);
+    if (paidAt && sameDayCancel(paidAt, nowIso(), await sameDayCutoff())) {
       await queueReceipts(row, "return");
     } else {
       // debited from the author in full: the author's return now, Sensoria's when it transfers the tariff back
@@ -1791,7 +1799,8 @@ Deno.serve(async (req) => {
       const { data: tariffBack } = await admin.from("tariff_refund_tasks").select("payment_id, amount_kop, paid_at").eq("status", "paid").gte("paid_at", from).lt("paid_at", to);
       const paidAtOf = new Map((pays ?? []).map((p) => [p.id as string, p.confirmed_at as string]));
       // a refund on the day of payment cancels it: the tariff was never credited — neither income nor a return (М6)
-      const cancelled = new Set(refunds.filter((r) => paidAtOf.has(r.payment_id) && kyivDay(r.created_at) === kyivDay(paidAtOf.get(r.payment_id)!)).map((r) => r.payment_id));
+      const cutoff = await sameDayCutoff();
+      const cancelled = new Set(refunds.filter((r) => paidAtOf.has(r.payment_id) && sameDayCancel(paidAtOf.get(r.payment_id)!, r.created_at, cutoff)).map((r) => r.payment_id));
       const { data: propPays } = await admin.from("finance_payments").select("id").eq("dispute_debited_from", "proportional");
       const prop = new Set((propPays ?? []).map((x) => x.id as string));
       const entries: BookEntry[] = [];

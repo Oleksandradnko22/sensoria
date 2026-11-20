@@ -793,6 +793,9 @@ function PrroCard() {
 // Step-by-step connection of the author's register — the exact path the operator went through on 18–19.11.2026
 // (20-ОПП → Checkbox register → DepositSign cashier key → license key + PIN here). Values are the ones the tax
 // cabinet and Checkbox actually ask for; the author signs everything with their own key, Sensoria never does.
+/** Sensoria's Checkbox partner link (offer Б44 discloses the partner reward). */
+const CHECKBOX_PARTNER_URL = "https://checkbox.ua/?partner_ref=nOzzHRcHwb";
+
 function PrroGuide() {
   const step = "rounded-2xl border border-[#ece8fb] bg-white px-4 py-3";
   const sum = "cursor-pointer list-none text-[14px] font-semibold text-[#2d2a5c] [&::-webkit-details-marker]:hidden";
@@ -834,7 +837,12 @@ function PrroGuide() {
       <details className={step}>
         <summary className={sum}>Крок 2. Зареєструйте касу в Checkbox (форма 1-ПРРО)</summary>
         <div className={body}>
-          <p>checkbox.ua → реєстрація → підтвердіть ФОП своїм КЕП. «Каси» → «Додати касу» → <b>основна</b>. Адреса підтягнеться з ДПС сама (з кроку 1) — заявку Checkbox подає сам.</p>
+          <p>
+            Зареєструйтеся в Checkbox за{" "}
+            <a href={CHECKBOX_PARTNER_URL} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#5b4bd0] underline">цим посиланням</a>{" "}
+            → підтвердіть ФОП своїм КЕП. «Каси» → «Додати касу» → <b>основна</b>. Адреса підтягнеться з ДПС сама (з кроку 1) — заявку Checkbox подає сам.
+          </p>
+          <p className="text-[12px] text-black/45">Посилання партнерське: Sensoria може отримувати від Checkbox винагороду за підключені каси. Вартість каси для вас від цього не змінюється (оферта, розділ про касу).</p>
           <p>Дочекайтеся статусу «Активна» і фіскального номера каси (зазвичай від кількох хвилин до доби).</p>
           <p className={warn}>Не додавайте резервну касу — це ще одна платна каса, для Sensoria достатньо основної.</p>
         </div>

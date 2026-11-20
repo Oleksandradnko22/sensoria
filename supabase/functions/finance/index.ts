@@ -2344,6 +2344,20 @@ async function runJobs() {
     res.errors.push(`prro recheck: ${e instanceof Error ? e.message : e}`);
   }
 
+  // 8) the books themselves: the journal must balance and every author's balance must match it; any night job that
+  // failed is reported too — the owner hears about it by email, not only when she opens «Фінанси»
+  try {
+    const [{ data: totals }, { data: bad }] = await Promise.all([admin.rpc("finance_totals"), admin.rpc("finance_verify")]);
+    const gap = Number((totals as Record<string, unknown> | null)?.gap_kop ?? 0);
+    const mism = (bad ?? []) as unknown[];
+    if (gap !== 0 || mism.length > 0) {
+      await reconcileAlert("Звірка: журнал не збалансований", `Різниця журналу: ${(gap / 100).toFixed(2)} ₴; неузгоджених балансів авторів: ${mism.length}. Не проводьте виплат і повернень, поки не з'ясовано причину (адмінка → «Фінанси»).`);
+    }
+  } catch (e) {
+    res.errors.push(`ledger check: ${e instanceof Error ? e.message : e}`);
+  }
+  if (res.errors.length) await reconcileAlert("Нічні задачі фінансів завершилися з помилками", res.errors.join("\n"), false);
+
   res.emails = await sendPendingEmails();
   return res;
 }
@@ -2385,6 +2399,7 @@ async function monoReconcileStatement() {
           administrator_id: null, action: "mono_statement_unknown", entity_type: "payment", entity_id: invoiceId.slice(0, 120),
           reason: "Оплата є у виписці банку, але не знайдена в Sensoria", previous_value: null, new_value: { amount: it.amount, reference: it.reference ?? null },
         });
+        await reconcileAlert("Звірка: оплата є у виписці банку, але не в Sensoria", `Рахунок банку ${invoiceId}, сума ${(Number(it.amount) / 100).toFixed(2)} ₴. Перевірте в кабінеті monobank і «Фінансах»: покупець міг не отримати доступ.`);
       }
       continue;
     }
@@ -2652,6 +2667,7 @@ async function recordPaid(row: MonoRow, p: Record<string, unknown>) {
       administrator_id: null, action: "mono_split_mismatch", entity_type: "payment", entity_id: row.id, reason: "Частки в рахунку банку відрізняються від поточних налаштувань",
       previous_value: { authorKop: row.author_kop, sensoriaKop: row.sensoria_kop }, new_value: { authorKop: expected.authorKop, sensoriaKop: expected.sensoriaKop },
     });
+    await reconcileAlert("Звірка: частки в оплаті не збігаються з налаштуваннями", `Замовлення ${String(row.id).slice(0, 8)}: у рахунку банку автору ${(Number(row.author_kop) / 100).toFixed(2)} ₴, за поточними налаштуваннями — ${(expected.authorKop / 100).toFixed(2)} ₴.`, false);
   }
   await applyWithRetry(async () => {
     const [account, debts] = await Promise.all([loadAccount(row.author_id), loadDebts(row.author_id)]);
@@ -2828,6 +2844,7 @@ async function enqueueReceipts(row: MonoRow, kind: FiscalKind): Promise<number> 
       reason: "Тариф, який зарахував банк, відрізняється від розрахункового — потрібна звірка",
       previous_value: { sensoriaKop: Number(row.sensoria_kop) }, new_value: { agentFee: bankFee },
     });
+    await reconcileAlert("Звірка: банк зарахував інший тариф", `Замовлення ${String(row.id).slice(0, 8)}: розраховано ${(Number(row.sensoria_kop) / 100).toFixed(2)} ₴, банк зарахував ${(bankFee / 100).toFixed(2)} ₴. Чек Sensoria сформовано на суму банку; звірте з випискою.`, false);
   }
   const drafts = plannedReceipts({
     kind, invoiceId: row.id, contentId: row.content_id, listKop: row.list_kop ?? null,
@@ -3043,6 +3060,11 @@ async function markAuthorPrroBroken(authorId: string, why: string) {
 
 async function fiscalAlert(title: string, details: string) {
   await admin.from("admin_alert_outbox").insert({ kind: "fiscal", title, details: details.slice(0, 1000), urgent: true }).then(() => {}, () => {});
+}
+
+/** A reconciliation problem reaches the owner by email (admin-alerts), not only the «Фінанси» page. */
+async function reconcileAlert(title: string, details: string, urgent = true) {
+  await admin.from("admin_alert_outbox").insert({ kind: "finance_reconcile", title, details: details.slice(0, 1000), urgent }).then(() => {}, () => {});
 }
 
 /** Sends due receipts in the right order. Returns how many were fiscalized. */

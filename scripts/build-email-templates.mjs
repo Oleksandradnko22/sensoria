@@ -56,6 +56,43 @@ const T = {
     ],
     reason: "Ви отримали цей лист, бо на Sensoria запросили код підтвердження для вашого облікового запису.",
   },
+  // Security notifications (Authentication → Emails → Security): only facts, no links that sign anyone in
+  "security-password-changed": {
+    subject: "Пароль до Sensoria змінено",
+    heading: "Пароль змінено",
+    blocks: [
+      { type: "text", text: "Пароль до вашого облікового запису Sensoria щойно змінено." },
+      { type: "note", text: "Якщо це були ви, нічого робити не потрібно. Якщо ні — одразу напишіть нам: https://sensoria.courses/contacts" },
+    ],
+    reason: "Ви отримали цей лист, бо в обліковому записі Sensoria змінено пароль.",
+  },
+  "security-email-changed": {
+    subject: "Пошту облікового запису Sensoria змінено",
+    heading: "Електронну пошту змінено",
+    blocks: [
+      { type: "text", text: "Пошту вашого облікового запису Sensoria змінено. Відтепер листи й коди надходитимуть на нову адресу." },
+      { type: "note", text: "Якщо ви цього не робили, одразу напишіть нам: https://sensoria.courses/contacts" },
+    ],
+    reason: "Ви отримали цей лист, бо в обліковому записі Sensoria змінено електронну пошту.",
+  },
+  "security-mfa-added": {
+    subject: "Увімкнено двоетапний вхід у Sensoria",
+    heading: "Двоетапний вхід увімкнено",
+    blocks: [
+      { type: "text", text: "До вашого облікового запису Sensoria додано застосунок-автентифікатор. Тепер для входу потрібен код із нього." },
+      { type: "note", text: "Якщо ви цього не робили, одразу напишіть нам: https://sensoria.courses/contacts" },
+    ],
+    reason: "Ви отримали цей лист, бо в обліковому записі Sensoria змінено налаштування входу.",
+  },
+  "security-mfa-removed": {
+    subject: "Вимкнено двоетапний вхід у Sensoria",
+    heading: "Двоетапний вхід вимкнено",
+    blocks: [
+      { type: "text", text: "З вашого облікового запису Sensoria прибрано застосунок-автентифікатор. Для входу тепер достатньо пароля." },
+      { type: "note", text: "Якщо ви цього не робили, одразу змініть пароль і напишіть нам: https://sensoria.courses/contacts" },
+    ],
+    reason: "Ви отримали цей лист, бо в обліковому записі Sensoria змінено налаштування входу.",
+  },
 };
 for (const [name, t] of Object.entries(T)) {
   const { html } = renderBrandEmail({ preheader: t.subject, heading: t.heading, blocks: t.blocks, reason: t.reason });

@@ -23,6 +23,7 @@ const demoMessagePreviews: MessagePreview[] = (SHOW_DEMO ? demoParticipantMessag
   unread: m.unread,
 }));
 import { useSession } from "../../context/SessionContext";
+import HealthDataNotice from "../legal/HealthDataNotice";
 import { useProgramParticipation } from "../../context/ProgramParticipationContext";
 import funnelStore from "../../store/funnelStore";
 import { getStateProfile } from "../../utils/getStateProfile";
@@ -653,6 +654,9 @@ export default function ParticipantOverview({
         <h1 className="text-[32px] font-bold leading-tight text-[#12172b]">{hello ? `Привіт, ${hello}` : "Привіт"}</h1>
         <p className="mt-1 text-[15px] text-black/55">Тут усе для вашого шляху: навчання, практики й спостереження.</p>
       </header>
+
+      {/* emotional-state data saved before the separate consent existed: consent, copy or delete (30 days) */}
+      {session?.profile.id && <HealthDataNotice profileId={session.profile.id} />}
 
       {/* the numbers, as on the author's «Огляд» */}
       <dl className="grid grid-cols-2 gap-4 xl:grid-cols-4">

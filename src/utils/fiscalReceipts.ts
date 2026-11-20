@@ -127,7 +127,12 @@ export function plannedReceipts(i: ReceiptInput): ReceiptDraft[] {
  */
 export const SENSORIA_FEE_CARD_DETAILS = true;
 
-export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { email?: string | null; relatedReceiptId?: string | null; commissionKop?: number | null; sensoriaCardDetails?: boolean } = {}) {
+/** The cashless label of Sensoria's receipt without card requisites: the tariff split at payment, or — for a return
+ *  after the day of payment — Sensoria's own transfer of the tariff back to the author (monobank, 20.11.2026; М6). */
+export const SENSORIA_SPLIT_LABEL = "Інтернет-еквайринг (розподіл платежу)";
+export const SENSORIA_TRANSFER_LABEL = "Безготівкова";
+
+export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { email?: string | null; relatedReceiptId?: string | null; commissionKop?: number | null; sensoriaCardDetails?: boolean; cashlessLabel?: string } = {}) {
   const commission = d.issuer === "author" && opts.commissionKop != null && Number.isInteger(opts.commissionKop) && opts.commissionKop > 0 ? opts.commissionKop : null;
   if (d.priceKop - d.discountKop !== d.amountKop) throw new FiscalError("bad_amount", "Сума чека не збігається з ціною та знижкою.");
   if (d.kind === "return" && !opts.relatedReceiptId) throw new FiscalError("no_related", "Чек повернення потребує фіскального чека продажу.");
@@ -143,7 +148,7 @@ export function checkboxReceiptBody(d: ReceiptDraft, card: CardDetails, opts: { 
   if (d.issuer === "sensoria" && !(opts.sensoriaCardDetails ?? SENSORIA_FEE_CARD_DETAILS)) {
     return {
       goods: [good],
-      payments: [{ type: "CASHLESS", value: d.amountKop, label: "Інтернет-еквайринг (розподіл платежу)" }],
+      payments: [{ type: "CASHLESS", value: d.amountKop, label: opts.cashlessLabel ?? SENSORIA_SPLIT_LABEL }],
       ...(opts.relatedReceiptId ? { related_receipt_id: opts.relatedReceiptId } : {}),
       ...(opts.email ? { delivery: { email: opts.email } } : {}),
     };

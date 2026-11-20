@@ -251,3 +251,10 @@ test("Sensoria's tariff receipt carries no buyer card data; the author's keeps i
   const bare = checkboxReceiptBody(author, cardDetailsOf(null)).payments[0] as Record<string, unknown>;
   assert.deepEqual([bare.value, bare.label, "card_mask" in bare], [100000, "Інтернет-еквайринг", false]);
 });
+
+test("Sensoria's tariff returned by its own transfer after the day of payment: cashless, no card data, linked to the sale", () => {
+  const draft = plannedReceipts({ kind: "return", ...ids, amountKop: 180000, sensoriaKop: 54000, feeFiscal: true })[1];
+  const b = checkboxReceiptBody(draft, card, { sensoriaCardDetails: false, cashlessLabel: "Безготівкова", relatedReceiptId: "sale-1" });
+  assert.deepEqual(b.payments, [{ type: "CASHLESS", value: 54000, label: "Безготівкова" }]);
+  assert.equal(b.related_receipt_id, "sale-1");
+});

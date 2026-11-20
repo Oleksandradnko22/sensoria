@@ -206,17 +206,24 @@ export default function AdminFinance() {
 
       {owner && <IncomeBook />}
 
-      {/* Б39: lost chargebacks where the bank took everything from the author — Sensoria repays its tariff */}
+      {/* М6 / Б39: a refund after the day of payment or a lost chargeback debited from the author — Sensoria transfers its
+          tariff back within 5 working days; «Сплачено» also issues Sensoria's return receipt for the tariff */}
       {owner && tariffTasks.length > 0 && (
         <section className="rounded-2xl bg-white border border-rose-100 p-5">
-          <h3 className="text-[16px] font-semibold mb-1">Повернути тариф Автору ({tariffTasks.length})</h3>
-          <p className="text-[13px] text-black/50 mb-3">Окремий безготівковий платіж з рахунку Sensoria на рахунок автора протягом 5 робочих днів після списання. Без заліку. Після оплати вкажіть номер платіжної інструкції.</p>
+          <h3 className="text-[16px] font-semibold mb-1">Тариф до повернення авторам ({tariffTasks.length})</h3>
+          <p className="text-[13px] text-black/50 mb-3">Окремий безготівковий платіж з рахунку Sensoria на рахунок автора протягом 5 робочих днів після списання. Без заліку й утримань. Після оплати вкажіть номер платіжної інструкції — тоді сформується чек повернення Sensoria на суму тарифу.</p>
           <div className="flex flex-col gap-2">
             {tariffTasks.map((t) => (
               <div key={t.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-black/5 px-4 py-3 text-[13px]">
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">{t.legalName ?? t.authorName} · {k(t.amount_kop)}</div>
-                  <div className="text-black/50">Код {t.code ?? "—"} · замовлення {String(t.purchase_id).slice(0, 8)} · списано {t.debited_at} · сплатити до <b className="text-rose-700">{t.due_date}</b></div>
+                  <div className="text-black/50">{t.reason === "refund" ? "Повернення коштів покупцю" : "Програний чарджбек"} · код {t.code ?? "—"} · замовлення {String(t.purchase_id).slice(0, 8)} · списано {t.debited_at} · сплатити до <b className="text-rose-700">{t.due_date}</b></div>
+                  {t.purpose && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-black/60">
+                      <span>Призначення платежу: «{t.purpose}»</span>
+                      <button type="button" onClick={() => void navigator.clipboard?.writeText(t.purpose).then(() => setInfo("Призначення платежу скопійовано."))} className="rounded-md px-2 py-0.5 text-[#4338ca] ring-1 ring-[#d9d4f7] hover:bg-[#eef0fd]">Копіювати</button>
+                    </div>
+                  )}
                 </div>
                 <input value={taskRefs[t.id] ?? ""} onChange={(e) => setTaskRefs({ ...taskRefs, [t.id]: e.target.value })} placeholder="№ платіжки" className="w-32 px-2 py-1.5 rounded-lg border border-black/10" />
                 <button disabled={!(taskRefs[t.id] ?? "").trim()} onClick={() => ask({
@@ -480,7 +487,7 @@ export default function AdminFinance() {
                         <>
                           <button disabled={!owner} onClick={() => ask({
                             title: `Повернути ${k(left)} покупцю?`, confirmLabel: "Повернути повністю", danger: true,
-                            text: "Покупець отримає повну суму. Банк поверне частку автора з його рахунку ФОП, частку Sensoria — з рахунку Sensoria. Комісія банку не повертається.",
+                            text: "Покупець отримає повну суму. У день оплати банк скасує платіж повністю. Пізніше — банк спише всю суму з рахунку автора, тариф залишиться на рахунку Sensoria: його треба перерахувати автору протягом 5 робочих днів (з’явиться в списку «Тариф до повернення авторам»).",
                             run: async (reason) => { await callFinance({ action: "refund", paymentId: p.id, kind: "full", reason, requestKey: key() }); setInfo("Повернення оформлено."); await refreshAll(authorId); },
                           })} className="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-700 bg-rose-50 disabled:opacity-30">Повне повернення</button>
                           <input value={partial[p.id] ?? ""} onChange={(e) => setPartial({ ...partial, [p.id]: e.target.value.replace(/[^\d.,]/g, "") })} placeholder="Частково, ₴" className="w-28 px-2 py-1.5 rounded-lg border border-black/10" />
@@ -513,7 +520,7 @@ export default function AdminFinance() {
                                   })} className="px-2.5 py-1 rounded-lg bg-white border border-rose-200">Так, списано</button>
                                   <button onClick={() => ask({
                                     title: "Тариф не списано: усю суму взяли з автора", confirmLabel: "Спір програно", danger: true,
-                                    text: "Sensoria має повернути автору свій тариф окремим платежем протягом 5 робочих днів — з’явиться завдання «Повернути тариф Автору». Доступ покупця припиниться, сформуються чеки повернення. Дата списання — сьогодні.",
+                                    text: "Sensoria має повернути автору свій тариф окремим платежем протягом 5 робочих днів — з’явиться в списку «Тариф до повернення авторам». Доступ покупця припиниться, сформуються чеки повернення. Дата списання — сьогодні.",
                                     run: async (reason) => { await callFinance({ action: "closeDispute", paymentId: p.id, outcome: "lost", debitedFrom: "author_full", reason }); setLostCheck(null); await refreshAll(authorId); await loadTariffTasks(); },
                                   })} className="px-2.5 py-1 rounded-lg bg-white border border-rose-200">Ні, усе з автора</button>
                                   <button onClick={() => setLostCheck(null)} className="px-2 py-1 text-black/50">Скасувати</button>

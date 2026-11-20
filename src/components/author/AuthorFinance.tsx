@@ -466,13 +466,15 @@ export default function AuthorFinance() {
             </div>
             <dl className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               <Row label="Строк для покупця" value="14 днів" note="За правилами Sensoria покупець може повернути кошти протягом 14 днів після оплати." />
-              <Row label="Звідки списується" value="З вашого рахунку" note={`Банк повертає пропорційно: вашу частку — з вашого рахунку, частку Sensoria — з її. Наприклад, за матеріал за 1000 ₴ — ${uahFromKop(catalogEx.authorKop)} з вашого рахунку.`} />
+              <Row label="Звідки списується" value="З вашого рахунку" note={`Якщо повернення в день оплати — банк скасовує платіж повністю. Якщо пізніше — банк списує всю суму з вашого рахунку (за матеріал за 1000 ₴ — 1000 ₴), а Sensoria протягом 5 робочих днів перераховує вам тариф (${uahFromKop(catalogEx.sensoriaKop)}).`} />
               <Row label="Комісія банку" value="Не повертається" note="Утримана при оплаті комісія залишається в банку." />
               <Row label="Якщо на рахунку бракує коштів" value="Повернення не пройде" note="Банк відхилить операцію, і ми зв’яжемося з вами. Тримайте на рахунку суму можливих повернень за останні 14 днів." />
               <Row label="Коли покупець отримає гроші" value="До 3 робочих днів" />
-              <Row label="Спірна оплата (чарджбек)" value="Відповідає отримувач" note="Якщо покупець оскаржить оплату у своєму банку, monobank звернеться до вас напряму щодо вашої частки." />
+              <Row label="Спірна оплата (чарджбек)" value="Пояснення — 1 робочий день" note="Ми повідомимо листом і в кабінеті. Надайте пояснення до вказаного часу: банк чекає відповіді 2 банківські дні. Якщо банк спише всю суму з вашого рахунку, Sensoria поверне вам тариф протягом 5 робочих днів." />
             </dl>
           </section>
+          {/* М5: the tariff Sensoria transfers back after a refund on a later day or a lost chargeback */}
+          <TariffBackList card={card} />
           {/* DEBTS (only when there are any) */}
           {(data?.debts.length ?? 0) > 0 && (
             <section className={`${card} p-5 sm:p-6`}>
@@ -1066,5 +1068,38 @@ function HistoryPanel({ rows }: { rows: HistoryRow[] }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// «Тариф до повернення»: after a refund on a later day (or a chargeback debited from the author in full) Sensoria
+// transfers its tariff back within 5 working days (offer: «Повернення коштів покупцям», Б39). The author's own rows only.
+function TariffBackList({ card }: { card: string }) {
+  type Row = { purchase_id: string; amount_kop: number; due_date: string; status: string; paid_at: string | null; reason?: string | null };
+  const [rows, setRows] = useState<Row[]>([]);
+  useEffect(() => {
+    if (!supabase) return;
+    void supabase.from("tariff_refund_tasks").select("purchase_id, amount_kop, due_date, status, paid_at, reason").order("created_at", { ascending: false }).limit(50)
+      .then(({ data }) => setRows((data ?? []) as Row[]));
+  }, []);
+  if (!rows.length) return null;
+  const order = (id: string) => id.replace(/-/g, "").slice(0, 8).toUpperCase();
+  const day = (d: string) => new Date(`${d.slice(0, 10)}T12:00:00Z`).toLocaleDateString("uk-UA", { day: "numeric", month: "long", year: "numeric" });
+  return (
+    <section className={`${card} p-5 sm:p-6`} aria-labelledby="fin-tariff-back">
+      <h2 id="fin-tariff-back" className="text-[20px] font-bold text-[#12172b]">Тариф до повернення вам</h2>
+      <p className="mt-1 text-[13px] leading-relaxed text-black/55">Після повернення коштів покупцю пізніше дня оплати (або програного спору) Sensoria перераховує вам свій тариф окремим платежем протягом 5 робочих днів.</p>
+      <ul className="mt-3 flex flex-col gap-2">
+        {rows.map((r) => (
+          <li key={r.purchase_id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#faf9ff] px-4 py-3 text-[13px] ring-1 ring-[#efeafd]">
+            <span className="text-[#12172b]">Замовлення № {order(r.purchase_id)}{r.reason === "chargeback" ? " · спірний платіж" : ""}</span>
+            {r.status === "paid" ? (
+              <span className="rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-800">Тариф повернено {r.paid_at ? day(r.paid_at) : ""} · {uahFromKop(r.amount_kop)}</span>
+            ) : (
+              <span className="rounded-full bg-[#eef0fd] px-3 py-1 font-semibold text-[#4338ca]">Тариф до повернення: {uahFromKop(r.amount_kop)}, до {day(r.due_date)}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

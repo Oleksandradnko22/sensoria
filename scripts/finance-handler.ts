@@ -181,6 +181,19 @@ async function applyWithRetry(build: () => Promise<Plan | null>, actor: string |
 
 // ── emails ──────────────────────────────────────────────────────────────────
 
+const SUBJECT_OF: Record<string, string> = {
+  DISPUTE_OPENED: "Спірний платіж: потрібні ваші пояснення",
+  TARIFF_REFUNDED: "Sensoria повернула вам тариф",
+  ACT_ISSUED: "Акт про надання послуг розміщено",
+  PRRO_BROKEN: "Каса для чеків не працює — продаж призупинено",
+};
+const HEADING_OF: Record<string, string> = {
+  DISPUTE_OPENED: "Спірний платіж: потрібні ваші пояснення",
+  TARIFF_REFUNDED: "Тариф повернено",
+  ACT_ISSUED: "Новий акт про надання послуг",
+  PRRO_BROKEN: "Каса для чеків не працює",
+};
+
 async function sendPendingEmails(): Promise<{ sent: number; skipped: number; failed: number }> {
   const key = Deno.env.get("RESEND_API_KEY");
   const from = Deno.env.get("RESEND_FROM") ?? "Sensoria <onboarding@resend.dev>";
@@ -199,7 +212,7 @@ async function sendPendingEmails(): Promise<{ sent: number; skipped: number; fai
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ from, to: prof.email, subject: "Sensoria: фінансове сповіщення", ...brandFromText("Фінансове сповіщення", n.message, "Ви отримали цей лист як автор Sensoria. Усі сповіщення — у кабінеті, розділ «Фінанси».") }),
+          body: JSON.stringify({ from, to: prof.email, subject: SUBJECT_OF[n.event_type as string] ?? "Sensoria: фінансове сповіщення", ...brandFromText(HEADING_OF[n.event_type as string] ?? "Фінансове сповіщення", n.message, "Ви отримали цей лист як автор Sensoria. Усі сповіщення — у кабінеті, розділ «Фінанси».") }),
         });
         status = res.ok ? "sent" : "failed";
       } catch {
@@ -337,6 +350,19 @@ async function runJobs() {
     (res as Record<string, unknown>).prroChecked = await recheckAuthorRegisters();
   } catch (e) {
     res.errors.push(`prro recheck: ${e instanceof Error ? e.message : e}`);
+  }
+
+  // 7b) «Тариф до повернення авторам»: a reminder 2 working days before the due date (once)
+  try {
+    const today = kyivDay(now);
+    const soon = addWorkingDays(today, 2);
+    const { data: due } = await admin.from("tariff_refund_tasks").select("id, purchase_id, amount_kop, due_date").eq("status", "open").is("reminded_at", null).lte("due_date", soon);
+    for (const t of due ?? []) {
+      await reconcileAlert("Тариф до повернення: строк спливає", `Замовлення ${String(t.purchase_id).replace(/-/g, "").slice(0, 8).toUpperCase()}: перерахуйте автору ${(Number(t.amount_kop) / 100).toFixed(2)} ₴ до ${t.due_date} (адмінка → «Фінанси» → «Тариф до повернення авторам»).`);
+      await admin.from("tariff_refund_tasks").update({ reminded_at: nowIso() }).eq("id", t.id);
+    }
+  } catch (e) {
+    res.errors.push(`tariff refunds: ${e instanceof Error ? e.message : e}`);
   }
 
   // 8) the books themselves: the journal must balance and every author's balance must match it; any night job that
@@ -783,6 +809,35 @@ async function resendPurchaseConfirmations(): Promise<number> {
   return sent;
 }
 
+// ── refunds (monobank, 20.11.2026 — М1, М6) ──
+// A refund on the day of payment (Kyiv time) cancels the payment: nothing was credited to anyone, so the author's and
+// Sensoria's receipts are returned at once. A refund on a later day is debited in full from the AUTHOR's account and the
+// tariff stays with Sensoria: Sensoria transfers it back to the author within 5 working days («Тариф до повернення
+// авторам»); Sensoria's return receipt is issued on the day of that transfer, cashless, without the buyer's card data.
+async function paidDayOf(invoiceId: string): Promise<string | null> {
+  const { data } = await admin.from("finance_payments").select("confirmed_at").eq("purchase_id", invoiceId).maybeSingle();
+  return data?.confirmed_at ? kyivDay(data.confirmed_at as string) : null;
+}
+const sameDayCancel = (paidDay: string | null, at = nowIso()) => paidDay !== null && paidDay === kyivDay(at);
+const tariffOf = (row: { mode?: string | null; payment_info?: unknown; sensoria_kop: number | string }) =>
+  (row.mode === "live" ? agentFeeKopOf(row.payment_info) : null) ?? Number(row.sensoria_kop);
+
+/** The tariff Sensoria owes the author back after a refund/chargeback debited in full from the author (one per payment). */
+async function openTariffRefund(row: MonoRow & { payment_info?: unknown }, reason: "refund" | "chargeback", debitedAt: string) {
+  const { data: pay } = await admin.from("finance_payments").select("id").eq("purchase_id", row.id).maybeSingle();
+  if (!pay) return;
+  const tariff = tariffOf(row);
+  if (tariff <= 0) return;
+  const due = await workingDaysFrom(debitedAt, 5);
+  const { data: made } = await admin.from("tariff_refund_tasks").upsert(
+    { payment_id: pay.id, purchase_id: row.id, author_id: row.author_id, amount_kop: tariff, debited_at: debitedAt, due_date: due, reason },
+    { onConflict: "payment_id", ignoreDuplicates: true },
+  ).select("id");
+  if (made?.length) {
+    await admin.from("admin_alert_outbox").insert({ kind: "tariff_refund", title: "Тариф до повернення автору", urgent: false, details: `${reason === "refund" ? "Повернення коштів покупцю" : "Програний чарджбек"}, замовлення ${String(row.id).slice(0, 8)}: перерахуйте автору ${(tariff / 100).toFixed(2)} ₴ до ${due} окремим платежем (адмінка → «Фінанси» → «Тариф до повернення авторам»).` }).then(() => {}, () => {});
+  }
+}
+
 /** A fully refunded purchase no longer gives access: it is marked refunded and leaves «Моє навчання». */
 async function revokePaidAccess(purchaseId: string) {
   const { data: pu } = await admin.from("purchases").update({ status: "refunded" }).eq("id", purchaseId).select("participant_id, content_id").maybeSingle();
@@ -821,7 +876,7 @@ async function recordReversal(row: MonoRow) {
 // docs/legal/internal/accountant-dps-review-2026-11-18.md, В1 і В3.
 
 /** Idempotent: one receipt per invoice, issuer and kind. A return mirrors the sale receipts that exist. */
-async function enqueueReceipts(row: MonoRow, kind: FiscalKind): Promise<number> {
+async function enqueueReceipts(row: MonoRow, kind: FiscalKind, only?: FiscalIssuer): Promise<number> {
   const [{ data: s }, { data: inv }, { data: sales }] = await Promise.all([
     admin.from("finance_settings").select("sensoria_fee_fiscal").eq("id", 1).single(),
     admin.from("mono_invoices").select("payment_info").eq("id", row.id).single(),
@@ -846,7 +901,7 @@ async function enqueueReceipts(row: MonoRow, kind: FiscalKind): Promise<number> 
     amountKop: Number(row.amount_kop), sensoriaKop, feeFiscal,
   });
   const card = cardDetailsOf(inv?.payment_info);
-  const rows = drafts.map((d) => ({
+  const rows = drafts.filter((d) => !only || d.issuer === only).map((d) => ({
     invoice_id: row.id, author_id: row.author_id, issuer: d.issuer, kind: d.kind, deliver_to: d.deliverTo, item_code: d.itemCode,
     item_name: d.itemName, price_kop: d.priceKop, discount_kop: d.discountKop, amount_kop: d.amountKop, card, mode: row.mode,
   }));
@@ -856,9 +911,9 @@ async function enqueueReceipts(row: MonoRow, kind: FiscalKind): Promise<number> 
 }
 
 /** Never blocks the payment or the refund: a failure is logged, and runJobs re-queues what is missing. */
-async function queueReceipts(row: MonoRow, kind: FiscalKind) {
+async function queueReceipts(row: MonoRow, kind: FiscalKind, only?: FiscalIssuer) {
   try {
-    await enqueueReceipts(row, kind);
+    await enqueueReceipts(row, kind, only);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("fiscal enqueue", row.id, kind, msg);
@@ -909,13 +964,18 @@ async function actDataFor(authorId: string, period: string) {
   const [{ data: invs }, { data: rec }, { data: refunds }, { data: tasks }] = await Promise.all([
     ids.length ? admin.from("mono_invoices").select("id, mode, payment_info, bank_fee_kop, list_kop, discount_kop, promo_code_id").in("id", ids) : Promise.resolve({ data: [] }),
     ids.length ? admin.from("fiscal_receipts").select("invoice_id, kind, fiscal_code").eq("issuer", "author").in("invoice_id", ids) : Promise.resolve({ data: [] }),
-    admin.from("finance_refunds").select("order_id, sensoria_share_kop, created_at").eq("author_id", authorId).gte("created_at", from).lt("created_at", to),
+    admin.from("finance_refunds").select("payment_id, order_id, sensoria_share_kop, created_at, refund_type").eq("author_id", authorId).gte("created_at", from).lt("created_at", to),
     admin.from("tariff_refund_tasks").select("purchase_id, amount_kop, paid_at").eq("author_id", authorId).eq("status", "paid").gte("paid_at", from).lt("paid_at", to),
   ]);
+  // refunds of THIS month's orders, whenever made: a refund on the day of payment cancels the order — it is in the act
+  // neither as a service nor as a return (М6, М8)
+  const payIds = list.map((x) => x.id as string);
+  const { data: ownRefunds } = payIds.length ? await admin.from("finance_refunds").select("payment_id, created_at").in("payment_id", payIds) : { data: [] };
+  const cancelled = new Set(list.filter((x) => (ownRefunds ?? []).some((r) => r.payment_id === x.id && kyivDay(r.created_at as string) === kyivDay(x.confirmed_at as string))).map((x) => x.id as string));
   // deno-lint-ignore no-explicit-any
   const inv = new Map<string, any>((invs ?? []).map((r: { id: string }) => [r.id, r]));
   const fno = (id: string, kind: string) => (rec ?? []).find((r) => r.invoice_id === id && r.kind === kind)?.fiscal_code ?? null;
-  const orders: ActOrder[] = list.map((x) => {
+  const orders: ActOrder[] = list.filter((x) => !cancelled.has(x.id as string)).map((x) => {
     const i = inv.get(x.purchase_id) ?? {};
     const tariff = (i.mode === "live" ? agentFeeKopOf(i.payment_info) : null) ?? Number(x.sensoria_kop);
     const fee = i.bank_fee_kop != null ? Number(i.bank_fee_kop) : estimatedBankFeeKop(Number(x.amount_kop), x.card_origin === "foreign");
@@ -929,10 +989,14 @@ async function actDataFor(authorId: string, period: string) {
       refundedAt: refunded ? x.dispute_closed_at ?? x.updated_at ?? null : null, returnFiscalNo: fno(x.purchase_id, "return"),
     };
   });
-  // (б) the tariff returned this month: by the bank with a refund, or repaid by Sensoria after a lost chargeback
+  // (б) the tariff returned this month, by the date it really went back: Sensoria's own transfer to the author (a refund
+  // after the day of payment, a chargeback debited from the author), or a chargeback the bank split proportionally
+  const { data: propPays } = await admin.from("finance_payments").select("id").eq("author_id", authorId).eq("dispute_debited_from", "proportional");
+  const prop = new Set((propPays ?? []).map((x) => x.id as string));
   const returned = [
-    ...(refunds ?? []).filter((r) => Number(r.sensoria_share_kop) > 0).map((r) => ({ purchaseId: r.order_id, tariffKop: Number(r.sensoria_share_kop) })),
     ...(tasks ?? []).map((t) => ({ purchaseId: t.purchase_id, tariffKop: Number(t.amount_kop) })),
+    ...(refunds ?? []).filter((r) => r.refund_type === "chargeback" && prop.has(r.payment_id as string) && Number(r.sensoria_share_kop) > 0)
+      .map((r) => ({ purchaseId: r.order_id, tariffKop: Number(r.sensoria_share_kop) })),
   ];
   return { ...buildAct({ period, authorId, orders, returnedTariffs: returned }), customer: await actCustomerOf(authorId) };
 }
@@ -1105,7 +1169,13 @@ async function fiscalSendDue(onlyInvoice?: string): Promise<{ sent: number; fail
           ? bankFee ?? estimatedBankFeeKop(Number(inv?.amount_kop ?? r.amount_kop), inv?.card_origin === "foreign")
           : null;
         const draft: ReceiptDraft = { issuer: r.issuer, kind: r.kind, deliverTo: r.deliver_to, itemCode: r.item_code, itemName: r.item_name, priceKop: Number(r.price_kop), discountKop: Number(r.discount_kop), amountKop: Number(r.amount_kop) };
-        const res = await sendViaCheckbox(creds, checkboxReceiptBody(draft, card, { email: who?.email ?? null, relatedReceiptId: related ?? null, commissionKop }), fetch as unknown as FetchLike, base);
+        // Sensoria's tariff returned by its own transfer (a refund after the day of payment): «Безготівкова», no card data
+        const saleRow = rows.find((x) => x.invoice_id === r.invoice_id && x.issuer === r.issuer && x.kind === "sale");
+        const transfer = r.issuer === "sensoria" && r.kind === "return" && !!saleRow && kyivDay(r.created_at) !== kyivDay(saleRow.created_at);
+        const res = await sendViaCheckbox(creds, checkboxReceiptBody(draft, card, {
+          email: who?.email ?? null, relatedReceiptId: related ?? null, commissionKop,
+          ...(transfer ? { sensoriaCardDetails: false, cashlessLabel: SENSORIA_TRANSFER_LABEL } : {}),
+        }), fetch as unknown as FetchLike, base);
         await admin.from("fiscal_receipts").update({
           status: "done", provider_receipt_id: res.providerReceiptId, fiscal_code: res.fiscalCode, receipt_url: res.receiptUrl, done_at: nowIso(), last_error: null, attempts: Number(r.attempts) + 1,
         }).eq("id", r.id);
@@ -1150,7 +1220,11 @@ async function fiscalRequeueMissing(): Promise<number> {
   let n = 0;
   for (const row of invs as MonoRow[]) {
     if (!seen.has(`${row.id}:sale`)) n += await enqueueReceipts(row, "sale");
-    if (row.status === "reversed" && !seen.has(`${row.id}:return`)) n += await enqueueReceipts(row, "return");
+    if (row.status === "reversed") {
+      const { data: task } = await admin.from("tariff_refund_tasks").select("status").eq("purchase_id", row.id).maybeSingle();
+      if (!seen.has(`${row.id}:return`)) n += await enqueueReceipts(row, "return", task && task.status !== "paid" ? "author" : undefined);
+      else if (task?.status === "paid") await enqueueReceipts(row, "return", "sensoria"); // a no-op when it is already there
+    }
   }
   return n;
 }
@@ -1178,7 +1252,14 @@ async function applyMonoStatus(row: MonoRow, p: Record<string, unknown>): Promis
   }
   if (effect === "reversed") {
     await recordReversal(row);
-    await queueReceipts(row, "return");
+    if (sameDayCancel(await paidDayOf(row.id))) {
+      await queueReceipts(row, "return");
+    } else {
+      // debited from the author in full: the author's return now, Sensoria's when it transfers the tariff back
+      await queueReceipts(row, "return", "author");
+      const { data: full } = await admin.from("mono_invoices").select("*").eq("id", row.id).single();
+      await openTariffRefund((full ?? row) as MonoRow, "refund", kyivDay(nowIso()));
+    }
     await fiscalSendDue(row.id).catch((e) => console.error("fiscal send", row.id, e));
   }
   await admin.from("mono_invoices").update({ status, mono_modified: modified ?? row.mono_modified, updated_at: nowIso() }).eq("id", row.id);
@@ -1673,18 +1754,11 @@ Deno.serve(async (req) => {
       await revokePaidAccess(pay.purchase_id);
       const { data: row } = await admin.from("mono_invoices").select("*").eq("id", pay.purchase_id).maybeSingle();
       if (row) {
-        await queueReceipts(row as MonoRow, "return");
+        // the bank took everything from the author: the author's return now; Sensoria's when it transfers the tariff back
+        // (Б39, within 5 working days, a separate payment); proportional — both returns now
+        await queueReceipts(row as MonoRow, "return", debitedFrom === "author_full" ? "author" : undefined);
+        if (debitedFrom === "author_full") await openTariffRefund(row as MonoRow, "chargeback", debitedAt);
         await fiscalSendDue(row.id).catch((e) => console.error("fiscal send", row.id, e));
-      }
-      // the bank took everything from the author: Sensoria repays its tariff within 5 working days, a separate payment
-      if (debitedFrom === "author_full") {
-        const tariff = (row?.mode === "live" ? agentFeeKopOf(row?.payment_info) : null) ?? Number(pay.sensoria_kop);
-        const due = await workingDaysFrom(debitedAt, 5);
-        await admin.from("tariff_refund_tasks").upsert(
-          { payment_id: pay.id, purchase_id: pay.purchase_id, author_id: pay.author_id, amount_kop: tariff, debited_at: debitedAt, due_date: due },
-          { onConflict: "payment_id", ignoreDuplicates: true },
-        );
-        await admin.from("admin_alert_outbox").insert({ kind: "tariff_refund", title: "Повернути тариф Автору", urgent: true, details: `Програний чарджбек, замовлення ${String(pay.purchase_id).slice(0, 8)}: перерахуйте автору ${(tariff / 100).toFixed(2)} ₴ до ${due} окремим платежем.` }).then(() => {}, () => {});
       }
       await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: "dispute_lost", entity_type: "payment", entity_id: pay.id, reason, new_value: { debitedFrom, debitedAt } });
       return json({ ok: true });
@@ -1716,25 +1790,34 @@ Deno.serve(async (req) => {
       }
       const { data: tariffBack } = await admin.from("tariff_refund_tasks").select("payment_id, amount_kop, paid_at").eq("status", "paid").gte("paid_at", from).lt("paid_at", to);
       const paidAtOf = new Map((pays ?? []).map((p) => [p.id as string, p.confirmed_at as string]));
+      // a refund on the day of payment cancels it: the tariff was never credited — neither income nor a return (М6)
+      const cancelled = new Set(refunds.filter((r) => paidAtOf.has(r.payment_id) && kyivDay(r.created_at) === kyivDay(paidAtOf.get(r.payment_id)!)).map((r) => r.payment_id));
+      const { data: propPays } = await admin.from("finance_payments").select("id").eq("dispute_debited_from", "proportional");
+      const prop = new Set((propPays ?? []).map((x) => x.id as string));
       const entries: BookEntry[] = [];
       let estimatedFee = 0;
-      for (const p of pays ?? []) {
+      for (const p of (pays ?? []).filter((x) => !cancelled.has(x.id as string))) {
         const bank = mode === "live" ? agentFeeKopOf(invs.find((v) => v.id === p.purchase_id)?.payment_info) : null;
         if (bank == null) estimatedFee += 1;
         const tariff = bank ?? Number(p.split_sensoria_kop ?? p.sensoria_kop ?? 0);
         if (tariff > 0) entries.push({ kind: "income", tariffKop: tariff, creditedAt: new Date(Date.parse(p.confirmed_at as string) + 86_400_000).toISOString(), paidAt: p.confirmed_at as string });
       }
       const earlier: { paidAt: string; refundedAt: string; tariffKop: number }[] = [];
+      // returns of the tariff: by the bank only for a chargeback split proportionally; otherwise Sensoria's own transfer to
+      // the author (tariff_refund_tasks), dated by the day it really went back
       for (const r of refunds) {
         const t = Number(r.sensoria_share_kop);
-        if (t <= 0) continue;
+        if (t <= 0 || cancelled.has(r.payment_id) || !(r.refund_type === "chargeback" && prop.has(r.payment_id))) continue;
         const at = r.completed_at ?? r.created_at;
         entries.push({ kind: "refund", tariffKop: t, creditedAt: at });
         const paidAt = paidAtOf.get(r.payment_id);
         if (paidAt && refundOfEarlierQuarter(paidAt, at)) earlier.push({ paidAt, refundedAt: at, tariffKop: t });
       }
       for (const t of tariffBack ?? []) {
-        if (Number(t.amount_kop) > 0 && t.paid_at) entries.push({ kind: "refund", tariffKop: Number(t.amount_kop), creditedAt: t.paid_at as string });
+        if (!(Number(t.amount_kop) > 0 && t.paid_at) || !paidAtOf.has(t.payment_id as string)) continue; // this mode's payments only
+        entries.push({ kind: "refund", tariffKop: Number(t.amount_kop), creditedAt: t.paid_at as string });
+        const paidAt = paidAtOf.get(t.payment_id as string)!;
+        if (refundOfEarlierQuarter(paidAt, t.paid_at as string)) earlier.push({ paidAt, refundedAt: t.paid_at as string, tariffKop: Number(t.amount_kop) });
       }
       const inYear = entries.filter((e) => kyivDay(e.creditedAt).startsWith(String(year)));
       const ytd = inYear.reduce((n, e) => n + (e.kind === "income" ? e.tariffKop : -e.tariffKop), 0);
@@ -1763,6 +1846,8 @@ Deno.serve(async (req) => {
           authorName: (profs ?? []).find((p) => p.id === t.author_id)?.name ?? "—",
           legalName: (rcv ?? []).find((r) => r.author_id === t.author_id)?.legal_name ?? null,
           code: (rcv ?? []).find((r) => r.author_id === t.author_id)?.ipn ?? null,
+          // the payment purpose agreed with the accountant (20.11.2026): no «залік», no «утримання»
+          purpose: `Повернення плати за послуги технічного характеру (Тарифу) за замовленням № ${String(t.purchase_id).replace(/-/g, "").slice(0, 8).toUpperCase()} у зв’язку з поверненням коштів покупцю згідно з публічною офертою, без ПДВ`,
         })),
       });
     }
@@ -1773,7 +1858,13 @@ Deno.serve(async (req) => {
       const { data: t } = await admin.from("tariff_refund_tasks").update({ status: "paid", paid_at: nowIso(), bank_reference: ref.slice(0, 120) }).eq("id", String(payload.taskId)).eq("status", "open").select("*").maybeSingle();
       if (!t) throw new FinanceError("no_task", "Завдання не знайдено або вже закрите.");
       await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: "tariff_refunded_to_author", entity_type: "payment", entity_id: t.payment_id, reason, new_value: { amountKop: t.amount_kop, bankReference: ref } });
-      await admin.from("financial_notifications").insert({ author_id: t.author_id, event_type: "TARIFF_REFUNDED", dedupe_key: `tariff-refund:${t.id}`, message: `Sensoria повернула вам тариф ${(Number(t.amount_kop) / 100).toFixed(2)} ₴ за замовленням ${String(t.purchase_id).slice(0, 8)} після програного спору щодо платежу.` }).then(() => {}, () => {});
+      await admin.from("financial_notifications").insert({ author_id: t.author_id, event_type: "TARIFF_REFUNDED", dedupe_key: `tariff-refund:${t.id}`, message: `Sensoria повернула вам тариф ${(Number(t.amount_kop) / 100).toFixed(2)} ₴ за замовленням ${String(t.purchase_id).replace(/-/g, "").slice(0, 8).toUpperCase()} ${t.reason === "refund" ? "у зв’язку з поверненням коштів покупцю" : "після програного спору щодо платежу"}. Призначення платежу: «Повернення плати за послуги технічного характеру (Тарифу)…».` }).then(() => {}, () => {});
+      // Sensoria's return receipt for the tariff — on the day it really went back to the author
+      const { data: inv } = await admin.from("mono_invoices").select("*").eq("id", t.purchase_id).maybeSingle();
+      if (inv) {
+        await queueReceipts(inv as MonoRow, "return", "sensoria");
+        await fiscalSendDue(inv.id).catch((e) => console.error("fiscal send", inv.id, e));
+      }
       return json({ ok: true });
     }
 
@@ -1820,6 +1911,19 @@ Deno.serve(async (req) => {
       };
       const { error } = await admin.rpc("finance_apply", { p: plan, p_actor: user.id });
       if (error) throw new Error(error.message);
+      if (disputed) {
+        // М7: the bank wants an answer within 2 banking days — the author has 1 working day; told at once by email and in
+        // the cabinet, with the exact deadline
+        const { data: pay } = await admin.from("finance_payments").select("purchase_id").eq("id", paymentId).maybeSingle();
+        const order = String(pay?.purchase_id ?? paymentId).replace(/-/g, "").slice(0, 8).toUpperCase();
+        const hm = new Date().toLocaleTimeString("uk-UA", { timeZone: "Europe/Kyiv", hour: "2-digit", minute: "2-digit" });
+        const day = addWorkingDays(kyivDay(nowIso()), 1).split("-").reverse().join(".");
+        await admin.from("financial_notifications").insert({
+          author_id: authorId, event_type: "DISPUTE_OPENED", dedupe_key: `dispute:${paymentId}:${kyivDay(nowIso())}`,
+          message: `Банк повідомив про спірний платіж (чарджбек) за замовленням № ${order}.\n\nНадайте пояснення до ${day}, ${hm} за київським часом: що матеріал надано й чи користувався ним покупець, листування з ним (якщо було). Надішліть їх на ${OPERATOR.email}.\n\nБанк вимагає відповіді протягом 2 банківських днів. Якщо пояснень не буде в цей строк, Sensoria відповість банку на підставі наявних даних (дата оплати, згода покупця на негайний доступ, журнал відкриття матеріалу), а наслідки несе автор — оферта, розділ «Спірні платежі (чарджбеки)».`,
+        }).then(() => {}, () => {});
+        await sendPendingEmails().catch((e) => console.error("dispute email", e));
+      }
       return json({ ok: true });
     }
 

@@ -5,7 +5,7 @@ import { Icon, type IconName } from "../components/ui/Icon";
 // re-check them every quarter and before each edition and update CHECKED_AT (docs/legal/crisis-help-edits.md).
 // Not listed: Lifeline Ukraine 7333 (paused). 0 800 501 701 and 0 800 211 444 added on the owner's decision 18.11.2026;
 // their hours are not published — add them to `hours` after a test call.
-const CHECKED_AT = "18.11.2026";
+const CHECKED_AT = "20.11.2026"; // test calls 20.11.2026; next check — by 20.02.2027
 
 type Emergency = { phone: string; title: string; when: string; primary?: boolean };
 type Line = { forWhom: string; icon: IconName; name: string; phones: { number: string; hint?: string }[]; hours: string; note?: string };

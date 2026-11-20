@@ -22,14 +22,10 @@ const faqGroups: Group[] = [
     title: "Програми",
     items: [
       {
-        // Previously "Чи це замінює психолога?" — the answer now
-        // hints (rather than states outright, since a fuller
-        // disclaimer belongs on other pages) that programs are made
-        // by professionals but the platform doesn't insist they
-        // replace seeing one: in a more serious state, a program,
-        // course, or meditation alone may genuinely not be enough.
+        // Programs are made by independent authors, not necessarily specialists (legal audit 20.11.2026, А1): the answer
+        // names the two author statuses and says plainly that the materials do not replace a psychologist.
         q: "Чи можуть програми замінити роботу з психологом?",
-        a: "Наші програми створюють практикуючі фахівці, і вони здатні м'яко підтримати вас у щоденному стані. Але це не привід відмовлятися від психолога — у більш глибокому чи складному стані краще звернутись до фахівця напряму.",
+        a: "Програми створюють незалежні автори. Біля кожного автора видно його статус: «Фахівець» — Sensoria переглянула його документи про освіту — або «Авторські освітні матеріали». Матеріали мають освітній характер і можуть м’яко підтримати вас у щоденному стані, але не замінюють роботи з психологом: у глибшому чи складному стані краще звернутися до фахівця.",
       },
       {
         q: "Як зрозуміти, яку програму обрати?",

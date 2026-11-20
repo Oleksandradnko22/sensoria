@@ -159,10 +159,11 @@ test("pickFeaturedExcludingOwned: every candidate owned -> undefined", () => {
 });
 
 test("pickFeaturedExcludingOwned: real program activity override excludes that program", () => {
-  // "stress" ranks stress-course first (real tag match), then the rest
-  // of the catalog in declaration order (all score 0).
+  // stress-course is the real match but already started; since 21.11.2026 nothing unrelated fills its place —
+  // the next pick, if any, is another program about stress.
   const featured = pickFeaturedExcludingOwned("stress", null, [], ["stress-course"]);
-  assert.equal(featured.course?.id, "healthy-balance");
+  assert.notEqual(featured.course?.id, "stress-course");
+  assert.ok(!featured.course || featured.course.tags.includes("stress"));
 });
 
 test("pickFeaturedExcludingOwned: static demo program enrollment does NOT exclude once a real override is supplied", () => {

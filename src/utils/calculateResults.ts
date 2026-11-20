@@ -3,18 +3,20 @@ import funnelStore, {
   type PrimaryStateId,
   type Intensity,
   type SupportingPattern,
+  type FunnelInsight,
 } from "../store/funnelStore.ts";
-import {
-  questions,
-  type Category,
-  type AssessmentAnswer,
-} from "../components/test/questions.ts";
+import { ASSESSMENT_VERSION, MAX_ANSWER, STATE_ORDER, type AssessmentAnswer } from "../components/test/questions.ts";
 import { isPrimaryStateId, clampScore } from "./primaryState.ts";
 
-const MAX_ANSWER_VALUE = 3;
-
-const SUPPORTING_PATTERN_THRESHOLD = 50;
-const MAX_SUPPORTING_PATTERNS = 2;
+// The result engine, version 2 (21.11.2026).
+// - The state is never derived from the answers: it is the one the person chose (RFC-001). The test measures how
+//   pronounced it is, from its 4 core questions.
+// - «Impact on daily life» can only raise the level, never lower it.
+// - Other states: one screening question each; «often» or more makes it a supporting pattern (descriptive only).
+// - If the chosen state is mild but another one is «almost always», the person is told so and decides — the engine
+//   never switches the state on its own.
+// - `safety`: a very pronounced state or a strong impact on life → the result leads with support and specialist help.
+// Self-observation, not a diagnosis.
 
 export function getIntensity(normalizedPercent: number): Intensity {
   if (normalizedPercent <= 25) return "low";
@@ -23,129 +25,71 @@ export function getIntensity(normalizedPercent: number): Intensity {
   return "critical";
 }
 
-function computeCategoryMaxScores(): Partial<Record<Category, number>> {
-  const maxScores: Partial<Record<Category, number>> = {};
+const ORDER: Intensity[] = ["low", "moderate", "high", "critical"];
+const atLeast = (a: Intensity, b: Intensity): Intensity => (ORDER.indexOf(a) >= ORDER.indexOf(b) ? a : b);
 
-  questions.forEach((question) => {
-    const categoriesInQuestion = new Set<Category>();
+const SUPPORTING_MIN = 2; // «Часто» on the screening question
+const MAX_SUPPORTING_PATTERNS = 2;
+const SUGGEST_IF_PRIMARY_AT_MOST = 34; // the chosen state is mild (on average «Іноді» or less = 33.3%)…
+const SUGGEST_IF_OTHER = 3; // …and another one is «Майже постійно»
 
-    question.answers.forEach((answer) => {
-      Object.keys(answer.scores).forEach((category) => {
-        categoriesInQuestion.add(category as Category);
-      });
-    });
+/** The pure engine (tested in calculateResults.test.ts). */
+export function scoreAssessment(primaryState: PrimaryStateId, secondaryState: PrimaryStateId | null, answers: AssessmentAnswer[]): FunnelInsight {
+  const val = (a: AssessmentAnswer, c: string) => Number(a.scores[c as keyof typeof a.scores] ?? 0);
+  const core = (s: PrimaryStateId) => {
+    const items = answers.filter((a) => a.kind === "core" && a.questionId.startsWith(`${s}-`) && a.questionId !== `${s}-screen`);
+    if (!items.length) return null;
+    return (items.reduce((n, a) => n + val(a, s), 0) / (items.length * MAX_ANSWER)) * 100;
+  };
+  const screen = (s: PrimaryStateId) => {
+    const a = answers.find((x) => x.questionId === `${s}-screen`);
+    return a ? val(a, s) : null;
+  };
+  const impactAnswer = answers.find((a) => a.kind === "impact");
+  const impact = impactAnswer ? val(impactAnswer, "impact") : 0;
 
-    categoriesInQuestion.forEach((category) => {
-      maxScores[category] = (maxScores[category] || 0) + MAX_ANSWER_VALUE;
-    });
-  });
+  const primaryPercent = core(primaryState) ?? 0;
+  let intensity = getIntensity(primaryPercent);
+  if (impact >= 2) intensity = atLeast(intensity, "moderate");
+  if (impact >= 3) intensity = atLeast(intensity, "high");
 
-  return maxScores;
-}
+  const supportingPatterns: SupportingPattern[] = STATE_ORDER
+    .filter((s) => s !== primaryState && s !== secondaryState)
+    .map((s) => ({ category: s, value: screen(s) }))
+    .filter((x): x is { category: PrimaryStateId; value: number } => x.value !== null && x.value >= SUPPORTING_MIN)
+    .sort((a, b) => b.value - a.value || STATE_ORDER.indexOf(a.category) - STATE_ORDER.indexOf(b.category))
+    .slice(0, MAX_SUPPORTING_PATTERNS)
+    .map((x) => ({ category: x.category, normalizedScore: Math.round((x.value / MAX_ANSWER) * 100) }));
 
-/**
- * The Result Engine (RFC-001).
- *
- * Primary State is never derived from assessment answers — it is always
- * whatever the user selected on the State Selection screen. The assessment
- * only measures how intense that state is, and detects other elevated
- * signals as Supporting Patterns. The engine never reclassifies the user
- * into a different emotional state than the one they chose.
- */
-export function calculateResults(
-  selectedState: FunnelState | null,
-  // Was `any[]` — closed by RFC-004's AssessmentAnswer type, which now
-  // matches what TestPage/QuestionCard actually produce.
-  answers: AssessmentAnswer[]
-) {
-  if (!selectedState || !isPrimaryStateId(selectedState.id)) {
-    throw new Error(
-      "calculateResults: no valid Primary State selected. The Result " +
-        "Engine never guesses a category — Primary State must come from " +
-        "the user's own selection (RFC-001)."
-    );
-  }
+  const suggestedState = primaryPercent <= SUGGEST_IF_PRIMARY_AT_MOST
+    ? STATE_ORDER.find((s) => s !== primaryState && s !== secondaryState && screen(s) === SUGGEST_IF_OTHER) ?? null
+    : null;
 
-  const primaryState = selectedState.id;
-
-  // 1. Aggregate raw scores per signal category from the answers given.
-  const rawScores: Partial<Record<Category, number>> = {};
-
-  answers.forEach((answer) => {
-    Object.entries(answer.scores).forEach(([category, value]) => {
-      const key = category as Category;
-      rawScores[key] = (rawScores[key] || 0) + Number(value);
-    });
-  });
-
-  // 2. Normalize every signal category against its own maximum possible
-  // score, not a fixed absolute cutoff.
-  const maxScores = computeCategoryMaxScores();
-  const normalizedScores: Partial<Record<Category, number>> = {};
-
-  (Object.keys(maxScores) as Category[]).forEach((category) => {
-    const raw = rawScores[category] || 0;
-    const max = maxScores[category] || 0;
-    normalizedScores[category] = max > 0 ? (raw / max) * 100 : 0;
-  });
-
-  // 3. Intensity belongs to the Primary State only — never to whichever
-  // category happened to score highest.
-  const primaryNormalizedScore = normalizedScores[primaryState] || 0;
-  const intensity = getIntensity(primaryNormalizedScore);
-
-  // Rounded for display (the "Рівень навантаження" percentage and the
-  // progress bar fill both read this exact number — see ResultPage.tsx —
-  // so they can never disagree with each other). Also clamped to 0-100
-  // (2026-09-16 audit hardening) — normally normalizedScore is already
-  // in range by construction, but this is defense-in-depth against any
-  // future scoring-pipeline bug producing a stray out-of-range value
-  // that would otherwise reach the UI as-is.
-  const primaryScore = clampScore(primaryNormalizedScore);
-
-  // 4. Supporting Patterns: other signal categories at >=50% of their own
-  // max, ranked by normalized score, capped at 2. Descriptive, never
-  // diagnostic — they enrich the insight but never compete with or
-  // replace the Primary State.
-  const supportingPatterns: SupportingPattern[] = (
-    Object.keys(normalizedScores) as Category[]
-  )
-    .filter((category) => category !== primaryState)
-    .map((category) => ({
-      category,
-      normalizedScore: normalizedScores[category] || 0,
-    }))
-    .filter((entry) => entry.normalizedScore >= SUPPORTING_PATTERN_THRESHOLD)
-    .sort((a, b) => b.normalizedScore - a.normalizedScore)
-    .slice(0, MAX_SUPPORTING_PATTERNS);
-
-  // 5. Secondary State: the second state picked on State Selection, if
-  // the user chose two. Read directly from the store rather than passed
-  // in as an argument, matching how this function already reaches into
-  // funnelStore for its other side effects. Purely descriptive — it
-  // does not participate in scoring above and never overrides
-  // primaryState.
-  const secondaryState: PrimaryStateId | null =
-    funnelStore.secondaryState &&
-    isPrimaryStateId(funnelStore.secondaryState.id)
-      ? funnelStore.secondaryState.id
-      : null;
-
-  funnelStore.setAnswers(answers);
-  funnelStore.setResults(rawScores as Record<string, number>);
-  funnelStore.setInsight({
-    primaryState,
-    intensity,
-    supportingPatterns,
-    secondaryState,
-    primaryScore,
-  });
-
+  const secondaryPercent = secondaryState ? core(secondaryState) : null;
   return {
     primaryState,
     intensity,
     supportingPatterns,
     secondaryState,
-    primaryScore,
+    primaryScore: clampScore(primaryPercent),
+    version: ASSESSMENT_VERSION,
+    impact,
+    safety: intensity === "critical" || impact >= 3,
+    suggestedState,
+    secondaryIntensity: secondaryPercent === null ? null : getIntensity(secondaryPercent),
   };
+}
+
+/** Runs the engine for the person's own choice and keeps the result in the funnel store. */
+export function calculateResults(selectedState: FunnelState | null, answers: AssessmentAnswer[]) {
+  if (!selectedState || !isPrimaryStateId(selectedState.id)) {
+    throw new Error("calculateResults: no valid Primary State selected (RFC-001).");
+  }
+  const secondaryState: PrimaryStateId | null =
+    funnelStore.secondaryState && isPrimaryStateId(funnelStore.secondaryState.id) ? funnelStore.secondaryState.id : null;
+  const insight = scoreAssessment(selectedState.id, secondaryState, answers);
+  funnelStore.setAnswers(answers);
+  funnelStore.setResults(Object.fromEntries(answers.map((a) => [a.questionId, a.answerIndex])));
+  funnelStore.setInsight(insight);
+  return insight;
 }

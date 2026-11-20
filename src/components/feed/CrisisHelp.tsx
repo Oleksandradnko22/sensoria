@@ -1,14 +1,10 @@
 // A gentle window when a text sounds like a crisis: where to get help in Ukraine right now. The post itself goes to
 // a moderator instead of the feed (supabase/feeds.sql: feed_text_is_crisis). Shown in «Публікації» before sending.
 import { Icon } from "../ui/Icon";
+import { CRISIS_SHORT } from "../../data/crisisLines";
 
-export const UA_HELP: { phone: string; name: string; note: string }[] = [
-  { phone: "7333", name: "Lifeline Ukraine", note: "Лінія запобігання самогубствам і психологічної підтримки. Цілодобово, безкоштовно з мобільного." },
-  { phone: "116 123", name: "Ла Страда-Україна", note: "Психологічна підтримка для дорослих. Безкоштовно." },
-  { phone: "116 111", name: "Дитяча лінія", note: "Для дітей, підлітків і молоді. Безкоштовно." },
-  { phone: "1547", name: "Урядова лінія", note: "Якщо ви потерпаєте від насильства. Цілодобово." },
-  { phone: "112", name: "Екстрена допомога", note: "Якщо зараз є загроза життю. Також 103 — швидка." },
-];
+// numbers: the same list as the «Допомога в кризі» page (data/crisisLines.ts)
+export const UA_HELP = CRISIS_SHORT;
 
 export default function CrisisHelp({ onSend, onBack, busy = false }: { onSend?: () => void; onBack: () => void; busy?: boolean }) {
   return (
@@ -21,7 +17,7 @@ export default function CrisisHelp({ onSend, onBack, busy = false }: { onSend?: 
           {UA_HELP.map((h) => (
             <li key={h.phone}>
               <a href={`tel:${h.phone.replace(/\s/g, "")}`} className="flex items-center gap-4 rounded-2xl bg-[#faf9ff] px-4 py-3 ring-1 ring-[#ece8fb] transition hover:bg-[#f3efff]">
-                <span className="min-w-[78px] text-[20px] font-bold tabular-nums text-[#4338ca]">{h.phone}</span>
+                <span className="min-w-[78px] whitespace-nowrap text-[18px] font-bold tabular-nums text-[#4338ca]">{h.phone}</span>
                 <span className="min-w-0">
                   <span className="block text-[14px] font-semibold text-[#12172b]">{h.name}</span>
                   <span className="block text-[13px] leading-snug text-black/55">{h.note}</span>

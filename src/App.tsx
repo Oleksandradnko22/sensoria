@@ -35,6 +35,7 @@ import {
 // to avoid confusion with the import above.
 import { touchDeviceSession } from "./lib/deviceSessions";
 import { fetchPublishedPrograms } from "./lib/publicContent";
+import { setRecommendationPrograms } from "./utils/relevantContent";
 import { saveAssessmentResult } from "./lib/assessment";
 import funnelStore from "./store/funnelStore";
 import { programs as demoPrograms, type Program } from "./data/programs";
@@ -351,7 +352,11 @@ function AppInner() {
   const [realProgramsLoaded, setRealProgramsLoaded] = useState(false);
   useEffect(() => {
     fetchPublishedPrograms()
-      .then(setRealPrograms)
+      .then((list) => {
+        // recommendations by the assessment see the same programs as the catalog (utils/relevantContent.ts)
+        setRecommendationPrograms([...(SHOW_DEMO ? demoPrograms : []), ...list]);
+        setRealPrograms(list);
+      })
       .catch(() => undefined)
       .finally(() => setRealProgramsLoaded(true));
   }, []);
@@ -1201,6 +1206,12 @@ if (page === "result") {
 
     <div key={page} className="page-transition">
       <ResultPage
+
+        onRetake={() => {
+
+          setPage("test");
+
+        }}
 
         onContinue={() => {
 

@@ -10,6 +10,7 @@ import funnelStore from "../store/funnelStore";
 import type { Intensity } from "../store/funnelStore";
 import { getStateProfile } from "../utils/getStateProfile";
 import { categoryLabels } from "../data/categoryLabels";
+import { emotionalStates } from "../data/states";
 import { stateAccentColors } from "../data/stateAccentColors";
 import type { StateAccent } from "../data/stateAccentColors";
 
@@ -22,6 +23,8 @@ type Props = {
   // of its own to redirect via (see engineering review), so the caller
   // decides where "start over" sends the user.
   onMissingData: () => void;
+  /** the person accepted the hint to take the test for another state */
+  onRetake?: () => void;
 };
 
 // Supporting Patterns no longer get their own section (Phase 1 review).
@@ -42,12 +45,15 @@ function describeSupportingPatterns(labels: string[]): string {
 // The same labels already rendered under the progress bar, pulled out so
 // they can also back the bar's aria-valuetext instead of existing only
 // as visual text.
+// Self-observation levels, not diagnostic grades: no percentages, no «critical» (assessment v2).
 const INTENSITY_LABELS: Record<Intensity, string> = {
   low: "Легкий",
   moderate: "Помірний",
-  high: "Високий",
-  critical: "Критичний",
+  high: "Відчутний",
+  critical: "Дуже високий",
 };
+const INTENSITY_STEP: Record<Intensity, number> = { low: 1, moderate: 2, high: 3, critical: 4 };
+const stateLabel = (id: string) => categoryLabels[id as keyof typeof categoryLabels] ?? id;
 
 // The four concentric "breathing" rings behind the progress component.
 // Fixed px diameters per spec, opacity fading outward (the biggest ring
@@ -378,6 +384,7 @@ function ProgressAction({
 export default function ResultPage({
   onContinue,
   onMissingData,
+  onRetake,
 }: Props) {
 
   // Accordion state for the "Ваші відповіді показують" section — must be
@@ -404,7 +411,7 @@ export default function ResultPage({
     ? stateAccentColors[insight.secondaryState]
     : null;
   const supportingPatternClause = describeSupportingPatterns(
-    insight.supportingPatterns.map((pattern) => categoryLabels[pattern.category])
+    insight.supportingPatterns.map((pattern) => stateLabel(pattern.category))
   );
 
   // The Primary State's real normalized score (0-100) — the same number
@@ -412,7 +419,16 @@ export default function ResultPage({
   // getIntensity in calculateResults.ts). Drives both the percentage
   // shown in "Рівень навантаження" and the bar's fill width below, so
   // they can never disagree with each other (Task 3).
-  const progress = insight.primaryScore;
+  // The bar shows the level (1 of 4), not a percentage: a short self-observation is not precise enough for one.
+  const step = INTENSITY_STEP[insight.intensity];
+  const progress = step * 25;
+  const highLevel = insight.intensity === "high" || insight.intensity === "critical";
+  const suggested = insight.suggestedState ? emotionalStates.find((x) => x.id === insight.suggestedState) ?? null : null;
+  const retakeFor = (state: { id: string; title: string; description: string }) => {
+    funnelStore.setSelectedState({ id: state.id, title: state.title, description: state.description });
+    funnelStore.setSecondaryState(null);
+    onRetake?.();
+  };
 
   // Reduced-motion users get the same layout with animations collapsed
   // to instant (duration 0) rather than removed — content still lands in
@@ -606,9 +622,9 @@ return (
 
   <div
     role="progressbar"
-    aria-valuemin={0}
-    aria-valuemax={100}
-    aria-valuenow={progress}
+    aria-valuemin={1}
+    aria-valuemax={4}
+    aria-valuenow={step}
     aria-valuetext={`${INTENSITY_LABELS[insight.intensity]} рівень`}
     className="
       h-3
@@ -664,8 +680,8 @@ return (
 
     <span>Легкий</span>
     <span>Помірний</span>
-    <span>Високий</span>
-    <span>Критичний</span>
+    <span>Відчутний</span>
+    <span className="text-right">Дуже високий</span>
 
   </div>
 
@@ -696,13 +712,10 @@ return (
     <div>
 
       <div className="text-white/45 text-sm mb-1">
-        Рівень навантаження
+        Вираженість зараз
       </div>
-
-      {/* Real percentage — same number driving the bar above (Task 3),
-          not the state name. */}
       <div className="text-white text-lg font-semibold">
-        {progress}%
+        {INTENSITY_LABELS[insight.intensity]}
       </div>
 
     </div>
@@ -730,12 +743,54 @@ return (
       <div className="text-white font-semibold">
         Персональний план
       </div>
-
     </div>
-
   </div>
-
+  {insight.secondaryState && insight.secondaryIntensity && (
+    <p className="text-white/70 text-sm mt-6">
+      Другий обраний стан, {stateLabel(insight.secondaryState).toLowerCase()}: {INTENSITY_LABELS[insight.secondaryIntensity].toLowerCase()} рівень.
+    </p>
+  )}
+  {/* wording agreed with the lawyer (docs/legal/assessment-v2-review.md, Ю2–Ю3); the crisis line is shown for every result */}
+  <p className="text-white/45 text-xs mt-6 leading-relaxed">
+    Це самоспостереження за вашими відповідями за останні 2 тижні, а не діагноз і не висновок фахівця. Результат розраховується автоматично й допомагає підібрати освітні матеріали, але не замінює консультацію психолога, психотерапевта чи лікаря.
+  </p>
+  <p className="text-white/55 text-xs mt-2 leading-relaxed">
+    Якщо вам зараз дуже важко або небезпечно —{" "}
+    <a href="/crisis-help" className="underline underline-offset-2 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white rounded">Допомога в кризі</a>{" "}
+    або <a href="tel:112" className="underline underline-offset-2 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white rounded">112</a>.
+  </p>
 </motion.section>
+
+        {insight.safety && (
+          <section aria-labelledby="result-support" className="rounded-[30px] bg-white/95 text-slate-900 p-7 mb-16 shadow-xl">
+            <h2 id="result-support" className="text-xl font-bold mb-3">Вам не обов'язково проходити це самостійно</h2>
+            <p className="text-slate-700 leading-relaxed mb-5">
+              Ваші відповіді показують, що зараз стан виражений сильно і помітно впливає на щоденне життя. Матеріали Sensoria можуть підтримати, але в такій ситуації варто звернутися до психолога, психотерапевта або лікаря. Почніть із коротких безоплатних практик, а не з великої програми.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <a href="/crisis-help" className="inline-flex items-center min-h-[44px] px-5 rounded-full bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3b6df0] focus-visible:ring-offset-2">
+                Де отримати допомогу
+              </a>
+              <a href="tel:112" className="inline-flex items-center min-h-[44px] px-5 rounded-full border border-slate-300 text-slate-900 font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3b6df0] focus-visible:ring-offset-2">
+                Якщо є загроза життю: 112
+              </a>
+            </div>
+          </section>
+        )}
+
+        {suggested && (
+          <section aria-labelledby="result-suggested" className="rounded-[30px] bg-white/10 border border-white/15 p-7 mb-16">
+            <h2 id="result-suggested" className="text-white text-xl font-bold mb-2">Можливо, зараз важливіше інше</h2>
+            <p className="text-white/75 leading-relaxed mb-5">
+              Обраний стан виражений слабко, а стан «{suggested.title}» ви відзначили як майже постійний. Можна пройти коротке опитування саме для нього. Вирішувати вам.
+            </p>
+            {onRetake && (
+              <button type="button" onClick={() => retakeFor(suggested)} className="inline-flex items-center min-h-[44px] px-5 rounded-full bg-white text-[#1e3a8a] font-semibold cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#2563eb]">
+                Пройти для стану «{suggested.title}»
+              </button>
+            )}
+          </section>
+        )}
 
         {/* INSIGHT */}
         <motion.section
@@ -896,9 +951,10 @@ return (
       {
         icon: "leaf",
         iconBg: "bg-emerald-400/10",
-        title: "Ваш потенціал",
-        content:
-          "Попри поточні труднощі, у вас є хороший потенціал для поступового покращення стану. Найкращий час почати зміни — саме зараз.",
+        title: highLevel ? "Що може допомогти зараз" : "Що може допомогти",
+        content: highLevel
+          ? "Коли стан виражений сильно, краще почати з малого: короткі практики, які допомагають заспокоїтися й відновити сили. Спеціаліст допоможе розібратися глибше, і звертатися до нього можна вже зараз."
+          : "Невеликі регулярні кроки працюють краще, ніж різкі зміни. Почніть із того, що відгукується, і повертайтеся до опитування, щоб бачити, як змінюється стан.",
       },
     ].map((card, i) => {
       const isOpen = openCard === i;

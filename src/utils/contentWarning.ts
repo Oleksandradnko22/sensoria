@@ -1,4 +1,4 @@
-import { riskKeywordHit } from "./riskTopics.ts";
+import { riskKeywordHit, RISK_PATTERN } from "./riskTopics.ts";
 
 // Lesson content warning = one stored string. Chosen topics live in a leading sentence
 // ("Урок може торкатися тем: a, b."), anything the author types follows it.
@@ -30,10 +30,10 @@ export const SPECIALIST_WARNING_TOPICS: readonly string[] = [
 ];
 
 // the same themes typed as own text
-const SPECIALIST_WORDS = /(горе|втрат|смерт|помер|насильств|згвалтув|травм|суїцид|самогуб|самоушкодж|залежн|наркот|алкогол|війн|військ|булімі|анорекс)/i;
+const SPECIALIST_WORDS = RISK_PATTERN; // one list (riskTopics.ts)
 
 // themes only a «Фахівець» may write about in posts and polls (mirrors supabase/feeds.sql feed_text_specialist)
-export const SPECIALIST_TEXT_RE = /(птср|посттравм|травм|суїцид|самогуб|самоушкодж|розлад[иуіав]* харчов|булімі|анорекс|залежн|наркот|алкогол|діагноз|лікуванн|медикамент|антидепрес|психотерапі|насильств|згвалтув|втрат[аиуі] (близьк|рідн|дитин)|горе(?![а-яіїєґ])|смерт|помер|війн|бойов)/i;
+export const SPECIALIST_TEXT_RE = RISK_PATTERN; // one list (riskTopics.ts), mirrored by supabase/risk-topics-v2.sql
 export const SPECIALIST_ONLY_MESSAGE = "Ця тема доступна лише авторам зі статусом «Фахівець». Надішліть документи про освіту в розділі «Модерація» або оберіть іншу тему.";
 
 export const isSpecialistWarningTopic = (topic: string): boolean => SPECIALIST_WARNING_TOPICS.includes(topic);

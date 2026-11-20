@@ -25,12 +25,18 @@ test("a non-specialist cannot publish a high-risk material; a specialist can", (
 });
 
 test("the words that triggered the check are listed (lower-cased, without repeats, at most three)", () => {
-  assert.deepEqual(riskKeywordWords("Допомога при ПТСР та залежність: діагноз, ліки, діагноз"), ["птср", "залежність", "діагноз"]);
+  assert.deepEqual(riskKeywordWords("Допомога при ПТСР та залежність: травма, насильство, травма, депресія"), ["птср", "залежн", "травм"]);
   assert.deepEqual(riskKeywordWords("Спокійний ранок і дихання"), []);
 });
 
-test("old saved topic ids outside the six known ones are found, so they can be shown and removed", () => {
-  assert.deepEqual(unknownRiskTopics(["trauma", "grief", "legacy-x"]), ["grief", "legacy-x"]);
+test("old saved topic ids outside the known ones are found, so they can be shown and removed", () => {
+  assert.deepEqual(unknownRiskTopics(["trauma", "grief", "legacy-x"]), ["legacy-x"]);
   assert.deepEqual(unknownRiskTopics(["trauma", "children"]), []);
   assert.deepEqual(unknownRiskTopics(undefined), []);
+});
+
+import { riskKeywordHit as hitV2 } from "./riskTopics.ts";
+test("risk words v2 (safety review 21.11.2026, С1): topics yes, honest disclaimers no", () => {
+  for (const t of ["Курс не замінює психотерапію", "Це не діагноз", "для широкої публіки", "Фінансова незалежність", "Окремо про головне"]) assert.equal(hitV2(t), false, t);
+  for (const t of ["Травма покинутості", "Робота з горем після втрати", "Самогубство: як говорити", "Депресія: вихід", "Домашнє насильство", "Як говорити з дитиною про війну", "суицид", "Залежність від алкоголю"]) assert.equal(hitV2(t), true, t);
 });

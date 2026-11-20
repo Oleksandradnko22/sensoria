@@ -1,54 +1,11 @@
 import { useEffect, useRef } from "react";
 import { Icon, type IconName } from "../components/ui/Icon";
+import { CHECKED_AT, EMERGENCY, SUPPORT } from "../data/crisisLines";
 
 // Public page referenced by the participant agreement (п. 2.4). Only numbers confirmed by several current sources are listed;
 // re-check them every quarter and before each edition and update CHECKED_AT (docs/legal/crisis-help-edits.md).
 // Not listed: Lifeline Ukraine 7333 (paused). 0 800 501 701 and 0 800 211 444 added on the owner's decision 18.11.2026;
 // their hours are not published — add them to `hours` after a test call.
-const CHECKED_AT = "20.11.2026"; // test calls 20.11.2026; next check — by 20.02.2027
-
-type Emergency = { phone: string; title: string; when: string; primary?: boolean };
-type Line = { forWhom: string; icon: IconName; name: string; phones: { number: string; hint?: string }[]; hours: string; note?: string };
-
-const EMERGENCY: Emergency[] = [
-  { phone: "112", title: "Екстрені служби", when: "Загроза життю, думки про самоушкодження, небезпека для вас чи інших", primary: true },
-  { phone: "103", title: "Швидка медична допомога", when: "Погано з самопочуттям, потрібен лікар" },
-];
-
-const SUPPORT: Line[] = [
-  {
-    forWhom: "Для всіх",
-    icon: "heart",
-    name: "Всеукраїнський телефон довіри",
-    phones: [{ number: "0 800 501 701" }],
-    hours: "Безкоштовно",
-    note: "Рекомендує МОЗ України людям із суїцидальними думками та їхнім близьким.",
-  },
-  {
-    forWhom: "Для всіх",
-    icon: "lifebuoy",
-    name: "Лінія емоційної підтримки МОМ",
-    phones: [{ number: "0 800 211 444" }],
-    hours: "Безкоштовно",
-    note: "Міжнародна організація з міграції, номер із переліку МОЗ України.",
-  },
-  {
-    forWhom: "Для чоловіків",
-    icon: "comment",
-    name: "Лінія психологічної підтримки «Ла Страда-Україна»",
-    phones: [{ number: "2345", hint: "з мобільного" }],
-    hours: "Щодня 14:00–6:00 · безкоштовно",
-  },
-  {
-    forWhom: "Насильство, торгівля людьми",
-    icon: "shield",
-    name: "Національна гаряча лінія «Ла Страда-Україна»",
-    phones: [{ number: "116 123", hint: "з мобільного" }, { number: "0 800 500 335", hint: "з будь-якого телефону" }],
-    hours: "Цілодобово · безкоштовно",
-    note: "Психологи та юристи.",
-  },
-];
-
 const KNOW: { icon: IconName; title: string; text: string }[] = [
   { icon: "community", title: "Ви не самі", text: "Скажіть людині, якій довіряєте, що вам зараз потрібна підтримка." },
   { icon: "compass", title: "Ви за кордоном", text: "Телефонуйте на місцевий екстрений номер країни, де ви зараз." },

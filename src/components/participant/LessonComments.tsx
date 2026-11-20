@@ -26,6 +26,8 @@ import Avatar from "../ui/Avatar";
 import { DeleteCommentDialog, ReportCommentDialog } from "./ProgramLessonDialogs";
 
 const REPORT_REASONS = [
+  "Небезпечно для життя чи здоров’я",
+  "Схоже, людині зараз потрібна допомога",
   "Спам",
   "Образи / агресія",
   "Неприйнятний контент",

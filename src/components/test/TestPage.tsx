@@ -1,10 +1,11 @@
 import { Icon, type IconName } from "../ui/Icon";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 import QuestionCard from "./QuestionCard";
 import LoadingScreen from "./LoadingScreen";
 
-import { questions, type AssessmentAnswer } from "./questions";
+import { buildQuestionnaire, type AssessmentAnswer } from "./questions";
+import { isPrimaryStateId } from "../../utils/primaryState";
 
 import { calculateResults } from "../../utils/calculateResults";
 import funnelStore from "../../store/funnelStore";
@@ -24,26 +25,19 @@ type MicroInsight = {
   text: string;
 };
 
-const MICRO_INSIGHTS: MicroInsight[] = [
-  {
-    triggerAfterQuestion: 5,
-    icon: "sparkle",
-    title: "Ми вже бачимо перші закономірності",
-    text: "Ваші відповіді допомагають точніше визначити ключові фактори, що впливають на ваш стан.",
-  },
-  {
-    triggerAfterQuestion: 10,
-    icon: "brain",
-    title: "Ваш емоційний профіль майже сформовано",
-    text: "Залишилось лише кілька відповідей для побудови персонального результату.",
-  },
-];
+// One honest pause half-way (the questionnaire is 10–13 questions now): no pretend «analysis» while the person answers.
+const halfwayInsight = (total: number): MicroInsight => ({
+  triggerAfterQuestion: Math.ceil(total / 2),
+  icon: "sparkle",
+  title: "Половину пройдено",
+  text: "Дякуємо, що відповідаєте чесно: так підбір матеріалів буде точнішим.",
+});
 
 const MICRO_INSIGHT_PROGRESS_CAPTIONS = [
-  "Аналізуємо відповіді...",
-  "Виявляємо закономірності...",
-  "Формуємо профіль...",
-  "Готуємо наступний етап...",
+  "Ще кілька питань…",
+  "Ще кілька питань…",
+  "Ще кілька питань…",
+  "Продовжуємо…",
 ];
 
 export default function TestPage({
@@ -51,6 +45,13 @@ export default function TestPage({
 }: Props) {
 
   const [current, setCurrent] = useState(0);
+  // the questions for the state(s) the person chose (questions.ts, version 2)
+  const questions = useMemo(() => {
+    const p = funnelStore.selectedState?.id;
+    const s = funnelStore.secondaryState?.id ?? null;
+    return isPrimaryStateId(p ?? "") ? buildQuestionnaire(p as never, s && isPrimaryStateId(s) ? s : null) : [];
+  }, []);
+  const MICRO_INSIGHTS = useMemo(() => [halfwayInsight(questions.length)], [questions.length]);
 
   const [answers, setAnswers] = useState<AssessmentAnswer[]>([]);
 

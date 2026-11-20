@@ -23,6 +23,8 @@ const REASON_ICON: Record<ReportReason, { icon: IconName; tint: string }> = {
   offers_off_platform_payment: { icon: "card", tint: "bg-amber-50 text-amber-700" },
   inappropriate_content: { icon: "warning", tint: "bg-rose-50 text-rose-700" },
   inappropriate_behavior: { icon: "shield", tint: "bg-rose-50 text-rose-700" },
+  danger: { icon: "warning", tint: "bg-rose-50 text-rose-700" },
+  needs_help: { icon: "lifebuoy", tint: "bg-rose-50 text-rose-700" },
   other: { icon: "help", tint: "bg-[#eef0fd] text-[#4338ca]" },
 };
 

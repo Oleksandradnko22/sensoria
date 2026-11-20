@@ -27,7 +27,8 @@ export default function QuestionCard({ question, current, total, onAnswer }: Pro
     >
       <div className="max-w-3xl w-full rounded-3xl bg-white/10 backdrop-blur-2xl border border-white/20 p-12 text-white">
         <ProgressBar current={current} total={total} />
-        <h1 className="text-4xl font-bold leading-tight mt-12 mb-12">{question.question}</h1>
+        <p className="mt-10 text-[13px] font-semibold uppercase tracking-[0.12em] text-white/60">{question.lead}</p>
+        <h1 className="text-[28px] sm:text-4xl font-bold leading-tight mt-3 mb-10">{question.question}</h1>
         <div className="flex flex-col gap-7">
           {question.answers.map((answer, index) => (
             <motion.button
@@ -38,6 +39,7 @@ export default function QuestionCard({ question, current, total, onAnswer }: Pro
                 onAnswer({
                   questionId: question.id,
                   answerIndex: index,
+                  kind: question.kind,
                   scores: answer.scores,
                 });
               }}

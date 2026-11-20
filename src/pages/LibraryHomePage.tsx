@@ -8,7 +8,10 @@ import {
   getRelevantCourses,
   getRelevantMeditations,
   getRelevantGuides,
+  selectionReason,
+  type MatchContext,
 } from "../utils/relevantContent";
+import funnelStore from "../store/funnelStore";
 import { formatPrice } from "../utils/price";
 
 type Props = {
@@ -158,14 +161,18 @@ export default function LibraryHomePage({
   onViewAllGuides,
   onViewEntireLibrary,
 }: Props) {
-  const { course, meditation, guide } = getFeaturedMix(
-    primaryState,
-    secondaryState
-  );
+  // the same assessment the page was opened from: elevated topics and whether to lead with gentle, free materials
+  const insight = funnelStore.insight;
+  const ctx: MatchContext = {
+    extraTags: (insight?.supportingPatterns ?? []).map((p) => p.category),
+    gentle: !!insight?.safety,
+  };
+  const { course, meditation, guide } = getFeaturedMix(primaryState, secondaryState, ctx);
 
-  const courses = getRelevantCourses(primaryState, secondaryState, 5);
-  const meditations = getRelevantMeditations(primaryState, secondaryState, 5);
-  const guides = getRelevantGuides(primaryState, secondaryState, 5);
+  const courses = getRelevantCourses(primaryState, secondaryState, 5, ctx);
+  const meditations = getRelevantMeditations(primaryState, secondaryState, 5, ctx);
+  const guides = getRelevantGuides(primaryState, secondaryState, 5, ctx);
+  const nothing = courses.length + meditations.length + guides.length === 0;
 
   return (
     <div className="min-h-screen px-6 py-24 text-white">
@@ -181,11 +188,26 @@ export default function LibraryHomePage({
             На основі ваших відповідей ми підібрали матеріали, які
             найбільше відповідають вашому емоційному стану зараз.
           </p>
+          <p className="text-white/55 text-sm max-w-2xl mx-auto mt-4">
+            {selectionReason(primaryState, secondaryState, ctx.extraTags)}
+          </p>
+          {ctx.gentle && (
+            <p className="text-white/80 text-sm max-w-2xl mx-auto mt-4 leading-relaxed">
+              Спершу безоплатні й короткі матеріали. Якщо стан не легшає, зверніться до спеціаліста:{" "}
+              <a href="/crisis-help" className="underline underline-offset-2 hover:text-white">де отримати допомогу</a>.
+            </p>
+          )}
         </div>
+
+        {nothing && (
+          <p className="text-center text-white/70 mb-24">
+            Поки немає матеріалів саме на цю тему. Вони з'являться, щойно автори їх опублікують, а зараз можна переглянути всю бібліотеку.
+          </p>
+        )}
 
         {/* SECTION 1 — the most important section. Only 2-3 cards, one
             of each format, never all courses (see getFeaturedMix). */}
-        <section className="mb-24">
+        {(course || meditation || guide) && <section className="mb-24">
           <h2 className="text-2xl font-semibold mb-8 flex items-center gap-2">
             <Icon name="star" size={22} /> Рекомендуємо почати з цього
           </h2>
@@ -224,10 +246,10 @@ export default function LibraryHomePage({
               />
             )}
           </div>
-        </section>
+        </section>}
 
         {/* SECTION 2 — Courses */}
-        <LibraryRow
+        {courses.length > 0 && <LibraryRow
           icon="library"
           title="Курси"
           description="Для глибокої роботи та довготривалих змін."
@@ -244,10 +266,10 @@ export default function LibraryHomePage({
               onClick={() => onOpenCourse(c)}
             />
           ))}
-        </LibraryRow>
+        </LibraryRow>}
 
         {/* SECTION 3 — Meditations */}
-        <LibraryRow
+        {meditations.length > 0 && <LibraryRow
           icon="meditation"
           title="Медитації"
           description="Коли потрібно швидко заспокоїтись і повернути відчуття контролю."
@@ -264,10 +286,10 @@ export default function LibraryHomePage({
               onClick={() => onOpenMeditation(m)}
             />
           ))}
-        </LibraryRow>
+        </LibraryRow>}
 
         {/* SECTION 4 — Guides */}
-        <LibraryRow
+        {guides.length > 0 && <LibraryRow
           icon="guide"
           title="Гайди"
           description="Для тих, хто хоче краще зрозуміти свій стан і знайти практичні рішення."
@@ -284,7 +306,7 @@ export default function LibraryHomePage({
               onClick={() => onOpenGuide(g)}
             />
           ))}
-        </LibraryRow>
+        </LibraryRow>}
 
         {/* FINAL SECTION */}
         <div className="border-t border-white/10 pt-16 text-center">

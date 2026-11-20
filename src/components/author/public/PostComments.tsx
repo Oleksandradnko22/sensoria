@@ -21,6 +21,8 @@ import CrisisHelp from "../../feed/CrisisHelp";
 import { DeleteCommentDialog, ReportCommentDialog } from "../../participant/ProgramLessonDialogs";
 
 const REPORT_REASONS = [
+  "Небезпечно для життя чи здоров’я",
+  "Схоже, людині зараз потрібна допомога",
   "Спам",
   "Образи / агресія",
   "Неприйнятний контент",

@@ -19,6 +19,7 @@ import {
   type EmotionalProfileSource,
 } from "../../lib/emotionalProfile";
 import { pickTopMatchesExcludingOwned, type TopMatches } from "../../lib/dashboardPriority";
+import { needsGentle } from "../../utils/relevantContent";
 import { fetchRatingSummaryForContentIds, type RatingSummary } from "../../lib/reviews";
 
 // Alias, not a redeclaration — `IntensityKey` is exactly
@@ -148,7 +149,7 @@ function HistorySparkline({ points: newestFirst, accent }: { points: HistoryPoin
   const area = xy.length > 1 ? `${curve} L${xy[xy.length - 1][0]},${top + plotH} L${xy[0][0]},${top + plotH} Z` : "";
   const gid = `hs-${accent.hex.replace("#", "")}`;
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="mx-auto block w-full" style={{ maxWidth: width }} height={height} role="img" aria-label={`Динаміка: ${points.map((p) => p.score).join(" → ")}`}>
+    <svg viewBox={`0 0 ${width} ${height}`} className="mx-auto block w-full" style={{ maxWidth: width }} height={height} role="img" aria-label={`Динаміка: ${points.map((p) => getIntensityLabel(p.intensity).toLowerCase()).join(" → ")}`}>
       <defs>
         <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={accent.hex} stopOpacity={0.18} />
@@ -163,7 +164,7 @@ function HistorySparkline({ points: newestFirst, accent }: { points: HistoryPoin
         return (
           <g key={i}>
             <circle cx={x} cy={y} r={last ? 6.5 : 5} fill={accent.hex} stroke="#fff" strokeWidth={2.5} />
-            <text x={x} y={y - 14} textAnchor="middle" fontSize={13} fontWeight={700} fill={last ? accent.hex : "#12172b"}>{p.score}</text>
+            <text x={x} y={y - 14} textAnchor="middle" fontSize={13} fontWeight={700} fill={last ? accent.hex : "#12172b"}>{getIntensityLabel(p.intensity)}</text>
             <text x={x} y={height - 6} textAnchor="middle" fontSize={11} fill="rgba(0,0,0,0.45)">{p.dateLabel}</text>
           </g>
         );
@@ -308,7 +309,7 @@ export default function ParticipantEmotionalProfile({
   const recommendations = useMemo(() => {
     if (!insight) return null;
     const extra = (insight.supportingPatterns ?? []).map((p) => p.category);
-    const top = pickTopMatchesExcludingOwned(insight.primaryState, insight.secondaryState, 6, undefined, programParticipation.enrollments.map((e) => e.contentId), extra);
+    const top = pickTopMatchesExcludingOwned(insight.primaryState, insight.secondaryState, 6, undefined, programParticipation.enrollments.map((e) => e.contentId), extra, needsGentle(insight));
     const notOwned = <T extends { id: string }>(kind: OwnedKind, list: T[]) => list.filter((x) => !ownedKeys?.has(ownedKey(kind, x.id))).slice(0, 3);
     return { courses: notOwned("program", top.courses), meditations: notOwned("meditation", top.meditations), guides: notOwned("guide", top.guides) };
   }, [insight?.primaryState, insight?.secondaryState, insight?.supportingPatterns, programParticipation.enrollments, ownedKeys]);
@@ -429,7 +430,6 @@ export default function ParticipantEmotionalProfile({
                   the thing the eye lands on first. */}
               <div className={`text-[20px] font-semibold mt-5 ${intensityColor[insight.intensity]}`}>
                 {getIntensityLabel(insight.intensity)} інтенсивність
-                <span className="ml-2 rounded-full bg-white/80 px-2.5 py-0.5 text-[13px] font-semibold text-black/50 ring-1 ring-[#ebe8ff]">{insight.primaryScore}/100</span>
               </div>
 
               <p className="text-[16px] text-[#2d2a5c] mt-4 leading-relaxed max-w-[640px]">
@@ -658,7 +658,7 @@ export default function ParticipantEmotionalProfile({
                       const prof = getStateProfile(h.primaryState, h.intensity);
                       return (
                         <li key={h.completedAt + i} className="flex items-center gap-3 rounded-2xl bg-[#faf9ff] px-4 py-3 ring-1 ring-[#f1eefb]">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[13px] font-bold tabular-nums text-[#12172b] ring-1 ring-[#e3def9]">{h.primaryScore}</span>
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[13px] font-bold tabular-nums text-[#12172b] ring-1 ring-[#e3def9]" aria-hidden="true">{assessmentHistory.length - i}</span>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-[14px] font-semibold text-[#12172b]">{prof.title}</span>
                             <span className="block text-[12px] text-black/50">{formatAbsoluteDate(h.completedAt)}{i === 0 ? " · остання" : ""}</span>

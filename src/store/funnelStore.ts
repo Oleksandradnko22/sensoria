@@ -53,6 +53,15 @@ export type FunnelInsight = {
   // the Result page can show a real percentage instead of a stand-in for
   // the Intensity bucket.
   primaryScore: number;
+  /** questionnaire version (questions.ts ASSESSMENT_VERSION); results of version 1 have none */
+  version?: number;
+  /** impact on daily life, 0–3 */
+  impact?: number;
+  /** very pronounced state or strong impact: the result leads with support and specialist help */
+  safety?: boolean;
+  /** the chosen state is mild but another one is «almost always» — offered, never applied by itself */
+  suggestedState?: PrimaryStateId | null;
+  secondaryIntensity?: Intensity | null;
 };
 
 export type FunnelUser = {

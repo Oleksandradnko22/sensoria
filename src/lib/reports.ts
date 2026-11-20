@@ -14,6 +14,8 @@ export type ReportReason =
   | "requests_contact_info"
   | "offers_off_platform_payment"
   | "inappropriate_behavior"
+  | "danger"
+  | "needs_help"
   | "other";
 
 export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
@@ -21,6 +23,8 @@ export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
   requests_contact_info: "Просить особисті контакти",
   offers_off_platform_payment: "Пропонує оплату поза Sensoria",
   inappropriate_behavior: "Некоректна поведінка",
+  danger: "Небезпечно для життя чи здоров’я",
+  needs_help: "Схоже, людині зараз потрібна допомога",
   other: "Інше",
 };
 
@@ -132,6 +136,8 @@ const ANY_REASON: Record<string, string> = {
   spam_or_ads: "Спам або реклама",
   misleading: "Вводить в оману",
   impersonation: "Видає себе за іншу людину",
+  danger: "Небезпечно для життя чи здоров’я",
+  needs_help: "Схоже, людині зараз потрібна допомога",
   other: "Інше",
 };
 function base(r: Record<string, unknown>): MyReport {

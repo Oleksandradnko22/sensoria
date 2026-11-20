@@ -10,15 +10,17 @@
 
 import { supabase } from "./supabaseClient.ts";
 
-export type ContentReportReason = "inappropriate_content" | "incorrect_claims" | "other";
+export type ContentReportReason = "danger" | "inappropriate_content" | "incorrect_claims" | "other";
 
 export const CONTENT_REPORT_REASON_LABELS: Record<ContentReportReason, string> = {
+  danger: "Небезпечно для життя чи здоров’я",
   inappropriate_content: "Неприйнятний контент",
   incorrect_claims: "Некоректні твердження",
   other: "Інше",
 };
 
 export const CONTENT_REPORT_REASONS: ContentReportReason[] = [
+  "danger",
   "inappropriate_content",
   "incorrect_claims",
   "other",

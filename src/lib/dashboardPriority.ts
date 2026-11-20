@@ -35,6 +35,7 @@ import {
   getAllRelevantCourses,
   getAllRelevantMeditations,
   getAllRelevantGuides,
+  type MatchContext,
 } from "../utils/relevantContent.ts";
 import type { PrimaryStateId } from "../store/funnelStore.ts";
 import { excludeOwnedAndDiversify } from "./contentDiversity.ts";
@@ -191,15 +192,16 @@ export function pickFeaturedExcludingOwned(
   primaryState: PrimaryStateId,
   secondaryState: PrimaryStateId | null,
   source: Enrollment[] = enrollments,
-  programActivityIds?: Iterable<string>
+  programActivityIds?: Iterable<string>,
+  ctx: MatchContext = {}
 ): FeaturedPick {
   const ownedByKind = buildOwnedByKind(source, programActivityIds);
   return {
-    course: getRelevantCourses(primaryState, secondaryState, Infinity).find((c) => !ownedByKind.program.has(c.id)),
-    meditation: getRelevantMeditations(primaryState, secondaryState, Infinity).find(
+    course: getRelevantCourses(primaryState, secondaryState, Infinity, ctx).find((c) => !ownedByKind.program.has(c.id)),
+    meditation: getRelevantMeditations(primaryState, secondaryState, Infinity, ctx).find(
       (m) => !ownedByKind.meditation.has(m.id)
     ),
-    guide: getRelevantGuides(primaryState, secondaryState, Infinity).find((g) => !ownedByKind.guide.has(g.id)),
+    guide: getRelevantGuides(primaryState, secondaryState, Infinity, ctx).find((g) => !ownedByKind.guide.has(g.id)),
   };
 }
 
@@ -227,12 +229,13 @@ export function pickTopMatchesExcludingOwned(
   source: Enrollment[] = enrollments,
   programActivityIds?: Iterable<string>,
   // topics the assessment found elevated (supporting patterns): a weaker match, after the chosen states
-  extraTags: readonly string[] = []
+  extraTags: readonly string[] = [],
+  gentle = false
 ): TopMatches {
   const ownedByKind = buildOwnedByKind(source, programActivityIds);
-  const courses = getAllRelevantCourses(primaryState, secondaryState, extraTags);
-  const meds = getAllRelevantMeditations(primaryState, secondaryState, extraTags);
-  const gds = getAllRelevantGuides(primaryState, secondaryState, extraTags);
+  const courses = getAllRelevantCourses(primaryState, secondaryState, extraTags, gentle);
+  const meds = getAllRelevantMeditations(primaryState, secondaryState, extraTags, gentle);
+  const gds = getAllRelevantGuides(primaryState, secondaryState, extraTags, gentle);
   // Exclude-owned + diversify + cap is now one shared, independently
   // tested pipeline (2026-09-16 audit) — see contentDiversity.ts's
   // excludeOwnedAndDiversify for why this was extracted.

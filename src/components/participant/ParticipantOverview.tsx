@@ -50,6 +50,7 @@ import {
   pickEmptyStateMeditation,
   pickFeaturedExcludingOwned,
 } from "../../lib/dashboardPriority";
+import { needsGentle } from "../../utils/relevantContent";
 import { getGuideStatus, withRealGuideStatus } from "../../lib/guideProgress";
 import {
   hasStartedFirstPractice,
@@ -416,7 +417,8 @@ export default function ParticipantOverview({
         insight.primaryState,
         insight.secondaryState,
         enrollments,
-        programParticipation.enrollments.map((e) => e.contentId)
+        programParticipation.enrollments.map((e) => e.contentId),
+        { extraTags: (insight.supportingPatterns ?? []).map((p) => p.category), gentle: needsGentle(insight) }
       )
     : null;
 

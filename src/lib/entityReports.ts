@@ -12,6 +12,8 @@ export type EntityReportReason =
   | "spam_or_ads"
   | "misleading"
   | "impersonation"
+  | "danger"
+  | "needs_help"
   | "other";
 
 export const ENTITY_REPORT_REASON_LABELS: Record<EntityReportReason, string> = {
@@ -20,14 +22,16 @@ export const ENTITY_REPORT_REASON_LABELS: Record<EntityReportReason, string> = {
   spam_or_ads: "Спам або реклама",
   misleading: "Введення в оману / шахрайство",
   impersonation: "Видає себе за іншу людину",
+  danger: "Небезпечно для життя чи здоров’я",
+  needs_help: "Схоже, людині зараз потрібна допомога",
   other: "Інше",
 };
 
 // Which reasons make sense for which target.
 export const ENTITY_REPORT_REASONS: Record<EntityReportType, EntityReportReason[]> = {
-  author: ["inappropriate_content", "harassment", "misleading", "impersonation", "spam_or_ads", "other"],
-  post: ["inappropriate_content", "harassment", "spam_or_ads", "misleading", "other"],
-  review: ["harassment", "spam_or_ads", "inappropriate_content", "other"],
+  author: ["danger", "inappropriate_content", "harassment", "misleading", "impersonation", "spam_or_ads", "other"],
+  post: ["danger", "needs_help", "inappropriate_content", "harassment", "spam_or_ads", "misleading", "other"],
+  review: ["danger", "needs_help", "harassment", "spam_or_ads", "inappropriate_content", "other"],
 };
 
 export const ENTITY_TYPE_LABELS: Record<EntityReportType, string> = {

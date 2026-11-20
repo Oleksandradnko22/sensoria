@@ -713,15 +713,15 @@ function IncomeBook() {
           <h3 className="text-[16px] font-semibold">Книга обліку доходів Sensoria</h3>
           <p className="text-[13px] text-black/50">Дохід — тариф за датою зарахування; повернення — з мінусом. Вносьте в Електронний кабінет щодня або підсумком за кожен день.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="min-h-[38px] rounded-xl border border-black/10 px-3 text-[13px]">
-            {[thisYear - 1, thisYear, thisYear + 1].map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-          <select value={mode} onChange={(e) => setMode(e.target.value as "live" | "test")} className="min-h-[38px] rounded-xl border border-black/10 px-3 text-[13px]">
+        <div className="flex flex-wrap items-center gap-2">
+          <BrandSelect aria-label="Рік" value={String(year)} onChange={(e) => setYear(Number(e.target.value))} className="min-h-[38px] rounded-xl border border-black/10 px-3 text-[13px]">
+            {[thisYear - 1, thisYear, thisYear + 1].map((y) => <option key={y} value={String(y)}>{y}</option>)}
+          </BrandSelect>
+          <BrandSelect aria-label="Які оплати" value={mode} onChange={(e) => setMode(e.target.value as "live" | "test")} className="min-h-[38px] rounded-xl border border-black/10 px-3 text-[13px]">
             <option value="live">Реальні оплати</option>
             <option value="test">Тестові (перевірка)</option>
-          </select>
-          <button type="button" onClick={csv} disabled={!data || data.days.length === 0} className="min-h-[38px] rounded-xl bg-[#1d1d1f] px-4 text-[13px] font-semibold text-white disabled:opacity-40">CSV</button>
+          </BrandSelect>
+          <button type="button" onClick={csv} disabled={!data || data.days.length === 0} className="min-h-[38px] shrink-0 whitespace-nowrap rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[13px] font-semibold text-white disabled:opacity-40">CSV</button>
         </div>
       </div>
       {err && <p className="mt-3 text-[13px] text-rose-700">{err}</p>}

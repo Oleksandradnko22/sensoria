@@ -260,6 +260,17 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
                   Відкрити в «Моє навчання»
                 </button>
               )}
+              {/* the seller's fiscal receipts from Checkbox here too, not only in the list below */}
+              {fiscal[latest.id]?.sale?.ready && fiscal[latest.id]?.sale?.url && (
+                <a href={fiscal[latest.id]!.sale!.url!} target="_blank" rel="noopener noreferrer" aria-label={`Фіскальний чек: ${title(latest)}`} className="inline-flex min-h-[46px] items-center justify-center whitespace-nowrap rounded-xl bg-white px-5 text-[14px] font-semibold text-[#4338ca] ring-1 ring-[#e3def9] hover:bg-[#faf9ff]">
+                  Чек
+                </a>
+              )}
+              {fiscal[latest.id]?.return?.ready && fiscal[latest.id]?.return?.url && (
+                <a href={fiscal[latest.id]!.return!.url!} target="_blank" rel="noopener noreferrer" aria-label={`Чек повернення: ${title(latest)}`} className="inline-flex min-h-[46px] items-center justify-center whitespace-nowrap rounded-xl bg-white px-5 text-[14px] font-semibold text-[#4338ca] ring-1 ring-[#e3def9] hover:bg-[#faf9ff]">
+                  Чек повернення
+                </a>
+              )}
               {hasReceipt(latest) && (
                 <button type="button" onClick={() => void receipt(latest)} disabled={pdfBusy === latest.id} className="disabled:opacity-50 min-h-[46px] whitespace-nowrap rounded-xl bg-white px-5 text-[14px] font-semibold text-[#4338ca] ring-1 ring-[#e3def9] hover:bg-[#faf9ff]">
                   {pdfBusy === latest.id ? "Створюємо…" : "Квитанція PDF"}

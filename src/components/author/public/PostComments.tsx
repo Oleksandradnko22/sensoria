@@ -17,7 +17,7 @@ import {
 import { COMMENT_MAX, checkPublicText, threadComments } from "../../../utils/authorPosts";
 import { formatRelativeTime } from "../../../utils/relativeTime";
 import { CRISIS_RE, pinComment } from "../../../lib/feed";
-import CrisisHelp from "../../feed/CrisisHelp";
+import CrisisHelp, { REPORTED_TITLE, REPORTED_TEXT } from "../../feed/CrisisHelp";
 import { DeleteCommentDialog, ReportCommentDialog } from "../../participant/ProgramLessonDialogs";
 
 const REPORT_REASONS = [
@@ -41,6 +41,7 @@ type Props = {
 
 export default function PostComments({ postId, postAuthorId, viewer, onRequireLogin, onCountChange }: Props) {
   const [comments, setComments] = useState<PostComment[]>([]);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const load = () => {
     setState("loading");
@@ -168,6 +169,7 @@ export default function PostComments({ postId, postAuthorId, viewer, onRequireLo
     try {
       await reportPostComment({ commentId: reportId, reporterId: viewer.id, reason: reportReason });
       setReportSent(true);
+      if (reportReason === "Схоже, людині зараз потрібна допомога") setHelpOpen(true);
     } catch {
       setRowError("Не вдалося надіслати скаргу. Спробуйте ще раз.");
     }
@@ -345,6 +347,7 @@ export default function PostComments({ postId, postAuthorId, viewer, onRequireLo
   return (
     <div className="mt-4 pt-4 border-t border-black/[0.06]">
       {crisisOpen && <CrisisHelp onBack={() => setCrisisOpen(false)} />}
+      {helpOpen && <CrisisHelp onBack={() => setHelpOpen(false)} title={REPORTED_TITLE} text={REPORTED_TEXT} />}
       {state === "loading" && (
         <div className="animate-pulse flex flex-col gap-3" aria-busy="true">
           <div className="h-3 w-1/3 rounded bg-black/[0.06]" />

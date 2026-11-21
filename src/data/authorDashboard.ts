@@ -161,6 +161,8 @@ export type AuthoredMeditation = {
   hasEmbeddedMusic: boolean;
   offlineDownloadEnabled: boolean;
   whenToUse: string[];
+  /** the author's contraindications for this practice (required for breath holds / fast breathing) */
+  contraindications?: string;
   transcript?: { text: string; status: "draft" | "confirmed"; confirmedBy?: string; confirmedAt?: string };
 };
 
@@ -595,7 +597,8 @@ export const publishChecklist = [
     id: "c2",
     label: "Немає медичних обіцянок чи гарантій результату",
     done: true,
-    hint: "Уникайте формулювань на кшталт «гарантовано вилікує» чи «100% позбавить тривоги».",
+    // what may not be written in a description (safety review 21.11.2026, С15)
+    hint: "Не пишіть: «лікує», «терапія», «зцілення», «гарантований результат», «за N днів позбудетесь…»; «психологічна допомога» про Sensoria; «засновано на» чи «відповідає» GAD-7, PSS-10, Maslach чи іншій шкалі, «валідовано», «науково перевірено»; відгуки й цифри, яких не було. Можна: «може допомогти», «практики для…», «освітня програма про…».",
   },
   {
     id: "c3",

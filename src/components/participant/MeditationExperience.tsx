@@ -1201,6 +1201,18 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
                   </div>
                 ))}
               </div>
+              {/* safety review 21.11.2026, С13: the general caution before any practice + the author's contraindications */}
+              {meditation.contraindications && (
+                <p className="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-[13.5px] leading-relaxed text-amber-900">
+                  <span className="font-semibold">Протипоказання від автора:</span> {meditation.contraindications}
+                </p>
+              )}
+              <details open className="mt-6 group">
+                <summary className="cursor-pointer text-[13.5px] font-medium text-indigo-700">Застереження перед практикою</summary>
+                <p className="mt-2 text-[13.5px] leading-relaxed text-black/60">
+                  Практику можна зупинити в будь-який момент. Якщо під час неї з’являються запаморочення, задуха, сильна тривога чи важкі спогади — зупиніться, дихайте звично й поверніться до практики пізніше або оберіть іншу. Не слухайте медитації за кермом чи під час роботи, що потребує уваги. Якщо у вас епілепсія, серцево-судинні чи респіраторні захворювання, вагітність або психічний розлад, а практика містить інтенсивне дихання чи затримки дихання — спершу порадьтеся з лікарем.
+                </p>
+              </details>
             </div>
 
             {/* "Запитати автора" — framed as part of the product, not a

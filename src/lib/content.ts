@@ -49,6 +49,7 @@ type MeditationMetaRow = {
   has_embedded_music: boolean;
   offline_download_enabled: boolean;
   when_to_use: string[] | null;
+  contraindications?: string | null;
 };
 type MeditationBodyRow = { audio_url: string; transcript: NonNullable<AuthoredContent["meditation"]>["transcript"] | null };
 
@@ -143,6 +144,7 @@ function fromRow(row: ContentRow, modules: ModuleRow[], items: ItemRow[]): Autho
           hasEmbeddedMusic: meta.has_embedded_music,
           offlineDownloadEnabled: meta.offline_download_enabled,
           whenToUse: meta.when_to_use ?? [],
+          contraindications: meta.contraindications ?? undefined,
           transcript: body?.transcript ?? undefined,
         }
       : undefined,
@@ -428,13 +430,16 @@ async function saveItems(client: NonNullable<typeof supabase>, moduleId: string,
 async function saveMeditationParts(client: ReturnType<typeof requireSupabase>, item: AuthoredContent): Promise<void> {
   const m = item.meditation;
   if (!m) return;
-  const { error: metaError } = await client.from("content_meditation_meta").upsert({
+  const metaRow = {
     content_id: item.id,
     format: m.format,
     has_embedded_music: m.hasEmbeddedMusic,
     offline_download_enabled: m.offlineDownloadEnabled,
     when_to_use: m.whenToUse,
-  });
+  };
+  let { error: metaError } = await client.from("content_meditation_meta").upsert({ ...metaRow, contraindications: m.contraindications?.trim() || null });
+  // before supabase/meditation-contraindications.sql the column does not exist yet: save the rest
+  if (metaError && (metaError.code === "PGRST204" || metaError.code === "42703")) ({ error: metaError } = await client.from("content_meditation_meta").upsert(metaRow));
   if (metaError) throw metaError;
   // audio_url is not null in the table: a draft without a recording stores '' (so the transcript is kept too)
   const { error: bodyError } = await client.from("content_meditation_body").upsert({

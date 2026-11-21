@@ -5,6 +5,9 @@ import { useMemo, useState } from "react";
 import type { AdminReport } from "../../lib/admin";
 import ConfirmDialog from "../author/public/ConfirmDialog";
 import { formatAbsoluteDate } from "../../utils/relativeTime";
+
+const URGENT_REASON = /^(danger|needs_help)$|Небезпечно для життя|потрібна допомога/;
+const isUrgentReason = (reason: string | null | undefined) => URGENT_REASON.test(reason ?? "");
 import {
   ACT_TEXT,
   REPEAT_REPORTS_FLAG,
@@ -41,7 +44,11 @@ export default function AdminReports({
   const [confirm, setConfirm] = useState<{ r: AdminReport; act: ReportActKind } | null>(null);
   const ownerOpen = useMemo(() => openReportsByOwner(reports ?? []), [reports]);
   const counts = useMemo(() => countByGroup(reports ?? [], onlyOpen), [reports, onlyOpen]);
-  const shown = useMemo(() => filterReports(reports ?? [], group, onlyOpen), [reports, group, onlyOpen]);
+  // urgent ones first (safety review 21.11.2026, С11): danger to life or health, or a person who seems to need help
+  const shown = useMemo(
+    () => [...filterReports(reports ?? [], group, onlyOpen)].sort((a, b) => Number(isUrgentReason(b.reason)) - Number(isUrgentReason(a.reason))),
+    [reports, group, onlyOpen]
+  );
 
   return (
     <div>
@@ -102,6 +109,9 @@ export default function AdminReports({
             )}
 
             <div className="text-[14px] text-black/80">
+              {isUrgentReason(r.reason) && (
+                <span className="mr-2 inline-flex rounded-full bg-rose-600 px-2.5 py-0.5 text-[12px] font-semibold text-white">Терміново</span>
+              )}
               <span className="font-medium">Причина:</span> {r.reason}
             </div>
             {r.details && <p className="text-[14px] text-black/70 leading-relaxed break-words">{r.details}</p>}

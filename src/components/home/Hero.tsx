@@ -10,9 +10,9 @@ import { fetchLandingData, type LandingData } from "../../lib/landing";
 
 // Only what the platform really does: the author badge, the test, moderation.
 const BENEFITS: { icon: IconName; title: string }[] = [
-  { icon: "shield", title: "Перевірені автори" },
+  { icon: "shield", title: "Статус кожного автора на виду" },
   { icon: "compass", title: "Персональні рекомендації" },
-  { icon: "lock", title: "Безпечна спільнота" },
+  { icon: "lock", title: "Модерація та скарги" },
 ];
 
 const STAT_ICONS: Record<string, IconName> = { participants: "heart", materials: "guide", rating: "star" };

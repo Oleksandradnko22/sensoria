@@ -34,6 +34,8 @@ type MeditationEntry = {
   // getContentAccent) — this is purely an additional, editorial layer
   // for how it reads to a person deciding whether to press play.
   whenToUse: string[];
+  /** the author's contraindications (database only) */
+  contraindications?: string;
   // "Зберегти офлайн" (2026-09-26, per Sasha's explicit call — "опция
   // загрузки будет не обязательной, это будет решать автор"): whether
   // THIS meditation's author has actually turned offline download on.

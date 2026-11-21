@@ -2,6 +2,7 @@
 // your own things and for signed-out visitors (reports need an account).
 import { useState } from "react";
 import ReportDialog from "./ReportDialog.tsx";
+import CrisisHelp, { REPORTED_TITLE, REPORTED_TEXT } from "./feed/CrisisHelp";
 import {
   ENTITY_REPORT_REASONS,
   ENTITY_REPORT_REASON_LABELS,
@@ -33,6 +34,7 @@ export default function ReportButton({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   if (!viewerId || viewerId === ownerId) return null;
   return (
     <>
@@ -62,10 +64,13 @@ export default function ReportButton({
               targetLabel: label,
               reason: reason as EntityReportReason,
               details,
+            }).then(() => {
+              if (reason === "needs_help") setHelpOpen(true);
             })
           }
         />
       )}
+      {helpOpen && <CrisisHelp onBack={() => setHelpOpen(false)} title={REPORTED_TITLE} text={REPORTED_TEXT} />}
     </>
   );
 }

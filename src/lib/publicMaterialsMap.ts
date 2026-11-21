@@ -44,6 +44,7 @@ export function meditationFromRow(row: ContentRow): Meditation | null {
     backgroundSoundIds: sounds.length ? sounds : undefined,
     tags: row.tags ?? [],
     whenToUse: list(meta.when_to_use),
+    contraindications: typeof meta.contraindications === "string" && meta.contraindications.trim() ? meta.contraindications.trim() : undefined,
     offlineDownloadEnabled: meta.offline_download_enabled === true,
     hasEmbeddedMusic: meta.has_embedded_music === true,
     transcript: (body?.transcript as Meditation["transcript"]) ?? undefined,

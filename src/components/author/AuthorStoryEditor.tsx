@@ -464,7 +464,7 @@ export default function AuthorStoryEditor({ authorId }: Props) {
               <div>
                 <div className={label}>Межі моєї роботи (до {L.limits} пунктів, кожен від {M.notOffer} до {L.limit} символів)</div>
                 <LineList items={s.notOffers} onChange={(v) => set("notOffers", v)} max={L.limits} placeholder="Межа" min={M.notOffer} invalid={tried} />
-                <div className={hint}>Не пишіть про діагнози чи лікування як про те, що ви надаєте.</div>
+                <div className={hint}>Не обіцяйте результату, не пишіть про діагнози, лікування чи ліки.</div>
               </div>
             </div>
           </Section>

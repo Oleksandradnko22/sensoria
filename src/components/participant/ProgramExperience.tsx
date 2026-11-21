@@ -1629,7 +1629,12 @@ export default function ProgramExperience({
               <div className="max-w-[480px] w-full bg-white rounded-[28px] shadow-[0_20px_80px_rgba(10,10,40,0.15)] p-10">
                 <div className="text-[13px] font-medium text-amber-700 mb-2">Перед початком</div>
                 <h2 className="text-[20px] font-bold mb-3">{currentItem.title}</h2>
-                <p className="text-[14px] leading-relaxed text-black/70 mb-8">{currentItem.contentWarning}</p>
+                <p className="text-[14px] leading-relaxed text-black/70 mb-3">{currentItem.contentWarning}</p>
+                {/* shown by the platform under every author's warning (safety review 21.11.2026, С6) */}
+                <p className="text-[13px] leading-relaxed text-black/55 mb-8">
+                  Ви можете пропустити урок або зупинитися будь-коли. Якщо стає дуже важко —{" "}
+                  <a href="/crisis-help" className="underline underline-offset-2 hover:text-black">Допомога в кризі</a>.
+                </p>
                 <div className="flex items-center gap-3 flex-wrap">
                   <button
                     onClick={() => {
@@ -1638,7 +1643,7 @@ export default function ProgramExperience({
                     }}
                     className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white text-[14px] font-semibold hover:opacity-90 transition"
                   >
-                    Готовий продовжити
+                    Продовжити
                   </button>
                   <button
                     onClick={() => {

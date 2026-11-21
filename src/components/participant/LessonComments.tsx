@@ -23,6 +23,7 @@ import {
 import { moderateMessage } from "../../utils/contactFilter";
 import { formatRelativeTime } from "../../utils/relativeTime";
 import Avatar from "../ui/Avatar";
+import CrisisHelp, { REPORTED_TITLE, REPORTED_TEXT } from "../feed/CrisisHelp";
 import { DeleteCommentDialog, ReportCommentDialog } from "./ProgramLessonDialogs";
 
 const REPORT_REASONS = [
@@ -55,6 +56,7 @@ export default function LessonComments({ itemId, session, notifyWriteFailed }: P
   const [reportCommentId, setReportCommentId] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState<string | null>(null);
   const [reportSubmitted, setReportSubmitted] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   // Failures (e.g. Supabase not configured here) just leave the thread
   // empty rather than crashing; the cancelled flag drops a late answer for
@@ -136,7 +138,10 @@ export default function LessonComments({ itemId, session, notifyWriteFailed }: P
   const submitCommentReport = () => {
     if (!reportReason || !reportCommentId || !session?.id) return;
     reportComment({ commentId: reportCommentId, reporterId: session.id, reason: reportReason })
-      .then(() => setReportSubmitted(true))
+      .then(() => {
+        setReportSubmitted(true);
+        if (reportReason === "Схоже, людині зараз потрібна допомога") setHelpOpen(true);
+      })
       .catch(() => {
         // reportSubmitted stays false so "Надіслати скаргу" can be retried
         // (no false "Дякуємо" for a report that was never saved).
@@ -146,6 +151,7 @@ export default function LessonComments({ itemId, session, notifyWriteFailed }: P
 
   return (
     <>
+      {helpOpen && <CrisisHelp onBack={() => setHelpOpen(false)} title={REPORTED_TITLE} text={REPORTED_TEXT} />}
       {/* COMMENTS — "Обговорення". Real persistence via
           content_comments (see lib/lessonComments.ts), with
           real client-side contact-info moderation

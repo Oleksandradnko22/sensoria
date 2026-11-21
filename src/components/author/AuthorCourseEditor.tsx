@@ -1,7 +1,7 @@
 import { guideTypeInfo, guideTypeOrder, type GuideType } from "../../data/guideTypes";
 import type { MeditationFormat } from "../../data/meditationFormats";
 import { CHECKLIST_ITEMS_MAX, CHECKLIST_ITEMS_MIN, CHECKLIST_ITEM_MAX, CHECKLIST_ITEM_MIN, CHECKLIST_TITLE_MAX, checklistItems, splitChecklist } from "../../utils/lessonChecklist";
-import { MAX_WARNING_CUSTOM_CHARS, WARNING_TOPICS, isSpecialistWarningTopic, parseWarning, setCustomWarning, toggleWarningTopic, warningNeedsSpecialist } from "../../utils/contentWarning";
+import { MAX_WARNING_CUSTOM_CHARS, WARNING_TOPICS, parseWarning, setCustomWarning, toggleWarningTopic, warningNeedsSpecialist } from "../../utils/contentWarning";
 import GuideBuilder from "./GuideBuilder";
 import type { GuideContent } from "../../data/guideContent";
 import { guideBlocksProblems, mediaUrls, sectionRanges, starterBlocks } from "../../utils/guideBuilder";
@@ -330,6 +330,7 @@ export default function AuthorCourseEditor({
   const [medFormat] = useState<MeditationFormat>(editing?.meditation?.format ?? "guided");
   const [hasEmbeddedMusic, setHasEmbeddedMusic] = useState(editing?.meditation?.hasEmbeddedMusic ?? false);
   const [offlineDownload, setOfflineDownload] = useState(editing?.meditation?.offlineDownloadEnabled ?? false);
+  const [contraindications, setContraindications] = useState(editing?.meditation?.contraindications ?? "");
   const [whenItems, setWhenItems] = useState<string[]>(() => {
     const saved = editing?.meditation?.whenToUse ?? [];
     return saved.length >= WHEN_MIN_ITEMS ? saved : [...saved, ...Array(WHEN_MIN_ITEMS - saved.length).fill("")];
@@ -849,6 +850,7 @@ export default function AuthorCourseEditor({
             hasEmbeddedMusic,
             offlineDownloadEnabled: offlineDownload,
             whenToUse: whenItems.map((l) => l.trim()).filter(Boolean),
+            contraindications: contraindications.trim() || undefined,
             // optional; the author wrote it, so a real text (20+ characters) is shown to participants as it is
             transcript: transcriptText.trim().length >= 20
               ? {
@@ -938,7 +940,7 @@ export default function AuthorCourseEditor({
           const mi = modules.findIndex((m) => !m.title.trim() || (m.items?.length ?? 0) === 0 || (m.items ?? []).some((x) => lessonChecks(x).length > 0 || (isSpecialist === false && warningNeedsSpecialist(x.contentWarning))));
           if (mi >= 0) {
             setModIdx(mi);
-            const li = (modules[mi].items ?? []).findIndex((x) => lessonChecks(x).length > 0 || (isSpecialist === false && warningNeedsSpecialist(x.contentWarning)));
+            const li = (modules[mi].items ?? []).findIndex((x) => lessonChecks(x).length > 0);
             if (li >= 0) setLessonIdx((prev) => ({ ...prev, [mi]: li }));
           }
         }
@@ -1010,7 +1012,7 @@ export default function AuthorCourseEditor({
   };
 
   // Unsaved-work guard: compare what is typed now with what the editor opened with.
-  const snapshot = JSON.stringify([type, title, description, price, allTags, riskTopics, coverUrl, coverFocus, introVideoUrl, mainFileUrl, modules, guidePages, guideBlocks, allowDownload, guideRelevantText, guideOutcomesText, durationMinutes, whenItems, transcriptText, !isPublishedEdit ? step : 0, priceMode]);
+  const snapshot = JSON.stringify([type, title, description, price, allTags, riskTopics, coverUrl, coverFocus, introVideoUrl, mainFileUrl, modules, guidePages, guideBlocks, allowDownload, guideRelevantText, guideOutcomesText, durationMinutes, whenItems, contraindications, transcriptText, !isPublishedEdit ? step : 0, priceMode]);
   const initialSnapshot = useRef(snapshot);
   const resnap = useRef(false);
   useEffect(() => {
@@ -1349,6 +1351,18 @@ export default function AuthorCourseEditor({
         )}
       </ul>
       <p className="mt-3 text-[13px] text-black/60">Кожен пункт від 5 до {WHEN_ITEM_MAX} символів.</p>
+      {/* safety review 21.11.2026, С13: the author states the contraindications of their own practice */}
+      <label className="mt-6 block">
+        <span className="block text-[14px] font-semibold text-[#12172b]">Протипоказання <span className="font-normal text-black/50">(необов’язково)</span></span>
+        <span className="mt-1 block text-[13px] text-black/60">Обов’язково для дихальних практик із затримкою чи прискореним диханням.</span>
+        <textarea
+          value={contraindications}
+          onChange={(e) => setContraindications(e.target.value.slice(0, 500))}
+          rows={3}
+          placeholder="Напр.: не підходить при вагітності, серцево-судинних захворюваннях, епілепсії."
+          className="mt-2 w-full rounded-xl border border-[#e3def9] bg-white px-4 py-3 text-[14px] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3b6df0]"
+        />
+      </label>
     </div>
   ) : null;
 
@@ -2773,11 +2787,11 @@ export default function AuthorCourseEditor({
                                 </label>
                                 {cwOn && (
                                   <div className="mt-2 flex flex-col gap-3">
-                                    <p className="text-[13px] text-black/60">Оберіть одну тему зі списку або напишіть свій варіант.{isSpecialist !== true && " Теми із замком доступні лише авторам зі статусом «Фахівець»."}</p>
+                                    <p className="text-[13px] text-black/60">Оберіть одну тему зі списку або напишіть свій варіант.</p>
                                     <div role="group" aria-label="Теми попередження" className="flex flex-wrap gap-2">
                                       {WARNING_TOPICS.map((topic) => {
                                         const on = parseWarning(it.contentWarning).topics[0] === topic;
-                                        const locked = isSpecialist !== true && isSpecialistWarningTopic(topic) && !on;
+                                        const locked = false; // any author may warn (safety review С2)
                                         return (
                                           <button
                                             key={topic}
@@ -2802,13 +2816,9 @@ export default function AuthorCourseEditor({
                                         maxLength={MAX_WARNING_CUSTOM_CHARS}
                                         onChange={(e) => { setExtra(cwKey, true); updateItem(i, ii, { contentWarning: setCustomWarning(e.target.value) }); }}
                                         placeholder="Напр.: розлучення"
-                                        aria-invalid={isSpecialist === false && warningNeedsSpecialist(it.contentWarning) ? true : undefined}
-                                        className={fieldCls}
+                                                                                className={fieldCls}
                                       />
                                     </label>
-                                    {isSpecialist === false && warningNeedsSpecialist(it.contentWarning) && (
-                                      <p role="alert" className="rounded-xl bg-amber-50 px-3 py-2 text-[13px] text-amber-900">Ця тема доступна лише авторам зі статусом «Фахівець»: урок з нею не опублікується. Оберіть іншу тему або надішліть документи про освіту в розділі «Модерація».</p>
-                                    )}
                                   </div>
                                 )}
                               </div>

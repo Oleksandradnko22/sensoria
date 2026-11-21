@@ -149,6 +149,8 @@ Deno.serve(async (req) => {
     const collectReports = async () => {
         const LIM = 200;
         const REASON: Record<string, string> = {
+          danger: "Небезпечно для життя чи здоров’я",
+          needs_help: "Схоже, людині зараз потрібна допомога",
           inappropriate_content: "Неприйнятний контент",
           incorrect_claims: "Некоректні твердження",
           requests_contact_info: "Просить особисті контакти",

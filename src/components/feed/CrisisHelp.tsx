@@ -6,13 +6,17 @@ import { CRISIS_SHORT } from "../../data/crisisLines";
 // numbers: the same list as the «Допомога в кризі» page (data/crisisLines.ts)
 export const UA_HELP = CRISIS_SHORT;
 
-export default function CrisisHelp({ onSend, onBack, busy = false }: { onSend?: () => void; onBack: () => void; busy?: boolean }) {
+// After a report «Схоже, людині зараз потрібна допомога» the reporter sees the same numbers with REPORTED_TEXT.
+export const REPORTED_TITLE = "Дякуємо, що не пройшли повз";
+export const REPORTED_TEXT = "Ми переглянемо якнайшвидше. Якщо є безпосередня загроза життю — телефонуйте 112. Ці лінії можна підказати людині або подзвонити самим.";
+
+export default function CrisisHelp({ onSend, onBack, busy = false, title, text }: { onSend?: () => void; onBack: () => void; busy?: boolean; title?: string; text?: string }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#12172b]/45 p-0 backdrop-blur-[2px] sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-labelledby="crisis-title">
       <div className="sensoria-scroll max-h-[92vh] w-full max-w-[560px] overflow-y-auto rounded-t-[28px] bg-white p-6 shadow-[0_40px_100px_-40px_rgba(40,30,120,0.6)] sm:rounded-[28px] sm:p-7">
         <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#5b3df5]"><Icon name="lifebuoy" size={24} /></span>
-        <h2 id="crisis-title" className="mt-4 text-[21px] font-bold leading-snug text-[#12172b]">Схоже, вам зараз дуже важко</h2>
-        <p className="mt-2 text-[15px] leading-relaxed text-[#2d2a5c]">Ви не самі. Поговорити з фахівцем можна просто зараз — безкоштовно й анонімно.</p>
+        <h2 id="crisis-title" className="mt-4 text-[21px] font-bold leading-snug text-[#12172b]">{title ?? "Схоже, вам зараз дуже важко"}</h2>
+        <p className="mt-2 text-[15px] leading-relaxed text-[#2d2a5c]">{text ?? "Ви не самі. Поговорити з фахівцем можна просто зараз — безкоштовно й анонімно."}</p>
         <ul className="mt-5 flex flex-col gap-2.5">
           {UA_HELP.map((h) => (
             <li key={h.phone}>

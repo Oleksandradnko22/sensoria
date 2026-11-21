@@ -17,7 +17,6 @@ import { guideBlocksProblems } from "./guideBuilder.ts";
 import { MAX_LESSONS_PER_MODULE, MAX_LESSONS_TOTAL, MAX_MODULES } from "./programModule.ts";
 import { checklistItems, checklistProblem } from "./lessonChecklist.ts";
 import { isHighRisk, RISK_MESSAGE } from "./riskTopics.ts";
-import { SPECIALIST_WARNING_MESSAGE, warningNeedsSpecialist } from "./contentWarning.ts";
 
 export const MIN_TRANSCRIPT_CHARS = 20;
 
@@ -150,7 +149,8 @@ export function validatePublishable(content: AuthoredContent, opts?: { isSpecial
       if (it.isRequired) required += 1;
       const where = lessonLabel(m, mi, it, ii);
       for (const c of lessonChecks(it)) add(c.code, `${where}: ${c.text}`);
-      if (opts && !opts.isSpecialist && warningNeedsSpecialist(it.contentWarning)) add("lesson-warning", `${where}: ${SPECIALIST_WARNING_MESSAGE}`);
+      // a lesson warning is never blocked on its own: any author may warn (safety review 21.11.2026, С2) — the TOPIC of
+      // the material is what is gated (riskTopics.ts)
     });
   });
   if (lessons > 0 && required === 0) add("no-required", "Позначте хоча б один урок обов'язковим.");

@@ -195,7 +195,7 @@ export function touchFinanceActivity(type: "login" | "view_finance" | "manage_co
 export const requestPayout = (amountKop: number) => callFinance<{ ok: true; payoutId: string }>({ action: "requestPayout", amountKop });
 export const saveBankAccount = (v: { iban: string; bankName: string; holderName: string; taxId: string }) =>
   callFinance<{ ok: true; status: string; unchanged?: boolean }>({ action: "saveBankAccount", ...v });
-export type MonoConnection = { status: "none" | "requested" | "active" | "disabled"; ipnLast4: string | null; legalName: string | null; updatedAt: string | null };
+export type MonoConnection = { status: "none" | "requested" | "active" | "disabled"; ipnLast4: string | null; legalName: string | null; legalAddress?: string | null; updatedAt: string | null };
 export const fetchMonoConnection = () => callFinance<{ ok: true } & MonoConnection>({ action: "monoConnection" });
 // Б41: the author's tax system; Б38: monthly acts of Sensoria's services
 export type TaxSystem = "fop2" | "fop3" | "fop_general" | "tov3" | "tov_general";
@@ -236,7 +236,7 @@ export const decideAct = (actId: string, decision: "accept" | "object", objectio
 export type PrroStatus = { status: "none" | "pending" | "active" | "error" | "disabled"; lastError: string | null; updatedAt: string | null };
 export const fetchPrroStatus = () => callFinance<{ ok: true } & PrroStatus>({ action: "prroStatus" });
 export const connectPrro = (v: { licenseKey: string; pin: string }) => callFinance<{ ok: true; status: string }>({ action: "connectPrro", ...v });
-export const requestMonoConnection = (v: { ipn: string; legalName: string }) =>
+export const requestMonoConnection = (v: { ipn: string; legalName: string; legalAddress: string }) =>
   callFinance<{ ok: true; status: string; unchanged?: boolean }>({ action: "requestMonoConnection", ...v });
 export const markFinanceNotificationsRead = () => callFinance<{ ok: true }>({ action: "markNotificationsRead" });
 
@@ -244,7 +244,7 @@ export const markFinanceNotificationsRead = () => callFinance<{ ok: true }>({ ac
 export const startMonoCheckout = (contentId: string, promoCode?: string) =>
   callFinance<{ ok: true; pageUrl: string; ref: string }>({ action: "monoCheckout", contentId, origin: window.location.origin, immediateAccess: true, ...(promoCode ? { promoCode } : {}) });
 /** Who sells the material (the author's FOP/LLC) and the exact immediate-access text for it (ТЗ 3.1–3.2). */
-export type SellerInfo = { legalName: string; codeMasked: string; consentText: string };
+export type SellerInfo = { legalName: string; codeMasked: string; address?: string | null; consentText: string };
 export const fetchSellerInfo = (contentId: string) => callFinance<{ ok: true } & SellerInfo>({ action: "sellerInfo", contentId });
 /** The author's promo code for one material: the server checks it and prices it (offer Б33). */
 export type PromoQuote = { listKop: number; discountKop: number; amountKop: number; percent?: number };

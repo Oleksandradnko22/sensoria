@@ -15,6 +15,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { brandFromText } from "../_shared/brandEmail.ts";
+import { OPERATOR } from "../_shared/operator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -712,12 +713,31 @@ Deno.serve(async (req) => {
       case "markRefundReviewed": {
         const requestId = payload?.requestId as string | undefined;
         if (!requestId) return json({ error: "Некоректний запит." }, 400);
-        const { error } = await admin
+        // «Відхилити»: the buyer gets the decision with the reason (lawyer, 22.11.2026, Ю-5.1а)
+        const rejected = payload?.decision === "rejected";
+        const rejectReason = String(payload?.reason ?? "").trim();
+        if (rejected && rejectReason.length < 5) return json({ error: "Вкажіть причину відмови." }, 400);
+        const { data: rr, error } = await admin
           .from("refund_requests")
           .update({ status: "reviewed" })
-          .eq("id", requestId);
+          .eq("id", requestId)
+          .select("email, content_title")
+          .maybeSingle();
         if (error) return json({ error: error.message }, 500);
-        await logAction("refund_reviewed", requestId);
+        await logAction(rejected ? "refund_rejected" : "refund_reviewed", requestId, rejected ? { reason: rejectReason } : undefined);
+        if (rejected && resendKey && rr?.email) {
+          const text = `Запит на повернення за «${rr.content_title ?? "матеріал"}» не схвалено. Причина: ${rejectReason}\n\nЯкщо не згодні — дайте відповідь на цей лист або напишіть ${OPERATOR.email}; ви також маєте право звернутися до органів захисту прав споживачів або до суду.`;
+          await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              from: fromAddress,
+              to: rr.email,
+              subject: "Рішення щодо вашого запиту на повернення",
+              ...brandFromText("Запит на повернення не схвалено", text, "Ви отримали цей лист, бо подали запит на повернення коштів на Sensoria."),
+            }),
+          }).catch(() => {});
+        }
         return json({ ok: true });
       }
 

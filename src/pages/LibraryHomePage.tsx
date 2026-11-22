@@ -303,7 +303,14 @@ export default function LibraryHomePage({
               <span key={t} className="rounded-full border border-white/10 px-3 py-1.5 text-sm text-white/70">також: {lower(t)}</span>
             ))}
           </div>
-          <p className="mx-auto mt-5 max-w-xl text-white/70">Лише ваші теми, від найлегшого старту.</p>
+          <p className="mx-auto mt-5 max-w-xl text-white/70">Спершу — ваші теми, від найлегшого старту.</p>
+          {/* lawyer, 22.11.2026 (1.4): how the selection is made, including the commercial side */}
+          <details className="mx-auto mt-2 max-w-xl text-sm text-white/65">
+            <summary className="cursor-pointer list-none underline underline-offset-2 hover:text-white">Як ми підбираємо</summary>
+            <p className="mt-2 leading-relaxed">
+              Добірку складає програма автоматично: за станами з ваших відповідей і рівнем, спершу — безоплатні й короткі матеріали. Якщо на вашу тему матеріалів мало, додаємо загальні — вони позначені. Платні матеріали продають автори; Sensoria отримує з продажу тариф.
+            </p>
+          </details>
           {ctx.gentle && (
             <div className="mx-auto mt-5 inline-flex items-start gap-3 rounded-2xl bg-white/10 px-4 py-3 text-left text-sm leading-relaxed text-white/80">
               <span aria-hidden="true" className="mt-0.5 text-white"><Icon name="lifebuoy" size={18} /></span>

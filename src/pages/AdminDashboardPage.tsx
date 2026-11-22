@@ -177,10 +177,14 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
 
   const openTicketsCount = (tickets ?? []).filter((t) => t.status === "open").length;
 
-  const markReviewed = async (r: RefundRequest) => {
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectText, setRejectText] = useState("");
+  const markReviewed = async (r: RefundRequest, rejectReason?: string) => {
     setBusyRefundId(r.id);
     try {
-      await markRefundReviewed(r.id);
+      await markRefundReviewed(r.id, rejectReason ? { reason: rejectReason } : undefined);
+      setRejectingId(null);
+      setRejectText("");
       reloadRefunds();
     } catch (e) {
       setRefundsError(e instanceof Error ? e.message : "Не вдалося оновити.");
@@ -667,15 +671,43 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
                           Запит подано {formatAbsoluteDate(r.createdAt)}
                         </div>
                         {r.status === "open" && (
-                          <button
-                            onClick={() => markReviewed(r)}
-                            disabled={busyRefundId === r.id}
-                            className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-black/5 hover:bg-black/10 transition disabled:opacity-50"
-                          >
-                            Розглянуто
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setRejectingId(rejectingId === r.id ? null : r.id)}
+                              disabled={busyRefundId === r.id}
+                              className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-rose-50 text-rose-700 hover:bg-rose-100 transition disabled:opacity-50"
+                            >
+                              Відхилити…
+                            </button>
+                            <button
+                              onClick={() => markReviewed(r)}
+                              disabled={busyRefundId === r.id}
+                              title="Повернення схвалено: проведіть його у «Фінансах», покупець отримає лист автоматично"
+                              className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-black/5 hover:bg-black/10 transition disabled:opacity-50"
+                            >
+                              Розглянуто
+                            </button>
+                          </div>
                         )}
                       </div>
+                      {rejectingId === r.id && (
+                        <div className="mt-2 flex flex-col gap-2">
+                          <textarea
+                            value={rejectText}
+                            onChange={(e) => setRejectText(e.target.value.slice(0, 600))}
+                            rows={2}
+                            placeholder="Причина відмови — її отримає покупець у листі"
+                            className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px]"
+                          />
+                          <button
+                            onClick={() => markReviewed(r, rejectText.trim())}
+                            disabled={busyRefundId === r.id || rejectText.trim().length < 5}
+                            className="self-end px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-rose-600 text-white disabled:opacity-40"
+                          >
+                            Відхилити й надіслати лист
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

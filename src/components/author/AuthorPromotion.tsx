@@ -101,6 +101,10 @@ export default function AuthorPromotion() {
       <section className="rounded-[26px] bg-white p-5 ring-1 ring-[#ece8fb] sm:p-6">
         <h2 className="text-[18px] font-bold text-[#12172b]">Посилання на матеріали</h2>
         <p className="mt-1 text-[14px] text-black/55">З вашою позначкою: покупка за ним теж приносить 85%. Програма відкривається одразу, гайди й медитації — на вашій сторінці.</p>
+        {/* lawyer, 22.11.2026 (2.4): an author's own post is their advertising */}
+        <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-900">
+          Ви відповідаєте за свої пости: не обіцяйте результату, не пишіть «лікує», «терапія», не посилайтеся на наукові шкали (правила для описів).
+        </p>
         {materials.length === 0 ? (
           <p className="mt-4 rounded-2xl bg-[#faf9ff] px-4 py-6 text-center text-[14px] text-black/55">Тут з’являться ваші опубліковані програми, гайди й медитації.</p>
         ) : (

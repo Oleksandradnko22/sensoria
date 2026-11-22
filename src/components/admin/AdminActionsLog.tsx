@@ -10,6 +10,7 @@ export const ACTION_LABELS: Record<string, string> = {
   unverify_author: "Знято верифікацію автора",
   ticket_resolved: "Розглянуто звернення",
   refund_reviewed: "Розглянуто запит на повернення",
+  refund_rejected: "Відхилено запит на повернення (лист покупцю)",
   content_report_reviewed: "Розглянуто скаргу на контент",
   report_reviewed: "Розглянуто скаргу",
   delete_comment: "Видалено коментар за скаргою",

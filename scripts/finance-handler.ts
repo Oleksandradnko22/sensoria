@@ -524,14 +524,22 @@ const IMMEDIATE_ACCESS_TEXT =
   "Прошу надати доступ до цифрового матеріалу одразу після оплати. Я розумію, що після надання доступу право розірвати договір протягом 14 днів без пояснення причин не застосовується (пункт 1 частини п’ятої статті 13 Закону України «Про захист прав споживачів»), а повернення коштів можливе у випадках, передбачених Правилами повернення коштів і законом. Продавець — {{назва ФОП/ТОВ автора}}.";
 
 /** The seller of a material: the author's FOP/LLC from the bank connection. РНОКПП is masked, ЄДРПОУ shown in full. */
-async function sellerOf(authorId: string): Promise<{ legalName: string; codeMasked: string }> {
-  const { data: r } = await admin.from("author_mono_receivers").select("legal_name, ipn, status").eq("author_id", authorId).maybeSingle();
+// The seller before payment (ЗУ «Про електронну комерцію», ст. 7; ЗУ «Про захист прав споживачів», ст. 13; lawyer,
+// 22.11.2026, Ю-2.1): full name, the FULL tax code (open data of the register, so not masked) and the registered address.
+// `codeMasked` keeps its old name for the stored consent column; it now holds the full code.
+async function sellerOf(authorId: string): Promise<{ legalName: string; codeMasked: string; address: string | null }> {
+  let { data: r, error } = await admin.from("author_mono_receivers").select("legal_name, ipn, status, legal_address").eq("author_id", authorId).maybeSingle();
+  if (error) ({ data: r } = await admin.from("author_mono_receivers").select("legal_name, ipn, status").eq("author_id", authorId).maybeSingle()); // before seller-address.sql
   const code = String(r?.ipn ?? "");
   if (r?.legal_name && code) {
-    return { legalName: String(r.legal_name), codeMasked: code.length === 8 ? `ЄДРПОУ ${code}` : `РНОКПП ••••${code.slice(-4)}` };
+    return {
+      legalName: String(r.legal_name),
+      codeMasked: code.length === 8 ? `код ЄДРПОУ ${code}` : `РНОКПП ${code}`,
+      address: (r as { legal_address?: string | null }).legal_address ?? null,
+    };
   }
   const { data: p } = await admin.from("profiles").select("name").eq("id", authorId).maybeSingle();
-  return { legalName: `автор матеріалу${p?.name ? ` ${p.name}` : ""}`, codeMasked: "дані ФОП ще не підключено" };
+  return { legalName: `автор матеріалу${p?.name ? ` ${p.name}` : ""}`, codeMasked: "дані ФОП ще не підключено", address: null };
 }
 const immediateAccessText = (seller: { legalName: string; codeMasked: string }) =>
   IMMEDIATE_ACCESS_TEXT.replace("{{назва ФОП/ТОВ автора}}", `${seller.legalName} (${seller.codeMasked})`);
@@ -648,10 +656,12 @@ async function monoCheckout(userId: string, payload: Record<string, unknown>, cl
   if (insErr) throw new Error(insErr.message);
   // the immediate-access consent, before the bank invoice exists (a missing table = not migrated yet)
   const seller = await sellerOf(content.author_id as string);
-  const { error: pcErr } = await admin.from("purchase_consents").insert({
+  const pcRow = {
     invoice_id: ref, buyer_id: userId, content_id: content.id, seller_legal_name: seller.legalName, seller_code_masked: seller.codeMasked,
     consent_text: immediateAccessText(seller), ip: client.ip, user_agent: client.userAgent,
-  });
+  };
+  let { error: pcErr } = await admin.from("purchase_consents").insert({ ...pcRow, seller_address: seller.address });
+  if (pcErr && /seller_address|PGRST204|42703/i.test(`${pcErr.code} ${pcErr.message}`)) ({ error: pcErr } = await admin.from("purchase_consents").insert(pcRow));
   if (pcErr && !/does not exist|schema cache|PGRST205|42P01/i.test(`${pcErr.code} ${pcErr.message}`)) throw new Error(pcErr.message);
   try {
     const inv = await monoCall("/api/merchant/invoice/create", body);
@@ -720,7 +730,7 @@ const kyivDateTime = (iso: string) => new Date(iso).toLocaleString("uk-UA", { ti
 
 function purchaseConfirmationEmail(o: {
   order: string; title: string; kind: string | null; listKop: number; discountKop: number; paidKop: number; paidAt: string;
-  seller: string; sellerCode: string; consentText: string; consentAt: string; test: boolean; site: string; agreementEdition: string;
+  seller: string; sellerCode: string; sellerAddress?: string | null; consentText: string; consentAt: string; test: boolean; site: string; agreementEdition: string;
 }): { subject: string } & BrandEmail {
   const rows = [
     { label: "Замовлення", value: `№ ${o.order}` },
@@ -730,6 +740,7 @@ function purchaseConfirmationEmail(o: {
     { label: "Сплачено", value: `${uahText(o.paidKop)} · карткою через monobank` },
     { label: "У виписці", value: "оплата може відображатися з назвою «Sensoria»" },
     { label: "Продавець", value: `${o.seller} (${o.sellerCode})` },
+    ...(o.sellerAddress ? [{ label: "Місцезнаходження продавця", value: o.sellerAddress }] : []),
   ];
   return {
     subject: `${o.test ? "[ТЕСТ] " : ""}Замовлення № ${o.order} на Sensoria: оплату отримано`,
@@ -753,6 +764,36 @@ function purchaseConfirmationEmail(o: {
     reason: "Ви отримали цей лист, бо оформили замовлення на Sensoria.",
   };
 }
+
+/** Letters to the buyer about a refund (Правила повернення, Угода учасника 6.5; lawyer, 22.11.2026, Ю-5.1а). Best effort. */
+async function sendBuyerRefundMail(to: string | null | undefined, subject: string, heading: string, lines: string[]): Promise<void> {
+  const key = Deno.env.get("RESEND_API_KEY");
+  if (!key || !to) return;
+  const msg: BrandEmail = {
+    preheader: lines[0].slice(0, 120),
+    heading,
+    blocks: [...lines.map((text) => ({ type: "text" as const, text })), { type: "note" as const, text: `Питання щодо повернення: ${OPERATOR.email}` }],
+    reason: "Ви отримали цей лист, бо подали запит на повернення коштів на Sensoria.",
+  };
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: Deno.env.get("RESEND_FROM") ?? "Sensoria <onboarding@resend.dev>", to, subject, ...renderBrandEmail(msg) }),
+    });
+  } catch (e) {
+    console.error("refund mail", e);
+  }
+}
+async function buyerOfInvoice(invoiceId: string): Promise<{ email: string | null; title: string }> {
+  const { data: inv } = await admin.from("mono_invoices").select("buyer_id, content_id").eq("id", invoiceId).maybeSingle();
+  const [{ data: buyer }, { data: content }] = await Promise.all([
+    inv?.buyer_id ? admin.from("profiles").select("email").eq("id", inv.buyer_id).maybeSingle() : Promise.resolve({ data: null }),
+    inv?.content_id ? admin.from("content").select("title").eq("id", inv.content_id).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+  return { email: (buyer as { email?: string } | null)?.email ?? null, title: (content as { title?: string } | null)?.title ?? "матеріал" };
+}
+// uah() — the shared formatter of the engine above
 
 /** Sends the confirmation once: the row is claimed first (confirmation_sent_at), released again if the email failed. */
 async function sendPurchaseConfirmation(invoiceId: string): Promise<"sent" | "skipped" | "failed"> {
@@ -779,7 +820,7 @@ async function sendPurchaseConfirmation(invoiceId: string): Promise<"sent" | "sk
     const msg = purchaseConfirmationEmail({
       order: invoiceId.replace(/-/g, "").slice(0, 8).toUpperCase(), title: content?.title ?? "Цифровий освітній матеріал", kind: content?.kind ?? null,
       listKop: Number(inv.list_kop ?? paidKop), discountKop: Number(inv.discount_kop ?? 0), paidKop, paidAt: pay?.confirmed_at ?? nowIso(),
-      seller: pc.seller_legal_name, sellerCode: pc.seller_code_masked, consentText: pc.consent_text, consentAt: pc.accepted_at,
+      seller: pc.seller_legal_name, sellerCode: pc.seller_code_masked, sellerAddress: (pc as { seller_address?: string | null }).seller_address ?? null, consentText: pc.consent_text, consentAt: pc.accepted_at,
       test: inv.mode !== "live", site: siteUrl(), agreementEdition,
     });
     const res = await fetch("https://api.resend.com/emails", {
@@ -1259,6 +1300,12 @@ async function applyMonoStatus(row: MonoRow, p: Record<string, unknown>): Promis
   }
   if (effect === "reversed") {
     await recordReversal(row);
+    {
+      const b = await buyerOfInvoice(row.id);
+      await sendBuyerRefundMail(b.email, "Банк провів повернення коштів", "Повернення проведено", [
+        `Банк провів повернення ${uah(Number(row.amount_kop))} за «${b.title}». Фіскальний чек повернення продавця надійде окремим листом.`,
+      ]);
+    }
     const paidAt = await paidAtOfInvoice(row.id);
     if (paidAt && sameDayCancel(paidAt, nowIso(), await sameDayCutoff())) {
       await queueReceipts(row, "return");
@@ -1393,6 +1440,18 @@ Deno.serve(async (req) => {
         receipts: (rec ?? []).map((r) => ({ invoiceId: r.invoice_id, kind: r.kind, ready: r.status === "done" && !!r.receipt_url, fiscalCode: r.fiscal_code ?? null, url: r.status === "done" ? r.receipt_url ?? null : null })),
       });
     }
+    // «Запит отримано» — the participant's own refund request, once (refund_requests.ack_sent_at)
+    if (action === "refundRequestAck") {
+      if (!prof) return json({ error: "Не авторизовано." }, 401);
+      const { data: rr } = await admin.from("refund_requests").update({ ack_sent_at: nowIso() })
+        .eq("id", String(payload.requestId ?? "")).eq("participant_id", user.id).is("ack_sent_at", null).select("email, content_title").maybeSingle();
+      if (rr) {
+        await sendBuyerRefundMail(rr.email as string, "Ми отримали ваш запит на повернення", "Запит на повернення отримано", [
+          `Ми отримали ваш запит на повернення коштів за «${rr.content_title ?? "матеріал"}». Розглянемо протягом 5 робочих днів і повідомимо рішення.`,
+        ]);
+      }
+      return json({ ok: true });
+    }
     if (action === "promoQuote") {
       if (!prof) return json({ error: "Не авторизовано." }, 401);
       return json({ ok: true, ...(await promoQuoteFor(payload)) });
@@ -1508,21 +1567,28 @@ Deno.serve(async (req) => {
       // connecting the author's FOP/TOV to the monobank split: the author names it, the owner links monobank's receiver id
       if (action === "monoConnection") {
         const { data: r } = await admin.from("author_mono_receivers").select("status, ipn, legal_name, updated_at").eq("author_id", user.id).maybeSingle();
-        return json({ ok: true, status: r?.status ?? "none", ipnLast4: r?.ipn ? String(r.ipn).slice(-4) : null, legalName: r?.legal_name ?? null, updatedAt: r?.updated_at ?? null });
+        const { data: addr } = await admin.from("author_mono_receivers").select("legal_address").eq("author_id", user.id).maybeSingle();
+        return json({ ok: true, status: r?.status ?? "none", ipnLast4: r?.ipn ? String(r.ipn).slice(-4) : null, legalName: r?.legal_name ?? null, legalAddress: (addr as { legal_address?: string | null } | null)?.legal_address ?? null, updatedAt: r?.updated_at ?? null });
       }
       if (action === "requestMonoConnection") {
         const ipn = String(payload.ipn ?? "").replace(/\s+/g, "");
         const legalName = String(payload.legalName ?? "").trim().replace(/\s+/g, " ").slice(0, 160);
         if (!validateTaxId(ipn)) throw new FinanceError("bad_tax_id", "РНОКПП ФОП — 10 цифр, ЄДРПОУ ТОВ — 8 цифр.");
         if (legalName.length < 5) throw new FinanceError("bad_name", "Вкажіть назву ФОП або ТОВ повністю, як у документах.");
+        const legalAddress = String(payload.legalAddress ?? "").trim().replace(/\s+/g, " ").slice(0, 300);
+        if (legalAddress.length < 10) throw new FinanceError("bad_address", "Вкажіть місцезнаходження ФОП або ТОВ, як у Єдиному державному реєстрі.");
         // A6 (paid sales) must be signed with a code first; a missing function = not migrated yet
         const { data: paidOk, error: paidErr } = await admin.rpc("has_current_consent", { p_uid: user.id, p_document: "author_paid_sales" });
         if (!paidErr && paidOk === false) throw new FinanceError("paid_consent_required", "Спершу підтвердьте умови платних продажів кодом з листа.");
         const { data: cur } = await admin.from("author_mono_receivers").select("status, ipn").eq("author_id", user.id).maybeSingle();
-        if (cur?.status === "active" && cur.ipn === ipn) return json({ ok: true, status: "active", unchanged: true });
+        if (cur?.status === "active" && cur.ipn === ipn) {
+          // same FOP: only the name or the address may change, sales keep going
+          await admin.from("author_mono_receivers").update({ legal_name: legalName, legal_address: legalAddress, updated_at: nowIso() }).eq("author_id", user.id);
+          return json({ ok: true, status: "active", unchanged: true });
+        }
         // a new FOP means a new receiver: until the owner links it, paid sales wait (the old receiver is not reused)
         const { error: upErr } = await admin.from("author_mono_receivers").upsert(
-          { author_id: user.id, ipn, legal_name: legalName, status: "requested", receiver_id: null, updated_at: nowIso() },
+          { author_id: user.id, ipn, legal_name: legalName, legal_address: legalAddress, status: "requested", receiver_id: null, updated_at: nowIso() },
           { onConflict: "author_id" },
         );
         if (upErr) throw new Error(upErr.message);
@@ -1692,7 +1758,7 @@ Deno.serve(async (req) => {
         if (e instanceof FinanceError && e.code === "mono_cancel_failed") {
           await admin.from("financial_notifications").insert({
             author_id: authorId, event_type: "REFUND_FAILED", dedupe_key: `refund-failed:${requestKey}`,
-            message: `Банк не провів повернення коштів покупцю за «${pay.content_title ?? "матеріал"}». Найчастіше причина — на вашому рахунку ФОП бракує суми вашої частки. Поповніть рахунок, і ми повторимо повернення.`,
+            message: `Банк не провів повернення коштів покупцю за «${pay.content_title ?? "матеріал"}». Найчастіше причина — на вашому рахунку ФОП бракує повної суми повернення: банк списує її з вашого рахунку повністю, а Sensoria потім повертає вам тариф. Поповніть рахунок протягом 3 робочих днів, і ми повторимо повернення. Якщо рахунок не буде поповнено, нові продажі буде призупинено (оферта, розділ «Повернення коштів покупцям»).`,
           });
           await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: "refund_failed_at_bank", entity_type: "payment", entity_id: pay.id, reason, previous_value: null, new_value: { purchaseId: pay.purchase_id, kind } });
           // the order shows «Повернення відхилено банком» in the admin panel; the buyer keeps access until it goes through
@@ -1722,6 +1788,13 @@ Deno.serve(async (req) => {
       if (after && Number(after.refunded_kop) >= Number(after.amount_kop)) {
         await admin.from("mono_invoices").update({ review_reason: null }).eq("id", pay.purchase_id).eq("review_reason", "refund_declined_by_bank");
         await revokePaidAccess(after.purchase_id as string);
+      }
+      {
+        const b = await buyerOfInvoice(pay.purchase_id as string);
+        const refundedNow = Number(after?.refunded_kop ?? 0) - Number(pay.refunded_kop ?? 0);
+        await sendBuyerRefundMail(b.email, "Повернення коштів схвалено", "Запит на повернення схвалено", [
+          `Запит на повернення за «${b.title}» схвалено. Ми ініціюємо повернення ${uah(refundedNow > 0 ? refundedNow : Number(pay.amount_kop))} на картку, з якої ви платили, не пізніше наступного робочого дня; зарахування — до 3 робочих днів залежно від вашого банку. Доступ до матеріалу припиниться після повернення.`,
+        ]);
       }
       await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: `refund_${kind}`, entity_type: "payment", entity_id: pay.id, reason, previous_value: null, new_value: { key: plan?.key } });
       return json({ ok: true });

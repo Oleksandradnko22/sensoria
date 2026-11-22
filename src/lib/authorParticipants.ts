@@ -193,7 +193,8 @@ export async function fetchParticipantsPage(q: ParticipantsQuery): Promise<Parti
   };
 }
 
-// Average state before → after per material, only where at least 3 people marked it (0–10, higher = calmer).
+// Average state before → after per material, only where at least 10 people with the health-data consent marked it
+// (supabase/author-mood-threshold.sql; 0–10, higher = calmer).
 export async function fetchMoodByContent(contentIds: string[]): Promise<{ contentId: string; before: number; after: number; people: number }[]> {
   const ids = contentIds.filter((id) => /^[0-9a-f-]{36}$/i.test(id));
   if (ids.length === 0) return [];

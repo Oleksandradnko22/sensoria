@@ -30,7 +30,8 @@ export function isAuthorPreview(): boolean {
 // Design preview only: the same test video as in the preview feed, shown as
 // the «Відео-знайомство» block when the profile has no video of its own.
 // test stock portrait (Unsplash License, Ayo Ogunseinde) — design preview only
-export const PREVIEW_PORTRAIT = "https://images.unsplash.com/photo-1569925444984-9e2e5fc3d1fb?w=800&h=1000&fit=crop&crop=faces&auto=format&q=70";
+// no third-party photo (lawyer, 22.11.2026: no requests to sites outside the Privacy Policy): the preview shows initials
+export const PREVIEW_PORTRAIT: string | null = null;
 
 export const PREVIEW_STORY_MEDIA = {
   kind: "video" as const,

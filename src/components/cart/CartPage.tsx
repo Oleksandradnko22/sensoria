@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { LEGAL } from "../../data/legalOperator";
 import Footer from "../Footer";
 import { useCart } from "../../lib/cartStore";
 import { acquireContent } from "../../lib/acquired";
@@ -424,6 +425,17 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                       </div>
                     </div>
                     <div className="text-[17px] font-semibold">{priceLabel(l.item)}</div>
+                    {/* the seller in full before payment (ЗУ «Про електронну комерцію», ст. 7; lawyer, Ю-2.1) */}
+                    {sellers[l.item.id] && (
+                      <details className="basis-full text-[13px] text-slate-600">
+                        <summary className="cursor-pointer font-medium text-[#4338ca] underline-offset-2 hover:underline">Відомості про продавця</summary>
+                        <p className="mt-2 leading-relaxed">
+                          Продавець: {sellers[l.item.id].legalName}, {sellers[l.item.id].codeMasked}.
+                          {sellers[l.item.id].address ? ` Місцезнаходження: ${sellers[l.item.id].address}.` : ""} Претензії щодо матеріалу й оплати приймає Sensoria за дорученням продавця:{" "}
+                          <a href={`mailto:${LEGAL.email}`} className="underline underline-offset-2">{LEGAL.email}</a>.
+                        </p>
+                      </details>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -440,7 +452,11 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                 <a href="/refunds" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Правила повернення коштів</a>
               </p>
 
-              <div className="mt-7 flex flex-col gap-4 rounded-[20px] bg-white p-4 ring-1 ring-[#ebe8ff] sm:flex-row sm:items-center sm:justify-between sm:p-5">
+              <p className="mt-5 text-[13px] leading-relaxed text-slate-600">
+                Натискаючи «Оплатити», ви купуєте доступ до матеріалу в продавця на умовах{" "}
+                <a href="/participant-agreement" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Угоди учасника</a>. Доступ — у «Моєму навчанні» одразу після оплати, без обмеження строку, доки працює Платформа.
+              </p>
+              <div className="mt-4 flex flex-col gap-4 rounded-[20px] bg-white p-4 ring-1 ring-[#ebe8ff] sm:flex-row sm:items-center sm:justify-between sm:p-5">
                 <div>
                   {discountTotal > 0 && (
                     <div className="mb-1 text-[13px] text-slate-500">

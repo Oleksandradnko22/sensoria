@@ -236,7 +236,7 @@ export default function AuthorParticipants({ content, onWrite }: Props) {
           <span className="text-[13px] text-black/50">Середній стан до й після практики, шкала 0–10 · без імен</span>
         </div>
         {moodRows.length === 0 ? (
-          <p className="mt-3 text-[14px] text-black/55">З’явиться, коли щонайменше троє учасників відмітять свій стан до й після практики.</p>
+          <p className="mt-3 text-[14px] text-black/55">З’явиться, коли щонайменше 10 учасників відмітять свій стан до й після практики. Ви бачите лише середні значення, без того, хто що відмітив.</p>
         ) : (
           <ul className="mt-4 flex flex-col gap-4">
             {moodRows.map((r) => {

@@ -15,8 +15,8 @@ import { LEGAL } from "../../data/legalOperator";
 // the full text of each document, loaded only when its PDF is asked for
 type Source = { title: string; edition: string; effectiveDate?: string; load: () => Promise<{ SECTIONS: LegalSection[] }> };
 const SOURCES: Record<string, Source> = {
-  participant_agreement: { title: "Угода учасника", edition: "1.0", effectiveDate: LEGAL.effectiveDate || undefined, load: () => import("../../pages/ParticipantAgreementPage") },
-  author_agreement: { title: "Публічний договір про надання послуг технічного характеру (оферта для авторів)", edition: "1.0", effectiveDate: "20.11.2026", load: () => import("../../pages/AuthorAgreementPage") },
+  participant_agreement: { title: "Угода учасника", edition: LEGAL.edition, effectiveDate: LEGAL.effectiveDate || undefined, load: () => import("../../pages/ParticipantAgreementPage") },
+  author_agreement: { title: "Публічний договір про надання послуг технічного характеру (оферта для авторів)", edition: LEGAL.edition, effectiveDate: LEGAL.effectiveDate || undefined, load: () => import("../../pages/AuthorAgreementPage") },
   terms: { title: "Умови використання", edition: LEGAL.edition, effectiveDate: LEGAL.effectiveDate || undefined, load: () => import("../../pages/TermsPage") },
   refunds: { title: "Правила повернення коштів", edition: LEGAL.edition, effectiveDate: LEGAL.effectiveDate || undefined, load: () => import("../../pages/RefundsPage") },
   privacy: { title: "Політика конфіденційності", edition: LEGAL.edition, effectiveDate: LEGAL.effectiveDate || undefined, load: () => import("../../pages/PrivacyPage") },

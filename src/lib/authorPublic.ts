@@ -259,7 +259,7 @@ export async function fetchAuthorPublicProfile(authorId: string, opts: { withRev
       ? {
           ...story,
           media: story.media ?? PREVIEW_STORY_MEDIA,
-          portraitUrl: story.portraitUrl || (profile.avatar_url ? "" : PREVIEW_PORTRAIT),
+          portraitUrl: story.portraitUrl || (profile.avatar_url ? "" : PREVIEW_PORTRAIT ?? ""),
         }
       : story,
     audience: preview

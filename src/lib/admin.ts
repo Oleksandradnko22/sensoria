@@ -303,8 +303,8 @@ export async function fetchRefundRequests(): Promise<RefundRequest[]> {
 
 // Only flips the status shown in the panel — the actual refund is
 // always sent manually via bank/payment provider, outside the app.
-export function markRefundReviewed(requestId: string): Promise<void> {
-  return callAdmin("markRefundReviewed", { requestId }).then(() => undefined);
+export function markRefundReviewed(requestId: string, reject?: { reason: string }): Promise<void> {
+  return callAdmin("markRefundReviewed", reject ? { requestId, decision: "rejected", reason: reject.reason } : { requestId }).then(() => undefined);
 }
 
 // Every complaint in one shape (admin-data "reports").

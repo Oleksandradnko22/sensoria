@@ -7,6 +7,6 @@ export const OPERATOR = {
   mailingAddress: "Україна, 25002, Кіровоградська обл., м. Кропивницький, вул. Івана Похитонова, 9, кв. 47",
   email: "sensoriaplatform@gmail.com",
   /** the current edition of the participant agreement and the day it took effect */
-  edition: "1.0",
-  effectiveDate: "20.11.2026",
+  edition: "1.1",
+  effectiveDate: "22.11.2026",
 } as const;

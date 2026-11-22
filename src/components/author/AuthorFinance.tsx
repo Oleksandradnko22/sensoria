@@ -582,6 +582,7 @@ function MonoConnectCard() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [editing, setEditing] = useState(false);
   const [legalName, setLegalName] = useState("");
+  const [legalAddress, setLegalAddress] = useState("");
   const [ipn, setIpn] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -610,7 +611,7 @@ function MonoConnectCard() {
     void load();
   }, []);
 
-  const problem = legalName.trim().length < 5 ? "Вкажіть назву ФОП або ТОВ повністю, як у документах." : !/^(\d{8}|\d{10})$/.test(ipn) ? "РНОКПП ФОП — 10 цифр, ЄДРПОУ ТОВ — 8 цифр." : null;
+  const problem = legalName.trim().length < 5 ? "Вкажіть назву ФОП або ТОВ повністю, як у документах." : legalAddress.trim().length < 10 ? "Вкажіть місцезнаходження, як у Єдиному державному реєстрі." : !/^(\d{8}|\d{10})$/.test(ipn) ? "РНОКПП ФОП — 10 цифр, ЄДРПОУ ТОВ — 8 цифр." : null;
   const save = async () => {
     if (problem) return setError(problem);
     if (!paidOk && !a6) return setError("Підтвердьте умови платних продажів.");
@@ -629,7 +630,7 @@ function MonoConnectCard() {
         setCodeStep(null);
         setCode("");
       }
-      await requestMonoConnection({ ipn, legalName: legalName.trim() });
+      await requestMonoConnection({ ipn, legalName: legalName.trim(), legalAddress: legalAddress.trim() });
       setEditing(false);
       await load();
     } catch (e) {
@@ -671,6 +672,8 @@ function MonoConnectCard() {
       {editing ? (
         <div className="mt-4 grid gap-3">
           <label className="text-[13px] font-semibold text-[#2d2a5c]">Назва ФОП або ТОВ (як у документах)<input value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="ФОП Прізвище Ім’я По батькові" className={`${input} mt-1`} /></label>
+          {/* the buyer sees it before paying (ЗУ «Про електронну комерцію», ст. 7) */}
+          <label className="text-[13px] font-semibold text-[#2d2a5c]">Місцезнаходження (як у Єдиному державному реєстрі)<input value={legalAddress} onChange={(e) => setLegalAddress(e.target.value.slice(0, 300))} placeholder="Україна, індекс, область, місто, вулиця, будинок" className={`${input} mt-1`} /><span className="mt-1 block text-[12px] font-normal text-black/50">Покупці бачать його в кошику перед оплатою, як вимагає закон.</span></label>
           <label className="text-[13px] font-semibold text-[#2d2a5c]">РНОКПП (ФОП) або ЄДРПОУ (ТОВ)<input value={ipn} onChange={(e) => setIpn(e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" className={`${input} mt-1`} /></label>
           {status === "active" && <p className="text-[13px] text-amber-800">Після зміни даних продажі зупиняться, доки банк не підключить новий рахунок.</p>}
           {!paidOk && (
@@ -708,7 +711,7 @@ function MonoConnectCard() {
           </div>
         </div>
       ) : (
-        conn && <button type="button" onClick={() => { setLegalName(conn.legalName ?? ""); setIpn(""); setEditing(true); }} className="mt-4 inline-flex min-h-[44px] items-center rounded-xl bg-[#f1eeff] px-4 text-[14px] font-semibold text-[#5b4bd0] hover:bg-[#e7e1ff]">{status === "none" ? "Підключити ФОП" : "Змінити дані"}</button>
+        conn && <button type="button" onClick={() => { setLegalName(conn.legalName ?? ""); setLegalAddress(conn.legalAddress ?? ""); setIpn(""); setEditing(true); }} className="mt-4 inline-flex min-h-[44px] items-center rounded-xl bg-[#f1eeff] px-4 text-[14px] font-semibold text-[#5b4bd0] hover:bg-[#e7e1ff]">{status === "none" ? "Підключити ФОП" : "Змінити дані"}</button>
       )}
     </section>
   );

@@ -13,6 +13,7 @@
 // Secrets: RESEND_API_KEY, RESEND_FROM, CRON_SECRET, SITE_URL (optional).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { renderBrandEmail } from "../_shared/brandEmail.ts";
+import { OPERATOR } from "../_shared/operator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -123,7 +124,8 @@ Deno.serve(async (req) => {
                 { type: "text", text: "На Sensoria з’явилися матеріали, які можуть бути вам цікаві:" },
                 { type: "details", rows: mine.map((c) => ({ label: KIND_LABEL[c.kind as string] ?? "Матеріал", value: `«${c.title}»` })) },
                 { type: "button", label: "Переглянути в каталозі", url: `${site}/programs` },
-                { type: "note", text: `Не хочете отримувати такі листи? Відписатися: ${unsub}` },
+                // the sender of a commercial email (ЗУ «Про електронну комерцію», ст. 10; lawyer, Ю-5.2)
+                { type: "note", text: `Відправник: ${OPERATOR.operatorName}, ${OPERATOR.mailingAddress}. Ви можете відписатися будь-коли безкоштовно: ${unsub}` },
               ],
               reason: "Ви отримали цей лист, бо ввімкнули «Нові матеріали» в профілі.",
             }),

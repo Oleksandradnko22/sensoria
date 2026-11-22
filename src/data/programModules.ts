@@ -10,6 +10,8 @@
 // items each — the engine (lib/contentProgress.ts) doesn't care either
 // way.
 
+// demo lesson audio: Sensoria's own stored files (Pixabay licence, docs/legal/media-licenses.md) — no third-party
+// requests from the live site (lawyer, 22.11.2026)
 import type { ContentModule, ItemProgressMap } from "./contentTypes.ts";
 
 function m(id: string, title: string, description: string, items: ContentModule["items"]): ContentModule {
@@ -38,7 +40,7 @@ export const programModules: Record<string, ContentModule[]> = {
           fileUrl: "/demo-materials/stress-course-shchodennyk-sposterezhen.pdf",
           fileName: "Щоденник спостережень.pdf",
           fileSizeLabel: "47 KB",
-          audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
+          audioUrl: "https://gvetalfctsojvwucxmeo.supabase.co/storage/v1/object/public/content-files/sigmamusicart-meditation-music-368634.mp3",
         },
         { id: "stress-course__m1__i2", title: "Чому тіло реагує швидше за розум", type: "text", isRequired: true, durationMinutes: 20, body: "Реакція «бий/біжи/завмри» запускається мигдалеподібним тілом за частки секунди — раніше, ніж свідомий розум встигає оцінити ситуацію. Тому «просто заспокойся» рідко працює в моменті: тілу потрібен окремий сигнал безпеки." },
       ]
@@ -63,7 +65,7 @@ export const programModules: Record<string, ContentModule[]> = {
           // one existing "secondary audio material" field the item
           // model already supports — rendered by ProgramExperience's
           // "Додаткові матеріали" section, no new field/abstraction.
-          audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3",
+          audioUrl: "https://gvetalfctsojvwucxmeo.supabase.co/storage/v1/object/public/content-files/velariomusic-meditation-music-603880.mp3",
         },
         {
           id: "stress-course__m2__i2",
@@ -137,7 +139,7 @@ export const programModules: Record<string, ContentModule[]> = {
           // 2026-09-28: was its own standalone item (stress-course__m4__i5,
           // "Аудіо-практика заспокоєння") — folded into the real lesson
           // it's a bonus practice FOR, same reasoning as m2__i1 above.
-          audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+          audioUrl: "https://gvetalfctsojvwucxmeo.supabase.co/storage/v1/object/public/content-files/velariomusic-meditation-background-603870.mp3",
         },
         {
           id: "stress-course__m4__i4",
@@ -222,7 +224,7 @@ export const programModules: Record<string, ContentModule[]> = {
         isRequired: true,
         durationMinutes: 10,
         body: "Коротка аудіо-практика на кілька хвилин — не заміна повноцінної медитації, а спосіб зробити паузу серед дня, коли часу на щось довше просто немає.",
-        audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+        audioUrl: "https://gvetalfctsojvwucxmeo.supabase.co/storage/v1/object/public/content-files/andriig-meditation-meditation-music-581020.mp3",
       },
     ]),
     m("healthy-balance__m3", "Підтримка внутрішнього ресурсу", "Де брати енергію і як помічати виснаження до того, як стане критично.", [
@@ -320,7 +322,7 @@ export const programModules: Record<string, ContentModule[]> = {
         // Demo placeholder audio practice (public SoundHelix track) —
         // same convention as stress-course/mindfulness-course's audio
         // items.
-        audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+        audioUrl: "https://gvetalfctsojvwucxmeo.supabase.co/storage/v1/object/public/content-files/sigmamusicart-meditation-music-368634.mp3",
       },
       {
         id: "self-esteem-course__m3__i2",
@@ -410,7 +412,7 @@ export const programModules: Record<string, ContentModule[]> = {
         durationMinutes: 20,
         body: "«Ти завжди...» майже гарантовано викликає захисну реакцію у відповідь. «Я відчуваю...» описує ваш власний досвід, а не звинувачує — і саме тому його легше почути, не займаючи оборонну позицію.",
         // Demo placeholder audio practice.
-        audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
+        audioUrl: "https://gvetalfctsojvwucxmeo.supabase.co/storage/v1/object/public/content-files/velariomusic-meditation-music-603880.mp3",
       },
       {
         id: "relationships-course__m3__i2",
@@ -472,7 +474,7 @@ export const programModules: Record<string, ContentModule[]> = {
         isRequired: true,
         durationMinutes: 15,
         body: "Повільне сканування тіла від голови до стоп — одна з базових практик усвідомленості. Мета не в тому, щоб розслабитись за будь-яку ціну, а в тому, щоб просто помітити, що зараз відчуває тіло, без оцінки.",
-        audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+        audioUrl: "https://gvetalfctsojvwucxmeo.supabase.co/storage/v1/object/public/content-files/velariomusic-meditation-background-603870.mp3",
       },
       {
         id: "mindfulness-course__m2__i2",
@@ -481,7 +483,7 @@ export const programModules: Record<string, ContentModule[]> = {
         isRequired: true,
         durationMinutes: 15,
         body: "Дихання завжди відбувається в теперішньому моменті — саме тому увага до нього такий надійний якір, коли думки розбігаються. Ця практика не про «правильне» дихання, а про спостереження за ним таким, яке воно є.",
-        audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+        audioUrl: "https://gvetalfctsojvwucxmeo.supabase.co/storage/v1/object/public/content-files/andriig-meditation-meditation-music-581020.mp3",
       },
     ]),
     m("mindfulness-course__m3", "Усвідомленість у щоденних справах", "Як практикувати усвідомленість без окремого часу на медитацію.", [

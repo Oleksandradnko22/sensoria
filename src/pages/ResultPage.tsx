@@ -1,6 +1,6 @@
 import { Icon, type IconName } from "../components/ui/Icon";
 import { motion, useReducedMotion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import funnelStore from "../store/funnelStore";
 import type { Intensity, PrimaryStateId } from "../store/funnelStore";
@@ -9,7 +9,6 @@ import { categoryLabels } from "../data/categoryLabels";
 import { emotionalStates } from "../data/states";
 import { stateAccentColors } from "../data/stateAccentColors";
 import { LevelGauge, StateMap, ImpactScale, ResultTabs } from "../components/result/ResultVisuals";
-import type { StateAccent } from "../data/stateAccentColors";
 
 type Props = {
   onContinue: () => void;
@@ -208,189 +207,6 @@ function NextStepAtmosphere({ prefersReducedMotion }: { prefersReducedMotion: bo
 // to a percentage — wouldn't read as an action to a screen reader),
 // just laid out and styled as a track + fill + dot + percentage
 // instead of a capsule with text centered in it.
-function ProgressAction({
-  onActivate,
-  accent,
-  secondaryAccent,
-  prefersReducedMotion,
-  percent,
-}: {
-  onActivate: () => void;
-  accent: StateAccent;
-  secondaryAccent: StateAccent | null;
-  prefersReducedMotion: boolean;
-  percent: number;
-}) {
-  const [hovered, setHovered] = useState(false);
-  const [completing, setCompleting] = useState(false);
-  // The single number that drives both the fill's width and the
-  // displayed percentage, so the two can never visually disagree
-  // during the completion animation (a separate CSS transition on the
-  // fill plus a separately-timed number flip would risk exactly that).
-  const [displayPercent, setDisplayPercent] = useState(percent);
-
-  // the state's colour flows into Sensoria's violet (one state) or into the second state's colour — soft tones,
-  // never two loud colours side by side (owner, 22.11.2026)
-  // a light, premium fill (white → Sensoria lavender) with dark-blue text, like the white buttons elsewhere; the
-  // state's colour lives only in the small pulsing dot — two state colours mixed in one bar looked muddy
-  const fillStyle = { background: "linear-gradient(to right, #ffffff, #e6e0ff)" };
-  const dotColor = secondaryAccent ? `linear-gradient(135deg, ${accent.hex}, ${secondaryAccent.hex})` : accent.hex;
-
-  const handleClick = () => {
-    if (completing) return; // guard against double-activation mid-animation
-
-    if (prefersReducedMotion) {
-      setDisplayPercent(100);
-      onActivate();
-      return;
-    }
-
-    setCompleting(true);
-    const from = displayPercent;
-    // Sped up again — 500ms+180ms, then 220ms+60ms, now this: just
-    // enough motion to register as "completing" without feeling like a
-    // delay before the click "loads."
-    const duration = 130;
-    const start = performance.now();
-
-    const tick = (now: number) => {
-      const t = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
-      setDisplayPercent(from + (100 - from) * eased);
-      if (t < 1) {
-        requestAnimationFrame(tick);
-      } else {
-        window.setTimeout(onActivate, 30);
-      }
-    };
-    requestAnimationFrame(tick);
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      aria-label="Продовжити: створити акаунт і отримати добірку матеріалів"
-      className="
-        relative
-        w-full
-        max-w-[560px]
-        h-16
-        rounded-full
-        overflow-hidden
-        cursor-pointer
-        border border-white/10
-
-        focus-visible:outline-none
-        focus-visible:ring-2
-        focus-visible:ring-white
-        focus-visible:ring-offset-2
-        focus-visible:ring-offset-[#2563eb]
-      "
-      style={{
-        transform: hovered && !prefersReducedMotion ? "translateY(-2px)" : "translateY(0)",
-        transition: "transform 0.15s ease-out",
-      }}
-    >
-      {/* Track — the "remaining" portion. Its own tone lifts a hair on
-          hover ("the remaining 8% subtly illuminates"); since the fill
-          sits on top of nearly all of it, that lift is only actually
-          visible in the sliver the fill doesn't cover. */}
-      <span
-        aria-hidden="true"
-        className="absolute inset-0 rounded-full"
-        style={{
-          backgroundColor:
-            hovered && !prefersReducedMotion
-              ? "rgba(255,255,255,0.14)"
-              : "rgba(255,255,255,0.08)",
-          transition: "background-color 0.15s ease-out",
-        }}
-      />
-
-      {/* Fill — the completed portion, in the existing accent
-          gradient. Width is driven by the same `displayPercent` state
-          the number below reads from. */}
-      <span
-        aria-hidden="true"
-        className="absolute inset-y-0 left-0 rounded-full"
-        style={{
-          ...fillStyle,
-          // hovering fills the meter to the end: «one move and it's done»
-          width: `${hovered && !prefersReducedMotion ? 100 : displayPercent}%`,
-          transition: completing ? "none" : "width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1)",
-        }}
-      />
-
-      {/* Content — dot + label ride on the filled portion, the
-          percentage sits in the remaining portion. A soft text-shadow
-          keeps both legible regardless of which accent color is
-          underneath. */}
-      <span
-        className="relative z-10 h-full flex items-center justify-between px-6"
-        style={{ textShadow: "none" }}
-      >
-        <span className="flex items-center gap-3">
-          {/* Pulses gently at rest too (not just on hover) — Sasha's
-              feedback was that at rest it wasn't obviously clickable,
-              so the dot now stays quietly "alive" the whole time, and
-              picks up size/speed on hover as a clear response to the
-              interaction rather than the only sign of life. */}
-          {/* CSS animation, not Framer Motion — this pulses continuously
-              for as long as the component is mounted, so it's one of
-              the constant-background-cost animations moved off the
-              main thread (see index.css for `dot-pulse-idle`/-hover). */}
-          <span
-            aria-hidden="true"
-            className="w-2.5 h-2.5 rounded-full shrink-0"
-            style={{
-              background: dotColor,
-              animation: prefersReducedMotion
-                ? "none"
-                : hovered
-                ? "dot-pulse-hover 1.6s ease-in-out infinite"
-                : "dot-pulse-idle 2.4s ease-in-out infinite",
-            }}
-          />
-          <span className="text-[#1e3a8a] font-medium text-base whitespace-nowrap">
-            Ваш результат готовий
-          </span>
-        </span>
-
-        <span className="flex items-center gap-2">
-          <span className="text-[#1e3a8a] font-semibold text-base tabular-nums">
-            Далі
-          </span>
-          {/* A plain arrow — the clearest, quietest way to say "this
-              goes forward" without turning the meter back into a
-              generic button. Nudges a couple px on hover, same as the
-              rest of the component. */}
-          <motion.svg
-            aria-hidden="true"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            animate={{ x: hovered && !prefersReducedMotion ? 3 : 0 }}
-            transition={{ duration: 0.15, ease: "easeOut" }}
-          >
-            <path
-              d="M5 12h13m0 0-5-5m5 5-5 5"
-              stroke={hovered && !prefersReducedMotion ? "#1e3a8a" : "white"}
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </motion.svg>
-        </span>
-      </span>
-    </button>
-  );
-}
-
-
 function Step({ n, title, children, delay, reduce }: { n: number; title: string; children: React.ReactNode; delay: number; reduce: boolean }) {
   return (
     <motion.section
@@ -438,9 +254,9 @@ export default function ResultPage({ onContinue, onMissingData, onRetake }: Prop
 
   // which format to start with: gentle first when the state is strong
   const formats: { icon: IconName; title: string; text: string; tag: string; start: boolean }[] = [
-    { icon: "meditation", title: "Медитації", text: "Короткі практики, щоб заспокоїтися, відновити сили й повернути відчуття опори. Можна почати вже сьогодні.", tag: highLevel ? "Почати з цього" : "Кілька хвилин на день", start: highLevel },
+    { icon: "meditation", title: "Медитації", text: "Короткі практики, які можуть допомогти заспокоїтися, відновити сили й відчути опору. Можна почати вже сьогодні.", tag: highLevel ? "Почати з цього" : "Кілька хвилин на день", start: highLevel },
     { icon: "guide", title: "Гайди", text: "Пояснюють, що відбувається, і дають конкретні кроки, які можна пробувати у своєму темпі.", tag: insight.intensity === "moderate" ? "Почати з цього" : "Щоб розібратися", start: insight.intensity === "moderate" },
-    { icon: "library", title: "Програми", text: "Покроковий шлях від автора: модулі, практики й завдання для глибшої роботи й стійких змін.", tag: insight.intensity === "low" ? "Почати з цього" : highLevel ? "Коли буде ресурс" : "Для глибшої роботи", start: insight.intensity === "low" },
+    { icon: "library", title: "Програми", text: "Покроковий шлях від автора: модулі, практики й завдання для глибшої роботи у власному темпі.", tag: insight.intensity === "low" ? "Почати з цього" : highLevel ? "Коли буде ресурс" : "Для глибшої роботи", start: insight.intensity === "low" },
   ];
 
   let n = 0;
@@ -582,7 +398,7 @@ export default function ResultPage({ onContinue, onMissingData, onRetake }: Prop
           <Step n={next()} title="Ваш шлях" delay={0.05} reduce={reduce}>
             <ol className="relative grid gap-4 md:grid-cols-3">
               {[
-                { label: "Зараз", title: "Ви помітили свій стан", text: "Ви чесно відповіли на питання й побачили, що відбувається. Саме з цього починаються зміни." },
+                { label: "Зараз", title: "Ви помітили свій стан", text: "Ви чесно відповіли на питання й побачили, що відбувається. Це перший крок, щоб краще зрозуміти себе." },
                 { label: "Далі", title: profile.recoveryFocusShort, text: profile.focusSupportLine },
                 { label: "Поступово", title: profile.stepMilestone, text: profile.hope },
               ].map((s, i) => (
@@ -641,9 +457,18 @@ export default function ResultPage({ onContinue, onMissingData, onRetake }: Prop
               Створіть акаунт, це безкоштовно. Ми покажемо матеріали саме для вашого стану, а результат збережеться лише з вашої згоди.
             </p>
             <div className="relative flex justify-center">
-              <ProgressAction onActivate={onContinue} accent={accentObj} secondaryAccent={secondaryAccentObj} prefersReducedMotion={reduce} percent={92} />
+              {/* an ordinary button (lawyer, 22.11.2026: no fake «92 %» progress) */}
+              <button
+                type="button"
+                onClick={onContinue}
+                className="group inline-flex min-h-[60px] w-full max-w-[420px] cursor-pointer items-center justify-center gap-3 rounded-full bg-white px-8 text-[17px] font-semibold text-[#1e3a8a] shadow-[0_20px_50px_-20px_rgba(20,20,80,0.7)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_26px_60px_-20px_rgba(20,20,80,0.8)] focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#2563eb]"
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: secondaryAccent ? `linear-gradient(135deg, ${accent}, ${secondaryAccent})` : accent }} aria-hidden="true" />
+                Продовжити
+                <span aria-hidden="true" className="transition-transform group-hover:translate-x-1">→</span>
+              </button>
             </div>
-            <p className="mt-4 text-sm text-white/50">Залишився лише один крок</p>
+            <p className="mt-4 text-sm text-white/50">Створення акаунта займе хвилину</p>
           </div>
         </motion.section>
       </div>

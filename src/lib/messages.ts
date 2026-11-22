@@ -274,12 +274,13 @@ export async function sendMessage(params: {
   // just to pass along something the person sees the moment they open
   // the thread anyway.
   if (result.delivered) {
-    const preview = params.body.length > 140 ? `${params.body.slice(0, 140)}…` : params.body;
+    // never the text itself: people write about their state, and it must not end up in mailboxes or on lock
+    // screens (lawyer, 22.11.2026, Ю-5.1б)
     sendNotificationEmail(
       params.recipientId,
       "message",
       "Нове повідомлення на Sensoria",
-      `У вас нове повідомлення на Sensoria:\n\n«${preview}»\n\nВідповісти можна у своєму кабінеті на сайті.`
+      "У вас нове повідомлення на Sensoria. Прочитати й відповісти — у кабінеті на сайті."
     );
   }
 

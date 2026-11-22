@@ -66,6 +66,13 @@ const EXTRA: { table: string; column: string }[] = [
   { table: "author_follows", column: "follower_id" },
   { table: "content_comment_reports", column: "reporter_id" },
   { table: "author_post_comment_reports", column: "reporter_id" },
+  // повторна звірка 22.11.2026: ще дані людини, які вона може читати сама (решту — журнал доступу з IP, замовлення
+  // в банку, дані ФОП для банку — видаємо за запитом, Політика, «Ваші права»)
+  { table: "purchase_consents", column: "buyer_id" }, // згоди на негайний доступ при покупках
+  { table: "author_bank_accounts", column: "author_id" },
+  { table: "author_promo_codes", column: "author_id" },
+  { table: "author_posts", column: "author_id" },
+  { table: "fiscal_receipts", column: "author_id" },
   { table: "user_sessions", column: "profile_id" },
 ];
 

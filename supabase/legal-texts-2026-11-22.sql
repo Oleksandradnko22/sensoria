@@ -1,0 +1,16 @@
+-- Редакція 1.1 (юрист, 22.11.2026, розділ «Ю-Р»): усі правки до запуску (monobank, безпека, перевірка 22.11) — одна
+-- редакція 1.1, чинна з дня публікації. Редакція 1.0 отримує назад свої хеші (запис «прийняв 1.0» має відповідати тексту
+-- 1.0). Тестовим акаунтам вікно «Умови оновилися» запропонує прийняти 1.1. Ідемпотентно; замінює попередню версію цього файлу.
+begin;
+update public.legal_documents set text_hash = '43639290eb0ca84adf31c3e9711892dbe1c986812ea7d6599eec7f600cb620fe' where document = 'participant_agreement' and version = '1.0';
+update public.legal_documents set text_hash = '147e741b9a2eef66de8b74ce7f86744b442160e57368fa4c1a2fc8381d01bd98' where document = 'author_agreement' and version = '1.0';
+update public.legal_documents set text_hash = '18b6ba6046055d3f9bc6d25ab642ad84837e513563bba5dc427053e5f5c6cac9' where document = 'terms' and version = '1.0';
+update public.legal_documents set text_hash = 'aa96f1f387414b90e06f5f1ef1f9528e2d36fd9aed3468a4ad487a90a3a26c99' where document = 'privacy' and version = '1.0';
+update public.legal_documents set text_hash = 'dde3983d5fea131482d16cc8c63123d8e767e992eabc12d625166b187cbe995e' where document = 'refunds' and version = '1.0';
+update public.legal_documents set is_current = false where is_current;
+insert into public.legal_documents (document, version, text_hash, effective_from, changes_summary, is_current) values ('participant_agreement', '1.1', 'c78b24ff06917ac891cf830b9e34f4df18f64127e1f3d749afcdc3774e9450f5', now(), 'Правки до запуску: monobank, безпека вмісту, юридична перевірка 22.11.2026', true) on conflict (document, version) do update set text_hash = excluded.text_hash, is_current = true;
+insert into public.legal_documents (document, version, text_hash, effective_from, changes_summary, is_current) values ('author_agreement', '1.1', '46f5de9e99b7fc05cbd6f9ceb9ba1bc7dd5574c06000053b065058baa1b47d2e', now(), 'Правки до запуску: monobank, безпека вмісту, юридична перевірка 22.11.2026', true) on conflict (document, version) do update set text_hash = excluded.text_hash, is_current = true;
+insert into public.legal_documents (document, version, text_hash, effective_from, changes_summary, is_current) values ('terms', '1.1', '3d16a2b97db5d3831bf412bae52a59b23445b068a7682a597028e8935ce68731', now(), 'Правки до запуску: monobank, безпека вмісту, юридична перевірка 22.11.2026', true) on conflict (document, version) do update set text_hash = excluded.text_hash, is_current = true;
+insert into public.legal_documents (document, version, text_hash, effective_from, changes_summary, is_current) values ('privacy', '1.1', 'e0b8e0e7911de05d699e0e8810d15aaadfc31c0ac974161eb1791ff09fa34d29', now(), 'Правки до запуску: monobank, безпека вмісту, юридична перевірка 22.11.2026', true) on conflict (document, version) do update set text_hash = excluded.text_hash, is_current = true;
+insert into public.legal_documents (document, version, text_hash, effective_from, changes_summary, is_current) values ('refunds', '1.1', 'dde3983d5fea131482d16cc8c63123d8e767e992eabc12d625166b187cbe995e', now(), 'Правки до запуску: monobank, безпека вмісту, юридична перевірка 22.11.2026', true) on conflict (document, version) do update set text_hash = excluded.text_hash, is_current = true;
+commit;

@@ -331,6 +331,8 @@ export default function AuthorCourseEditor({
   const [hasEmbeddedMusic, setHasEmbeddedMusic] = useState(editing?.meditation?.hasEmbeddedMusic ?? false);
   const [offlineDownload, setOfflineDownload] = useState(editing?.meditation?.offlineDownloadEnabled ?? false);
   const [contraindications, setContraindications] = useState(editing?.meditation?.contraindications ?? "");
+  // a breathing practice must state its contraindications (lawyer, 22.11.2026, 1.5)
+  const [breathing, setBreathing] = useState(!!editing?.meditation?.contraindications);
   const [whenItems, setWhenItems] = useState<string[]>(() => {
     const saved = editing?.meditation?.whenToUse ?? [];
     return saved.length >= WHEN_MIN_ITEMS ? saved : [...saved, ...Array(WHEN_MIN_ITEMS - saved.length).fill("")];
@@ -1053,6 +1055,7 @@ export default function AuthorCourseEditor({
       const t = titleProblem(title); if (t) out.push(t);
       const d = descriptionProblem(description); if (d) out.push(d);
       if (type === "meditation") out.push(...meditationWhenProblems(whenItems));
+      if (type === "meditation" && breathing && contraindications.trim().length < 10) out.push("Для дихальної практики вкажіть протипоказання.");
     } else if (key === "price") {
       const p = priceModeProblem(priceMode, price, W); if (p) out.push(p);
     } else if (key === "categories") {
@@ -1352,9 +1355,13 @@ export default function AuthorCourseEditor({
       </ul>
       <p className="mt-3 text-[13px] text-black/60">Кожен пункт від 5 до {WHEN_ITEM_MAX} символів.</p>
       {/* safety review 21.11.2026, С13: the author states the contraindications of their own practice */}
-      <label className="mt-6 block">
-        <span className="block text-[14px] font-semibold text-[#12172b]">Протипоказання <span className="font-normal text-black/50">(необов’язково)</span></span>
-        <span className="mt-1 block text-[13px] text-black/60">Обов’язково для дихальних практик із затримкою чи прискореним диханням.</span>
+      <label className="mt-6 flex cursor-pointer items-start gap-3 text-[14px] text-[#12172b]">
+        <input type="checkbox" checked={breathing} onChange={(e) => setBreathing(e.target.checked)} className="mt-[3px] h-[18px] w-[18px] shrink-0 accent-[#4338ca]" />
+        <span>Практика містить дихальні техніки (затримка чи прискорене дихання)</span>
+      </label>
+      <label className="mt-3 block">
+        <span className="block text-[14px] font-semibold text-[#12172b]">Протипоказання {!breathing && <span className="font-normal text-black/50">(необов’язково)</span>}</span>
+        <span className="mt-1 block text-[13px] text-black/60">Обов’язково для дихальних практик, особливо із затримкою чи прискореним диханням.</span>
         <textarea
           value={contraindications}
           onChange={(e) => setContraindications(e.target.value.slice(0, 500))}

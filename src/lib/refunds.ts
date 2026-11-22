@@ -30,7 +30,7 @@ export async function submitRefundRequest(params: {
   reason: string;
 }): Promise<void> {
   const client = requireSupabase();
-  const { error } = await client.from("refund_requests").insert({
+  const { data, error } = await client.from("refund_requests").insert({
     participant_id: params.participantId,
     ...(params.purchaseId && /^[0-9a-f-]{36}$/i.test(params.purchaseId) ? { purchase_id: params.purchaseId } : {}),
     content_title: params.contentTitle,
@@ -41,6 +41,8 @@ export async function submitRefundRequest(params: {
     email: params.email.trim(),
     phone: params.phone.trim(),
     reason: params.reason.trim(),
-  });
+  }).select("id").single();
   if (error) throw error;
+  // «Запит отримано» to the buyer (lawyer, Ю-5.1а); best effort, the request itself is already saved
+  if (data?.id) void client.functions.invoke("finance", { body: { action: "refundRequestAck", requestId: data.id } }).catch(() => undefined);
 }

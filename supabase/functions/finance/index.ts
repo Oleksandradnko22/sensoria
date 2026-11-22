@@ -2566,8 +2566,12 @@ async function sellerOf(authorId: string): Promise<{ legalName: string; codeMask
   if (error) ({ data: r } = await admin.from("author_mono_receivers").select("legal_name, ipn, status").eq("author_id", authorId).maybeSingle()); // before seller-address.sql
   const code = String(r?.ipn ?? "");
   if (r?.legal_name && code) {
+    // the buyer must see that a sole proprietor sells, not a private person (lawyer, 22.11.2026): «ФОП …» for a
+    // 10-digit РНОКПП when the author typed the bare name; a company (8-digit ЄДРПОУ) keeps its own name
+    const name = String(r.legal_name).trim();
+    const legalName = code.length === 10 && !/^(ФОП|фізична особа\s*[—-]\s*підприємець)(?=\s|$)/i.test(name) ? `ФОП ${name}` : name;
     return {
-      legalName: String(r.legal_name),
+      legalName,
       codeMasked: code.length === 8 ? `код ЄДРПОУ ${code}` : `РНОКПП ${code}`,
       address: (r as { legal_address?: string | null }).legal_address ?? null,
     };

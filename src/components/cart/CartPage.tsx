@@ -453,7 +453,7 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
               </p>
 
               <p className="mt-5 text-[13px] leading-relaxed text-slate-600">
-                Натискаючи «Перейти до оплати», ви купуєте доступ до матеріалу в продавця на умовах{" "}
+                Оплачуючи замовлення на сторінці банку, ви купуєте доступ до матеріалу в продавця на умовах{" "}
                 <a href="/participant-agreement" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Угоди учасника</a>. Доступ — у «Моєму навчанні» одразу після оплати, без обмеження строку, доки працює Платформа.
               </p>
               <div className="mt-4 flex flex-col gap-4 rounded-[20px] bg-white p-4 ring-1 ring-[#ebe8ff] sm:flex-row sm:items-center sm:justify-between sm:p-5">

@@ -84,6 +84,8 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
   // Blocking an account is destructive — ask first. (Unblocking is instant.)
   const [banConfirm, setBanConfirm] = useState<AdminUserRow | null>(null);
   const [eduRevoke, setEduRevoke] = useState<AdminUserRow | null>(null);
+  // granting «Фахівець» by hand (documents reviewed outside a request, e.g. sent by email); logged with the reason
+  const [eduGrant, setEduGrant] = useState<AdminUserRow | null>(null);
 
   const [refunds, setRefunds] = useState<RefundRequest[] | null>(null);
   const [refundsError, setRefundsError] = useState<string | null>(null);
@@ -568,6 +570,15 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
                                   Зняти статус «Фахівець»
                                 </button>
                               )}
+                              {u.role === "author" && !u.educationVerified && me?.role === "owner" && (
+                                <button
+                                  onClick={() => setEduGrant(u)}
+                                  disabled={busyUserId === u.id}
+                                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-black/5 hover:bg-black/10 transition disabled:opacity-50"
+                                >
+                                  Надати статус «Фахівець»
+                                </button>
+                              )}
                               {!u.isAdmin &&
                                 (u.isBanned ||
                                   // Chat already blocked → the account block isn't offered here
@@ -842,6 +853,29 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
         <AdminUserDetail
           user={detailUser}
           onClose={() => setDetailUser(null)}
+        />
+      )}
+      {eduGrant && (
+        <ConfirmDialog
+          title="Надати статус «Фахівець»?"
+          text={`${eduGrant.name} зможе публікувати матеріали на теми підвищеного ризику. Надавайте статус лише після перегляду документів про освіту; у причині вкажіть, які документи переглянуто.`}
+          confirmLabel="Надати статус"
+          askReason
+          busy={busyUserId === eduGrant.id}
+          onConfirm={async (reason) => {
+            const u = eduGrant;
+            setBusyUserId(u.id);
+            try {
+              await setEducationVerified(u.id, true, reason);
+              reloadUsers();
+            } catch (e) {
+              setUsersError(e instanceof Error ? e.message : "Не вдалося оновити.");
+            } finally {
+              setBusyUserId(null);
+              setEduGrant(null);
+            }
+          }}
+          onCancel={() => busyUserId === null && setEduGrant(null)}
         />
       )}
       {eduRevoke && (

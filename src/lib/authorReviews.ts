@@ -90,7 +90,8 @@ export async function upsertAuthorReview(params: {
       params.authorId,
       "review",
       "Новий відгук про вас на Sensoria",
-      `Учасник залишив вам відгук (оцінка ${params.rating} з 5):\n\n«${params.text}»\n\nПереглянути відгук і відповісти на нього можна на вашому публічному профілі на сайті.`,
+      // never the text itself (lawyer, 22.11.2026: no text written by another person in emails)
+      `Новий відгук про вас, оцінка ${params.rating} з 5. Прочитати й відповісти — на вашому публічному профілі на сайті.`,
       { authorReviewId: data.id as string }
     );
   }

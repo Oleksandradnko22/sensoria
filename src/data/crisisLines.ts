@@ -1,6 +1,7 @@
 // THE list of crisis lines: the «Допомога в кризі» page and the crisis window in «Публікації» both read it, so a
-// paused number cannot stay in one place (safety review 21.11.2026, С7). Re-check every quarter (docs/legal/crisis-help-edits.md).
-// Not listed: Lifeline Ukraine 7333 (paused).
+// paused number cannot stay in one place (safety review 21.11.2026, С7).
+// Only lines the owner tested by a call (20.11.2026) plus the state emergency numbers 112 and 103 (owner, 22.11.2026: no
+// unverified lines on the site). Not listed: Lifeline Ukraine 7333 (paused); La Strada lines (not tested by a call).
 import type { IconName } from "../components/ui/Icon";
 
 export const CHECKED_AT = "20.11.2026"; // test calls 20.11.2026; next check — by 20.02.2027
@@ -29,21 +30,6 @@ export const SUPPORT: Line[] = [
     phones: [{ number: "0 800 211 444" }],
     hours: "Безкоштовно",
     note: "Міжнародна організація з міграції, номер із переліку МОЗ України.",
-  },
-  {
-    forWhom: "Для чоловіків",
-    icon: "comment",
-    name: "Лінія психологічної підтримки «Ла Страда-Україна»",
-    phones: [{ number: "2345", hint: "з мобільного" }],
-    hours: "Щодня 14:00–6:00 · безкоштовно",
-  },
-  {
-    forWhom: "Насильство, торгівля людьми",
-    icon: "shield",
-    name: "Національна гаряча лінія «Ла Страда-Україна»",
-    phones: [{ number: "116 123", hint: "з мобільного" }, { number: "0 800 500 335", hint: "з будь-якого телефону" }],
-    hours: "Цілодобово · безкоштовно",
-    note: "Психологи та юристи.",
   },
 ];
 

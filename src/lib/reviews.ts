@@ -207,7 +207,8 @@ export async function replyToReview(params: {
     params.participantId,
     "reply",
     "Автор відповів на ваш відгук",
-    `Автор відповів на ваш відгук про «${params.contentTitle}» на Sensoria:\n\n«${params.reply}»\n\nПереглянути відгук можна у своєму кабінеті на сайті.`,
+    // never the text itself (lawyer, 22.11.2026: no text written by another person in emails)
+    `Автор відповів(-ла) на ваш відгук про «${params.contentTitle}». Прочитати — на сторінці матеріалу.`,
     // Lets the Edge Function verify this reviewId genuinely belongs to
     // a review authored-on-content-by-this-caller and addressed to
     // this recipient before it sends anything (2026-08-30 security

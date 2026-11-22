@@ -178,7 +178,8 @@ export async function saveReviewReply(reviewId: string, reply: string | null, au
       participantId,
       "reply",
       "Автор відповів на ваш відгук",
-      `${authorName} відповів(ла) на ваш відгук про автора на Sensoria:\n\n«${text}»\n\nПереглянути відповідь можна на публічному профілі автора на сайті.`,
+      // never the text itself (lawyer, 22.11.2026: no text written by another person in emails)
+      `${authorName} відповів(-ла) на ваш відгук про автора. Прочитати — на публічному профілі автора на сайті.`,
       { authorReviewId: reviewId }
     );
   }

@@ -57,7 +57,7 @@ export async function submitTicket(params: {
     .single();
   if (error) throw error;
 
-  notifyAdminsOfNewTicket(client, inserted.id, params.category, params.description.trim());
+  notifyAdminsOfNewTicket(client, inserted.id, params.category);
 }
 
 // Best-effort, fire-and-forget — the ticket itself is already saved by
@@ -73,8 +73,7 @@ export async function submitTicket(params: {
 function notifyAdminsOfNewTicket(
   client: NonNullable<typeof supabase>,
   ticketId: string,
-  category: TicketCategory,
-  description: string
+  category: TicketCategory
 ): void {
   client
     .from("profiles")
@@ -83,7 +82,8 @@ function notifyAdminsOfNewTicket(
     .then(({ data: admins, error }) => {
       if (error || !admins?.length) return;
       const subject = `Нове звернення в підтримку: ${TICKET_CATEGORY_LABELS[category]}`;
-      const text = `Категорія: ${TICKET_CATEGORY_LABELS[category]}\n\n${description}\n\nВідповісти можна в адмін-панелі, вкладка «Звернення».`;
+      // never the text itself (lawyer, 22.11.2026: no text written by another person in emails)
+      const text = `Категорія: ${TICKET_CATEGORY_LABELS[category]}\n\nПрочитати й відповісти — в адмін-панелі, вкладка «Звернення».`;
       // ticketId meta (2026-08-30 security fix) — lets the Edge
       // Function confirm this ticket genuinely exists, belongs to the
       // real calling user, and that each recipient really is an admin,

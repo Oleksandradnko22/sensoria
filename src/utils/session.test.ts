@@ -67,7 +67,7 @@ test("refreshing the same tab after touch() keeps the session", () => {
 
 test("closing and reopening the tab evicts, even immediately", () => {
   const local = fakeStorage();
-  let clock = 1000;
+  const clock = 1000;
   const firstTab = createSessionBookkeeper(local, fakeStorage(), () => clock);
   firstTab.checkAndMarkTabOpen();
   firstTab.touch();

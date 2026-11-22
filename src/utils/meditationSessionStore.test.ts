@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 // localStorage doesn't exist under plain Node — a tiny in-memory stand-in
 // is enough since the module only calls getItem/setItem.
-(globalThis as any).localStorage = (() => {
+(globalThis as unknown as { localStorage: Storage }).localStorage = (() => {
   let store: Record<string, string> = {};
   return {
     getItem: (k: string) => store[k] ?? null,
@@ -75,7 +75,7 @@ test("merge: larger count, later dates; no server data keeps local", () => {
 });
 
 test("hydrate: a fresh device gets the account's history", () => {
-  (globalThis as any).localStorage.clear();
+  (globalThis as unknown as { localStorage: Storage }).localStorage.clear();
   hydrateSessionHistory({ z: { sessionCount: 3, lastStartedAt: "2026-10-02T00:00:00Z", lastCompletedAt: null } });
   assert.equal(getSessionHistory("z").sessionCount, 3);
 });

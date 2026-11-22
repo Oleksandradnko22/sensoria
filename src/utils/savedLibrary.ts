@@ -41,7 +41,7 @@ export function sortSaved<T extends { at: string; title: string }>(items: T[], m
   return items
     .map((item, index) => ({ item, index }))
     .sort((a, b) => {
-      let diff = 0;
+      let diff: number;
       if (mode === "recent") {
         const ta = time(a.item.at);
         const tb = time(b.item.at);

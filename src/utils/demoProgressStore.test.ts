@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 // localStorage doesn't exist under plain Node — same tiny in-memory
 // stand-in as meditationSessionStore.test.ts.
-(globalThis as any).localStorage = (() => {
+(globalThis as unknown as { localStorage: Storage }).localStorage = (() => {
   let store: Record<string, string> = {};
   return {
     getItem: (k: string) => store[k] ?? null,

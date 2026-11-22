@@ -148,17 +148,15 @@ export function timerState(phases: TimerPhase[], elapsedSeconds: number): TimerS
   const totalSeconds = totalPhaseSeconds(phases);
   const elapsed = Math.min(Math.max(0, elapsedSeconds), totalSeconds);
   const done = totalSeconds > 0 && elapsed >= totalSeconds;
-  let phaseIndex = 0;
   let phaseStart = 0;
   for (let i = 0; i < phases.length; i += 1) {
     const end = phaseStart + phases[i].seconds;
-    phaseIndex = i;
     if (elapsed < end) {
       return {
         totalSeconds,
         elapsed,
         remaining: totalSeconds - elapsed,
-        phaseIndex,
+        phaseIndex: i,
         phaseRemaining: end - elapsed,
         progress: totalSeconds > 0 ? elapsed / totalSeconds : 0,
         done,

@@ -159,6 +159,13 @@ function AppInner() {
     if (window.location.pathname !== target) window.history.pushState(null, "", target);
   }, [page, authorProfileId, programDetailId]);
 
+  // Tab title per page. Pages with their own title (program, author, legal, contacts, crisis help) set it
+  // themselves: their effects run first, so this one leaves them alone.
+  useEffect(() => {
+    const t = PAGE_TITLES[page];
+    if (t) document.title = t === DEFAULT_TITLE ? t : `${t} — Sensoria`;
+  }, [page]);
+
   // `?ref=<authorId>` from an author's referral link is remembered (30 days, last click wins)
   useEffect(() => {
     captureReferralFromUrl();
@@ -1640,6 +1647,30 @@ if (page === "admin-dashboard") {
     </div>
   );
 }
+
+const DEFAULT_TITLE = "Sensoria — психологічні програми, гайди та медитації";
+const PAGE_TITLES: Partial<Record<Page, string>> = {
+  home: DEFAULT_TITLE,
+  "state-selection": "Психологічний тест",
+  test: "Психологічний тест",
+  result: "Ваш результат",
+  registration: "Реєстрація",
+  login: "Вхід",
+  preparing: "Підбираємо матеріали",
+  recommendation: "Ваші рекомендації",
+  program: "Ваші рекомендації",
+  catalog: "Каталог програм",
+  cart: "Кошик",
+  guides: "Каталог гайдів",
+  meditations: "Каталог медитацій",
+  "author-dashboard": "Кабінет автора",
+  "participant-dashboard": "Особистий кабінет",
+  "author-auth": "Вхід для автора",
+  "participant-auth": "Вхід",
+  "admin-dashboard": "Адмінка",
+  "author-profile": "Автор",
+  "payment-result": "Результат оплати",
+};
 
 export default function App() {
   return (

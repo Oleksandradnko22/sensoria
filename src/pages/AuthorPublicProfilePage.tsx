@@ -216,6 +216,10 @@ export default function AuthorPublicProfilePage({
   // Followers shown in the header follow the visitor's own (optimistic) toggle.
   const [followDelta, setFollowDelta] = useState(0);
   useEffect(() => setFollowDelta(0), [authorId]);
+  // tab title: the author's name (App sets the generic one before the profile loads)
+  useEffect(() => {
+    if (data?.name) document.title = `${data.name} — Sensoria`;
+  }, [data?.name]);
   const audience = data?.audience
     ? { ...data.audience, followers: Math.max(0, data.audience.followers + followDelta) }
     : null;

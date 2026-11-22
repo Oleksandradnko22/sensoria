@@ -138,7 +138,7 @@ function emailNormalize(s: string): string {
 // Detectors (§2)
 // ---------------------------------------------------------------------------
 
-const PHONE_PATTERN = /(?:\+?\d[\d\-\s().\/]{6,}\d)/;
+const PHONE_PATTERN = /(?:\+?\d[\d\-\s()./]{6,}\d)/;
 // Catches a request/offer to exchange a phone number even when no digits
 // are actually present yet ("Скиньте свій номер", "Дайте ваш номер").
 // \p{L}* (not \w*) because \w is ASCII-only and won't extend over Cyrillic
@@ -206,7 +206,7 @@ function detectEmail(base: string, folded: string): Hit[] {
 const HANDLE_PATTERN = /(?:^|[\s(])@[a-zA-Z0-9_.]{3,}/;
 // No leading \b — it's ASCII-only in JS and never matches before the
 // Cyrillic "нік" alternative, so it would silently be unreachable.
-const PREFIXED_HANDLE_PATTERN = /(tg|ig|inst|wa|нік)\s*[:\-]\s*[a-zA-Z0-9_.]{3,}/;
+const PREFIXED_HANDLE_PATTERN = /(tg|ig|inst|wa|нік)\s*[:-]\s*[a-zA-Z0-9_.]{3,}/;
 const PROFILE_URL_PATTERN =
   /\b(instagram\.com|t\.me|wa\.me|signal\.me|discord\.gg|facebook\.com|linkedin\.com\/in|x\.com|twitter\.com|threads\.net|tiktok\.com)\/[a-zA-Z0-9_.]+/;
 

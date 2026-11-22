@@ -151,9 +151,6 @@ function Detail({ program: loadedProgram, session, onBackToCatalog, onRequireLog
   }, []);
   useEffect(() => {
     document.title = `${program.title} — Sensoria`;
-    return () => {
-      document.title = "Sensoria";
-    };
   }, [program.title]);
   const onTabKey = (e: React.KeyboardEvent, i: number) => {
     if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(e.key)) return;

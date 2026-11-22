@@ -30,7 +30,7 @@ export default function StateSelectionPage({
       "
     >
 
-      <div className="max-w-5xl w-full">
+      <div className="max-w-[1040px] w-full">
 
   {/* HEADER */}
 
@@ -38,8 +38,9 @@ export default function StateSelectionPage({
 
   <h1
     className="
-      text-4xl
-text-[52px]
+      text-[34px]
+      sm:text-[52px]
+      leading-tight
       font-bold
       text-white
       mb-5

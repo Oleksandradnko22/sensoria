@@ -1,58 +1,58 @@
 import { Icon, type IconName } from "../components/ui/Icon";
-import {
-  motion,
-  AnimatePresence,
-  useReducedMotion,
-} from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 
 import funnelStore from "../store/funnelStore";
-import type { Intensity } from "../store/funnelStore";
+import type { Intensity, PrimaryStateId } from "../store/funnelStore";
 import { getStateProfile } from "../utils/getStateProfile";
 import { categoryLabels } from "../data/categoryLabels";
 import { emotionalStates } from "../data/states";
 import { stateAccentColors } from "../data/stateAccentColors";
+import { LevelGauge, StateMap, ImpactScale, ResultTabs } from "../components/result/ResultVisuals";
 import type { StateAccent } from "../data/stateAccentColors";
 
 type Props = {
   onContinue: () => void;
-  // Called when there's no `insight` to render — e.g. a direct refresh
-  // that lands here with nothing (or not yet anything) in the store.
-  // funnelStore now persists `insight` to sessionStorage, so this should
-  // only fire on a genuinely empty session. The Result page has no route
-  // of its own to redirect via (see engineering review), so the caller
-  // decides where "start over" sends the user.
+  // no `insight` to render (an empty session): the caller decides where «start over» sends the person
   onMissingData: () => void;
   /** the person accepted the hint to take the test for another state */
   onRetake?: () => void;
 };
 
-// Supporting Patterns no longer get their own section (Phase 1 review).
-// Folded into the Validation content as a trailing clause, only visible
-// when the user opens that accordion item — so it reads as the same
-// voice continuing a thought ("one more thing we noticed") rather than a
-// second, separately-labeled finding competing with the Primary State.
-function describeSupportingPatterns(labels: string[]): string {
-  if (labels.length === 0) return "";
-  const lowered = labels.map(
-    (label) => label.charAt(0).toLowerCase() + label.slice(1)
-  );
-  const joined =
-    lowered.length === 1 ? lowered[0] : `${lowered[0]} та ${lowered[1]}`;
-  return ` Поряд із цим ваші відповіді також трохи відображають ${joined}.`;
-}
+// The result of the state questionnaire: a full, calm breakdown in ONE column, step by step (22.11.2026, owner's
+// brief): the level → what is happening → why → how it touches daily life → what else showed up → the path → which
+// formats fit → the next step (the interactive meter below). It leads towards the materials without pressure: no
+// urgency, no fear, «вирішувати вам». Self-observation levels, never percentages or diagnostic grades; wording agreed
+// with the lawyer (docs/legal/assessment-v2-review.md, safety-review-2026-11-21.md).
 
-// The same labels already rendered under the progress bar, pulled out so
-// they can also back the bar's aria-valuetext instead of existing only
-// as visual text.
-// Self-observation levels, not diagnostic grades: no percentages, no «critical» (assessment v2).
-const INTENSITY_LABELS: Record<Intensity, string> = {
-  low: "Легкий",
-  moderate: "Помірний",
-  high: "Відчутний",
-  critical: "Дуже високий",
+const LEVELS: { key: Intensity; label: string }[] = [
+  { key: "low", label: "Легкий" },
+  { key: "moderate", label: "Помірний" },
+  { key: "high", label: "Відчутний" },
+  { key: "critical", label: "Дуже високий" },
+];
+const LEVEL_LABEL = Object.fromEntries(LEVELS.map((l) => [l.key, l.label])) as Record<Intensity, string>;
+const LEVEL_HINT: Record<Intensity, string> = {
+  low: "Стан помітний, але майже не заважає щоденному життю. Це добрий момент, щоб підтримати себе, поки сил вистачає.",
+  moderate: "Стан з'являється регулярно й часом забирає сили чи увагу. Саме зараз невеликі регулярні кроки можуть дати найбільше.",
+  high: "Стан відчувається більшу частину часу й помітно впливає на день. Важливо дати собі підтримку, а не чекати, що мине саме.",
+  critical: "Стан виражений дуже сильно. Варто не залишатися з цим наодинці й почати з найм'якших кроків.",
 };
-const INTENSITY_STEP: Record<Intensity, number> = { low: 1, moderate: 2, high: 3, critical: 4 };
+const IMPACT_TEXT = [
+  "Ви відзначили, що стан майже не заважає сну, роботі, навчанню чи стосункам. Ресурс поки є, і його можна берегти.",
+  "Стан трохи позначається на сні, роботі чи стосунках. Так буває, коли напруга поступово накопичується.",
+  "Стан помітно заважає сну, роботі чи стосункам. Це сигнал приділити собі увагу, у зручному для вас темпі.",
+  "Стан дуже сильно впливає на щоденне життя. Ви не мусите справлятися з цим самостійно.",
+];
+// what the person marked as frequent for another state, in plain words
+const PATTERN_NOTE: Record<PrimaryStateId, string> = {
+  anxiety: "тривожні думки й неспокій",
+  stress: "відчуття, що навантаження більше, ніж вдається витримати",
+  burnout: "втому, яка не минає навіть після відпочинку",
+  selfEsteem: "незадоволення собою",
+  relationships: "напругу в стосунках з близькими",
+  motivation: "брак бажання щось робити",
+};
 const stateLabel = (id: string) => categoryLabels[id as keyof typeof categoryLabels] ?? id;
 
 // The four concentric "breathing" rings behind the progress component.
@@ -229,9 +229,12 @@ function ProgressAction({
   // fill plus a separately-timed number flip would risk exactly that).
   const [displayPercent, setDisplayPercent] = useState(percent);
 
-  const fillStyle = secondaryAccent
-    ? { background: `linear-gradient(to right, ${accent.hex}, ${secondaryAccent.hex})` }
-    : { backgroundColor: accent.hex };
+  // the state's colour flows into Sensoria's violet (one state) or into the second state's colour — soft tones,
+  // never two loud colours side by side (owner, 22.11.2026)
+  // a light, premium fill (white → Sensoria lavender) with dark-blue text, like the white buttons elsewhere; the
+  // state's colour lives only in the small pulsing dot — two state colours mixed in one bar looked muddy
+  const fillStyle = { background: "linear-gradient(to right, #ffffff, #e6e0ff)" };
+  const dotColor = secondaryAccent ? `linear-gradient(135deg, ${accent.hex}, ${secondaryAccent.hex})` : accent.hex;
 
   const handleClick = () => {
     if (completing) return; // guard against double-activation mid-animation
@@ -269,7 +272,7 @@ function ProgressAction({
       onClick={handleClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      aria-label={`Продовжити реєстрацію. Ваш результат готовий на ${Math.round(displayPercent)} відсотків.`}
+      aria-label="Продовжити: створити акаунт і отримати добірку матеріалів"
       className="
         relative
         w-full
@@ -313,7 +316,12 @@ function ProgressAction({
       <span
         aria-hidden="true"
         className="absolute inset-y-0 left-0 rounded-full"
-        style={{ ...fillStyle, width: `${displayPercent}%` }}
+        style={{
+          ...fillStyle,
+          // hovering fills the meter to the end: «one move and it's done»
+          width: `${hovered && !prefersReducedMotion ? 100 : displayPercent}%`,
+          transition: completing ? "none" : "width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1)",
+        }}
       />
 
       {/* Content — dot + label ride on the filled portion, the
@@ -322,7 +330,7 @@ function ProgressAction({
           underneath. */}
       <span
         className="relative z-10 h-full flex items-center justify-between px-6"
-        style={{ textShadow: "0 1px 3px rgba(0,0,0,0.3)" }}
+        style={{ textShadow: "none" }}
       >
         <span className="flex items-center gap-3">
           {/* Pulses gently at rest too (not just on hover) — Sasha's
@@ -336,8 +344,9 @@ function ProgressAction({
               main thread (see index.css for `dot-pulse-idle`/-hover). */}
           <span
             aria-hidden="true"
-            className="w-2 h-2 rounded-full bg-white shrink-0"
+            className="w-2.5 h-2.5 rounded-full shrink-0"
             style={{
+              background: dotColor,
               animation: prefersReducedMotion
                 ? "none"
                 : hovered
@@ -345,14 +354,14 @@ function ProgressAction({
                 : "dot-pulse-idle 2.4s ease-in-out infinite",
             }}
           />
-          <span className="text-white font-medium text-base whitespace-nowrap">
+          <span className="text-[#1e3a8a] font-medium text-base whitespace-nowrap">
             Ваш результат готовий
           </span>
         </span>
 
         <span className="flex items-center gap-2">
-          <span className="text-white font-semibold text-base tabular-nums">
-            {Math.round(displayPercent)}%
+          <span className="text-[#1e3a8a] font-semibold text-base tabular-nums">
+            Далі
           </span>
           {/* A plain arrow — the clearest, quietest way to say "this
               goes forward" without turning the meter back into a
@@ -369,7 +378,7 @@ function ProgressAction({
           >
             <path
               d="M5 12h13m0 0-5-5m5 5-5 5"
-              stroke="white"
+              stroke={hovered && !prefersReducedMotion ? "#1e3a8a" : "white"}
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -381,798 +390,263 @@ function ProgressAction({
   );
 }
 
-export default function ResultPage({
-  onContinue,
-  onMissingData,
-  onRetake,
-}: Props) {
 
-  // Accordion state for the "Ваші відповіді показують" section — must be
-  // declared before any early return (rules of hooks).
-  const [openCard, setOpenCard] = useState<number | null>(null);
-  const prefersReducedMotion = useReducedMotion();
+function Step({ n, title, children, delay, reduce }: { n: number; title: string; children: React.ReactNode; delay: number; reduce: boolean }) {
+  return (
+    <motion.section
+      // appears on load, never waits for scrolling: content must not stay invisible if the in-view signal never fires
+      initial={reduce ? false : { opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.5 }}
+      className="rounded-[32px] border border-white/15 bg-white/[0.08] p-6 backdrop-blur-2xl sm:p-10"
+    >
+      <div className="mb-5 flex items-center gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[15px] font-bold text-[#1e3a8a]">{n}</span>
+        <h2 className="text-2xl font-bold sm:text-[28px]">{title}</h2>
+      </div>
+      {children}
+    </motion.section>
+  );
+}
 
+export default function ResultPage({ onContinue, onMissingData, onRetake }: Props) {
+  const reduce = !!useReducedMotion();
   const insight = funnelStore.insight;
 
   useEffect(() => {
-    if (!insight) {
-      onMissingData();
-    }
+    if (!insight) onMissingData();
   }, [insight, onMissingData]);
 
   if (!insight) return null;
 
   const profile = getStateProfile(insight.primaryState, insight.intensity);
-  const accent = stateAccentColors[insight.primaryState];
-  // Only set when the user picked two states on State Selection — drives
-  // the trust-indicator circle's gradient below. One state = solid dot,
-  // unchanged from before.
-  const secondaryAccent = insight.secondaryState
-    ? stateAccentColors[insight.secondaryState]
-    : null;
-  const supportingPatternClause = describeSupportingPatterns(
-    insight.supportingPatterns.map((pattern) => stateLabel(pattern.category))
-  );
-
-  // The Primary State's real normalized score (0-100) — the same number
-  // that decided the Intensity bucket in the first place (see RFC-001's
-  // getIntensity in calculateResults.ts). Drives both the percentage
-  // shown in "Рівень навантаження" and the bar's fill width below, so
-  // they can never disagree with each other (Task 3).
-  // The bar shows the level (1 of 4), not a percentage: a short self-observation is not precise enough for one.
-  const step = INTENSITY_STEP[insight.intensity];
-  const progress = step * 25;
+  const accentObj = stateAccentColors[insight.primaryState];
+  const secondaryAccentObj = insight.secondaryState ? stateAccentColors[insight.secondaryState] : null;
+  const accent = accentObj.hex;
+  const secondaryAccent = secondaryAccentObj?.hex ?? null;
   const highLevel = insight.intensity === "high" || insight.intensity === "critical";
-  const suggested = insight.suggestedState ? emotionalStates.find((x) => x.id === insight.suggestedState) ?? null : null;
+  const suggested =
+    insight.suggestedState && !insight.safety && !highLevel ? emotionalStates.find((x) => x.id === insight.suggestedState) ?? null : null;
   const retakeFor = (state: { id: string; title: string; description: string }) => {
     funnelStore.setSelectedState({ id: state.id, title: state.title, description: state.description });
     funnelStore.setSecondaryState(null);
     onRetake?.();
   };
-
-  // Reduced-motion users get the same layout with animations collapsed
-  // to instant (duration 0) rather than removed — content still lands in
-  // the right place, nothing is skipped, it just doesn't move to get
-  // there.
-  const sectionTransition = (delay: number, duration: number) =>
-    prefersReducedMotion ? { duration: 0 } : { delay, duration };
-
-return (
-
-    <div
-      className="
-        min-h-screen
-
-        bg-gradient-to-br
-        from-[#1e3a8a]
-        via-[#2563eb]
-        to-[#8b5cf6]
-
-        px-6
-        pt-20
-        pb-20
-      "
-    >
-
-      <div
-        className="
-          w-full
-          max-w-[920px]
-          mx-auto
-        "
-      >
-
-        {/* PRIMARY STATE */}
-        <motion.section
-  initial={{
-    opacity: 0,
-    y: 30,
-  }}
-  animate={{
-    opacity: 1,
-    y: 0,
-  }}
-  transition={sectionTransition(0, 0.6)}
-  className="
-    text-center
-    mb-20
-  "
->
-
-  <p
-    className="
-      uppercase
-
-      tracking-[0.35em]
-
-      text-white/50
-
-      text-sm
-
-      mb-5
-    "
-  >
-    Ваш персональний результат
-  </p>
-
-  <h1
-    className="
-      text-white
-
-      text-[56px]
-
-      leading-[1.1]
-
-      font-bold
-
-      mb-8
-    "
-  >
-    {profile.title}
-  </h1>
-
-  {/* Accent tied to the selected Primary State — glow removed per
-      review (read as artificial), border opacity reduced further so
-      the color registers as a trace, not a highlight. */}
-  <div
-    className={`
-      inline-flex
-
-      items-center
-
-      gap-3
-
-      rounded-full
-
-      bg-white/10
-
-      backdrop-blur-xl
-
-      border border-white/10
-
-      px-6
-      py-3
-    `}
-  >
-
-    {/* Solid accent for one selected state, a smooth diagonal blend
-        between both accents when two were selected — same colors as
-        State Selection, no glow/border/extra animation on top. */}
-    <div
-      className="
-        w-2.5
-        h-2.5
-
-        rounded-full
-      "
-      style={
-        secondaryAccent
-          ? {
-              background: `linear-gradient(135deg, ${accent.hex}, ${secondaryAccent.hex})`,
-            }
-          : { backgroundColor: accent.hex }
-      }
-    />
-
-    <span
-      className="
-        text-white/80
-
-        text-sm
-      "
-    >
-      Ваш результат сформовано на основі ваших відповідей
-    </span>
-
-  </div>
-
-</motion.section>
-
-        {/* INTENSITY */}
-        <motion.section
-  initial={{
-    opacity: 0,
-    y: 30,
-  }}
-  animate={{
-    opacity: 1,
-    y: 0,
-  }}
-  transition={sectionTransition(0.15, 0.6)}
-  className="
-    rounded-[36px]
-
-    bg-white/10
-
-    backdrop-blur-2xl
-
-    border border-white/10
-
-    p-8
-
-    mb-16
-  "
->
-
-  <h2
-    className="
-      text-white
-
-      text-3xl
-
-      font-bold
-
-      mb-8
-    "
-  >
-    Аналіз результату
-  </h2>
-
-  <div className="flex justify-between mb-4">
-
-    <span className="text-white/60">
-      Поточний стан
-    </span>
-
-    <span className="text-white font-semibold">
-      {profile.title}
-    </span>
-
-  </div>
-
-  <div
-    role="progressbar"
-    aria-valuemin={1}
-    aria-valuemax={4}
-    aria-valuenow={step}
-    aria-valuetext={`${INTENSITY_LABELS[insight.intensity]} рівень`}
-    className="
-      h-3
-
-      rounded-full
-
-      bg-white/10
-
-      overflow-hidden
-    "
-  >
-
-    {/* Fill color = which state(s) produced the result (same accents as
-        the trust indicator above and State Selection). Fill length =
-        calculated intensity, animated exactly as before — this is a
-        color swap only, the width logic is untouched. */}
-    <motion.div
-      initial={{
-        width: 0,
-      }}
-      animate={{
-        width: `${progress}%`,
-      }}
-      transition={sectionTransition(0.4, 1)}
-      className="
-        h-full
-
-        rounded-full
-      "
-      style={
-        secondaryAccent
-          ? {
-              background: `linear-gradient(to right, ${accent.hex}, ${secondaryAccent.hex})`,
-            }
-          : { backgroundColor: accent.hex }
-      }
-    />
-
-  </div>
-
-  <div
-    className="
-      flex
-      justify-between
-
-      mt-3
-
-      text-sm
-
-      text-white/40
-    "
-  >
-
-    <span>Легкий</span>
-    <span>Помірний</span>
-    <span>Відчутний</span>
-    <span className="text-right">Дуже високий</span>
-
-  </div>
-
-  <div
-    className="
-      h-px
-
-      bg-white/10
-
-      my-8
-    "
-  />
-
-  <div
-    className="
-      flex
-
-      items-center
-
-      justify-between
-
-      gap-6
-
-      flex-wrap
-    "
-  >
-
-    <div>
-
-      <div className="text-white/45 text-sm mb-1">
-        Вираженість зараз
-      </div>
-      <div className="text-white text-lg font-semibold">
-        {INTENSITY_LABELS[insight.intensity]}
-      </div>
-
-    </div>
-
-    <div>
-
-      <div className="text-white/45 text-sm mb-1">
-        Основний фокус
-      </div>
-
-      {/* Distilled from the same Recovery Focus shown in full further
-          down the page — not a separate invented metric (Task 3). */}
-      <div className="text-white font-semibold">
-        {profile.recoveryFocusShort}
-      </div>
-
-    </div>
-
-    <div>
-
-      <div className="text-white/45 text-sm mb-1">
-        Наступний крок
-      </div>
-
-      <div className="text-white font-semibold">
-        Персональний план
-      </div>
-    </div>
-  </div>
-  {insight.secondaryState && insight.secondaryIntensity && (
-    <p className="text-white/70 text-sm mt-6">
-      Другий обраний стан, {stateLabel(insight.secondaryState).toLowerCase()}: {INTENSITY_LABELS[insight.secondaryIntensity].toLowerCase()} рівень.
-    </p>
-  )}
-  {/* wording agreed with the lawyer (docs/legal/assessment-v2-review.md, Ю2–Ю3); the crisis line is shown for every result */}
-  <p className="text-white/45 text-xs mt-6 leading-relaxed">
-    Це самоспостереження за вашими відповідями за останні 2 тижні, а не діагноз і не висновок фахівця. Результат розраховується автоматично й допомагає підібрати освітні матеріали, але не замінює консультацію психолога, психотерапевта чи лікаря.
-  </p>
-  <p className="text-white/55 text-xs mt-2 leading-relaxed">
-    Якщо вам зараз дуже важко або небезпечно —{" "}
-    <a href="/crisis-help" className="underline underline-offset-2 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white rounded">Допомога в кризі</a>{" "}
-    або <a href="tel:112" className="underline underline-offset-2 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white rounded">112</a>.
-  </p>
-</motion.section>
-
-        {insight.safety && (
-          <section aria-labelledby="result-support" className="rounded-[30px] bg-white/95 text-slate-900 p-7 mb-16 shadow-xl">
-            <h2 id="result-support" className="text-xl font-bold mb-3">Вам не обов'язково проходити це самостійно</h2>
-            <p className="text-slate-700 leading-relaxed mb-5">
-              Ваші відповіді показують, що зараз стан виражений сильно і помітно впливає на щоденне життя. Матеріали Sensoria можуть підтримати, але в такій ситуації варто звернутися до психолога, психотерапевта або лікаря. Почніть із коротких безоплатних практик, а не з великої програми.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <a href="/crisis-help" className="inline-flex items-center min-h-[44px] px-5 rounded-full bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3b6df0] focus-visible:ring-offset-2">
-                Де отримати допомогу
-              </a>
-              <a href="tel:112" className="inline-flex items-center min-h-[44px] px-5 rounded-full border border-slate-300 text-slate-900 font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3b6df0] focus-visible:ring-offset-2">
-                Якщо є загроза життю: 112
-              </a>
-            </div>
-          </section>
-        )}
-
-        {suggested && (
-          <section aria-labelledby="result-suggested" className="rounded-[30px] bg-white/10 border border-white/15 p-7 mb-16">
-            <h2 id="result-suggested" className="text-white text-xl font-bold mb-2">Можливо, зараз важливіше інше</h2>
-            <p className="text-white/75 leading-relaxed mb-5">
-              Обраний стан виражений слабко, а стан «{suggested.title}» ви відзначили як майже постійний. Можна пройти коротке опитування саме для нього. Вирішувати вам.
-            </p>
-            {onRetake && (
-              <button type="button" onClick={() => retakeFor(suggested)} className="inline-flex items-center min-h-[44px] px-5 rounded-full bg-white text-[#1e3a8a] font-semibold cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#2563eb]">
-                Пройти для стану «{suggested.title}»
-              </button>
-            )}
-          </section>
-        )}
-
-        {/* INSIGHT */}
-        <motion.section
-  initial={{
-    opacity: 0,
-    y: 30,
-  }}
-  animate={{
-    opacity: 1,
-    y: 0,
-  }}
-  transition={sectionTransition(0.2, 0.6)}
-  className="mb-16"
->
-
-  <div
-    className="
-      rounded-[36px]
-
-      bg-gradient-to-br
-      from-cyan-400/10
-      to-purple-400/10
-
-      border border-white/10
-
-      backdrop-blur-2xl
-
-      p-10
-    "
-  >
-
-    <div
-      className="
-        flex
-        items-center
-        gap-4
-
-        mb-6
-      "
-    >
-
-      <div
-        aria-hidden="true"
-        className="
-          w-14
-          h-14
-
-          rounded-2xl
-
-          bg-cyan-400/15
-
-          flex
-          items-center
-          justify-center
-
-          text-3xl
-
-          shrink-0
-        "
-      >
-        <Icon name="bulb" size={26} />
-      </div>
-
-      <div>
-
-        <div
-          className="
-            text-white/50
-
-            uppercase
-
-            tracking-[0.25em]
-
-            text-xs
-
-            mb-1
-          "
+  const sectionTransition = (delay: number, duration: number) => (reduce ? { duration: 0 } : { delay, duration });
+  const patterns = insight.supportingPatterns.map((p) => p.category).filter((c): c is PrimaryStateId => c in PATTERN_NOTE);
+  const chosenName = stateLabel(insight.primaryState).toLowerCase();
+
+  // which format to start with: gentle first when the state is strong
+  const formats: { icon: IconName; title: string; text: string; tag: string; start: boolean }[] = [
+    { icon: "meditation", title: "Медитації", text: "Короткі практики, щоб заспокоїтися, відновити сили й повернути відчуття опори. Можна почати вже сьогодні.", tag: highLevel ? "Почати з цього" : "Кілька хвилин на день", start: highLevel },
+    { icon: "guide", title: "Гайди", text: "Пояснюють, що відбувається, і дають конкретні кроки, які можна пробувати у своєму темпі.", tag: insight.intensity === "moderate" ? "Почати з цього" : "Щоб розібратися", start: insight.intensity === "moderate" },
+    { icon: "library", title: "Програми", text: "Покроковий шлях від автора: модулі, практики й завдання для глибшої роботи й стійких змін.", tag: insight.intensity === "low" ? "Почати з цього" : highLevel ? "Коли буде ресурс" : "Для глибшої роботи", start: insight.intensity === "low" },
+  ];
+
+  let n = 0;
+  const next = () => ++n;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#7c5cf0] px-4 pb-10 pt-16 text-white sm:px-6 sm:pt-20">
+      <div className="mx-auto w-full max-w-[1040px]">
+        {/* HERO */}
+        <motion.header
+          initial={reduce ? false : { opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={sectionTransition(0, 0.6)}
+          className="mb-12 text-center sm:mb-16"
         >
-          Ваш головний інсайт
-        </div>
-
-        <h2
-          className="
-            text-white
-
-            text-3xl
-
-            font-bold
-          "
-        >
-          {profile.title}
-        </h2>
-
-      </div>
-
-    </div>
-
-    <p
-      className="
-        text-white/80
-
-        text-lg
-
-        leading-8
-      "
-    >
-      {profile.insight}
-    </p>
-
-  </div>
-
-</motion.section>
-
-        {/* EXPLANATION + VALIDATION */}
-        <motion.section
-  initial={{
-    opacity: 0,
-    y: 30,
-  }}
-  animate={{
-    opacity: 1,
-    y: 0,
-  }}
-  transition={sectionTransition(0.28, 0.6)}
-  className="mb-16"
->
-
-  <h2
-    className="
-      text-white
-      text-3xl
-      font-bold
-      mb-8
-    "
-  >
-    Ваші відповіді показують
-  </h2>
-
-  {/* Accordion, one section open at a time — replaces the previously
-      permanently-expanded cards (Phase 1 review). Content itself is
-      unchanged: Explanation/Validation still come from the State
-      Profile, the third item is still the pre-existing legacy text. */}
-  <div className="space-y-4">
-
-    {[
-      {
-        icon: "brain",
-        iconBg: "bg-cyan-400/10",
-        title: "Що відбувається",
-        content: profile.explanation,
-      },
-      {
-        icon: "heart",
-        iconBg: "bg-blue-400/10",
-        title: "Чому це нормально",
-        content: profile.validation + supportingPatternClause,
-      },
-      {
-        icon: "leaf",
-        iconBg: "bg-emerald-400/10",
-        title: highLevel ? "Що може допомогти зараз" : "Що може допомогти",
-        content: highLevel
-          ? "Коли стан виражений сильно, краще почати з малого: короткі практики, які можуть допомогти заспокоїтися й відновити сили. Глибше розібратися може допомогти фахівець, і звертатися до нього можна вже зараз."
-          : "Невеликі регулярні кроки працюють краще, ніж різкі зміни. Почніть із того, що відгукується, і повертайтеся до опитування, щоб бачити, як змінюється стан.",
-      },
-    ].map((card, i) => {
-      const isOpen = openCard === i;
-
-      return (
-        <div
-          key={card.title}
-          className="
-            rounded-[30px]
-            bg-white/8
-            border border-white/20
-            backdrop-blur-xl
-            overflow-hidden
-            transition-all
-            duration-150
-            ease-out
-
-            hover:-translate-y-1
-            hover:border-white/30
-            hover:shadow-[0_20px_50px_-18px_rgba(0,0,0,0.4)]
-          "
-        >
-          <button
-            id={`result-accordion-trigger-${i}`}
-            aria-expanded={isOpen}
-            aria-controls={`result-accordion-panel-${i}`}
-            onClick={() => setOpenCard(isOpen ? null : i)}
-            className="
-              w-full
-              px-8
-              py-7
-
-              flex
-              gap-6
-              items-center
-
-              text-left
-
-              hover:bg-white/5
-
-              focus-visible:outline-none
-              focus-visible:ring-2
-              focus-visible:ring-white/60
-              focus-visible:ring-offset-2
-              focus-visible:ring-offset-[#1e3a8a]
-
-              transition
-            "
-          >
-            <div
-              aria-hidden="true"
-              className={`
-                w-14
-                h-14
-
-                rounded-2xl
-
-                ${card.iconBg}
-
-                flex
-                items-center
-                justify-center
-
-                text-2xl
-
-                shrink-0
-              `}
-            >
-              <Icon name={card.icon as IconName} size={26} />
-            </div>
-
-            <h3
-              className="
-                flex-1
-                text-white
-                text-xl
-                font-semibold
-              "
-            >
-              {card.title}
-            </h3>
-
-            <motion.span
-              aria-hidden="true"
-              animate={{ rotate: isOpen ? 180 : 0 }}
-              transition={{ duration: prefersReducedMotion ? 0 : 0.12 }}
-              className="text-white/40 text-xl shrink-0"
-            >
-              ⌄
-            </motion.span>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {isOpen && (
-              <motion.div
-                id={`result-accordion-panel-${i}`}
-                role="region"
-                aria-labelledby={`result-accordion-trigger-${i}`}
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: prefersReducedMotion ? 0 : 0.16, ease: "easeInOut" }}
-                style={{ overflow: "hidden" }}
-              >
-                {/* pl-28 = the button's own px-8 + the icon's w-14 + the
-                    gap-6 between them (32+56+24=112px) — the exact left
-                    offset of the title text above, so the paragraph
-                    starts under the title instead of under the icon.
-                    pr matches pl at md+ so the column reads as evenly
-                    margined rather than stretched to the card's edge;
-                    kept narrower on small screens where 112px on each
-                    side wouldn't leave room to read. pt-2 (vs. none
-                    before) is the "slightly more space under the title"
-                    ask — typography/colors/behavior untouched. */}
-                <p
-                  className="
-                    pl-8
-                    pr-8
-                    pt-2
-                    pb-7
-
-                    md:pl-28
-                    md:pr-28
-
-                    text-white/70
-                    leading-8
-                  "
-                >
-                  {card.content}
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      );
-    })}
-
-  </div>
-
-</motion.section>
-
-      {/* NEXT STEP — the CTA button is gone entirely. This round's brief
-          is explicit that this must stop looking like "press a button"
-          and start looking like "the assessment is basically done" —
-          see ProgressAction above. That component wants to be its own
-          full-width-ish centerpiece (500-560px), which doesn't fit
-          inside the previous round's 40%-of-920px right column, so the
-          asymmetric two-column layout is dropped in favor of one
-          centered block: headline, supporting line, the progress
-          meter, then the small helper line — all the same visual
-          language (no card, no background animation) as the last few
-          rounds, just recomposed around the new centerpiece. */}
-      <motion.section
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={sectionTransition(0.36, 0.6)}
-        className="relative overflow-hidden pt-32 md:pt-40 pb-16 text-center"
-      >
-        {/* Purely atmospheric background — added this round, everything
-            else in this section (copy, spacing, the progress
-            component's own position) is untouched. `relative
-            overflow-hidden` above is the only structural addition to
-            the section itself, needed so the largest ring (1400px)
-            can't cause horizontal overflow/scrollbars. */}
-        <NextStepAtmosphere prefersReducedMotion={!!prefersReducedMotion} />
-
-        <div className="relative z-10 max-w-[600px] mx-auto">
-          <h2 className="text-white text-3xl md:text-4xl font-bold mb-4">
-            Готові зробити наступний крок?
-          </h2>
-          <p className="text-white/70 text-base md:text-lg mb-10">
-            На наступному екрані почнеться ваш особистий шлях.
-          </p>
-
-          <div className="relative flex justify-center">
-            <ProgressAction
-              onActivate={onContinue}
-              accent={accent}
-              secondaryAccent={secondaryAccent}
-              prefersReducedMotion={!!prefersReducedMotion}
-              percent={92}
-            />
-
-            {/* Sasha's screenshot feedback: the meter alone didn't read
-                as clickable, so a small caption to its right, same
-                muted style as the helper line below, spells it out.
-                Only shown once there's actual room beside the 560px
-                button (lg+) — on narrower viewports the button is
-                full-width with nothing beside it to put this in. */}
-            <span
-              className="
-                hidden
-                lg:block
-
-                absolute
-                left-full
-                top-1/2
-                -translate-y-1/2
-                ml-4
-
-                text-white/50
-                text-sm
-                whitespace-nowrap
-              "
-            >
-              Натисніть тут
+          <p className="mb-4 text-xs uppercase tracking-[0.35em] text-white/60">Ваш персональний розбір</p>
+          <h1 className="text-[38px] font-bold leading-[1.1] sm:text-[56px]">{profile.title}</h1>
+          <p className="mx-auto mt-6 max-w-3xl text-lg leading-relaxed text-white/80 sm:text-xl">{profile.insight}</p>
+          <div className="mt-7 inline-flex flex-wrap items-center justify-center gap-2 text-sm">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: accent }} aria-hidden="true" />
+              {stateLabel(insight.primaryState)}
             </span>
+            {insight.secondaryState && secondaryAccent && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: secondaryAccent }} aria-hidden="true" />
+                {stateLabel(insight.secondaryState)}
+              </span>
+            )}
+            <span className="rounded-full border border-white/15 px-4 py-2 text-white/75">за останні 2 тижні</span>
           </div>
+        </motion.header>
 
-          <p className="text-white/50 text-sm mt-4">
-            Залишився лише один крок
-          </p>
+        <div className="flex flex-col gap-6 sm:gap-8">
+          {/* 1. LEVEL */}
+          <Step n={next()} title="Наскільки це виражено зараз" delay={0.05} reduce={reduce}>
+            <div className="grid items-center gap-6 md:grid-cols-[minmax(0,360px)_1fr] md:gap-10">
+              <LevelGauge intensity={insight.intensity} color={accent} reduce={reduce} />
+              <div>
+                <p className="text-lg leading-relaxed">
+                  <span className="font-semibold">{LEVEL_LABEL[insight.intensity]} рівень.</span>{" "}
+                  <span className="text-white/80">{LEVEL_HINT[insight.intensity]}</span>
+                </p>
+                {insight.secondaryState && insight.secondaryIntensity && (
+                  <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-[14px] text-white/85">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: secondaryAccent ?? "#fff" }} aria-hidden="true" />
+                    {stateLabel(insight.secondaryState)}: {LEVEL_LABEL[insight.secondaryIntensity].toLowerCase()} рівень
+                  </p>
+                )}
+              </div>
+            </div>
+          </Step>
+
+          {insight.safety && (
+            <section aria-labelledby="result-support" className="rounded-[32px] bg-white p-6 text-slate-900 shadow-xl sm:p-10">
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#eef0fd] text-[#4338ca]">
+                  <Icon name="lifebuoy" size={24} />
+                </span>
+                <div>
+                  <h2 id="result-support" className="text-2xl font-bold">Вам не обов'язково проходити це самостійно</h2>
+                  <p className="mt-3 text-[17px] leading-relaxed text-slate-700">
+                    Ваші відповіді показують, що зараз стан виражений сильно і помітно впливає на щоденне життя. Матеріали Sensoria можуть підтримати, але в такій ситуації варто звернутися до психолога, психотерапевта або лікаря. Почніть із коротких безоплатних практик, а не з великої програми.
+                  </p>
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <a href="/crisis-help" className="inline-flex min-h-[44px] items-center rounded-full bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-5 font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3b6df0] focus-visible:ring-offset-2">
+                      Де отримати допомогу
+                    </a>
+                    <a href="tel:112" className="inline-flex min-h-[44px] items-center rounded-full border border-slate-300 px-5 font-semibold text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3b6df0] focus-visible:ring-offset-2">
+                      Якщо є загроза життю: 112
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* 2. THE MAP OF STATES (from the person's own answers) */}
+          {funnelStore.answers.length > 0 && (
+            <Step n={next()} title="Карта ваших станів" delay={0.05} reduce={reduce}>
+              <p className="mb-6 text-white/70">Як часто за останні 2 тижні з'являлися ознаки кожного стану, за вашими відповідями.</p>
+              <StateMap answers={funnelStore.answers} reduce={reduce} />
+              {patterns.length > 0 && (
+                <p className="mt-6 rounded-2xl bg-white/10 px-5 py-4 leading-relaxed text-white/85">
+                  Ви також часто відзначали {patterns.map((p) => PATTERN_NOTE[p]).join(" і ")}. Такі стани нерідко підсилюють одне одного, тому в добірці будуть і ці теми.
+                </p>
+              )}
+            </Step>
+          )}
+
+          {/* 3. THE BREAKDOWN — tabs instead of a wall of text */}
+          <Step n={next()} title="Що це означає" delay={0.05} reduce={reduce}>
+            <ResultTabs
+              tabs={[
+                { id: "what", icon: "brain", label: "Що відбувається", content: <p className="text-[17px] leading-relaxed text-white/85 sm:text-lg">{profile.explanation}</p> },
+                {
+                  id: "why",
+                  icon: "heart",
+                  label: "Чому так буває",
+                  content: (
+                    <div>
+                      <p className="text-[17px] leading-relaxed text-white/85 sm:text-lg">{profile.validation}</p>
+                      <p className="mt-4 rounded-2xl bg-white/10 px-5 py-4 leading-relaxed text-white/85">Це не слабкість і не ваша провина. Те, що ви назвали свій стан, вже перший крок до змін.</p>
+                    </div>
+                  ),
+                },
+                ...(typeof insight.impact === "number"
+                  ? [{
+                      id: "life",
+                      icon: "compass" as const,
+                      label: "Вплив на життя",
+                      content: (
+                        <div className="flex flex-col gap-5">
+                          <ImpactScale impact={insight.impact} color={accent} />
+                          <p className="text-[17px] leading-relaxed text-white/85">{IMPACT_TEXT[Math.max(0, Math.min(3, insight.impact))]}</p>
+                        </div>
+                      ),
+                    }]
+                  : []),
+              ]}
+            />
+          </Step>
+
+          {suggested && (
+            <section className="rounded-[32px] border border-white/25 bg-white/[0.12] p-6 sm:p-10">
+              <h2 className="text-2xl font-bold">Можливо, зараз важливіше інше</h2>
+              <p className="mt-3 text-[17px] leading-relaxed text-white/80">
+                Стан «{chosenName}» виражений не так сильно, а стан «{suggested.title}» ви відзначили як майже постійний. Можна пройти коротке опитування саме для нього. Вирішувати вам.
+              </p>
+              {onRetake && (
+                <button type="button" onClick={() => retakeFor(suggested)} className="mt-5 inline-flex min-h-[44px] cursor-pointer items-center rounded-full bg-white px-5 font-semibold text-[#1e3a8a] focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#2563eb]">
+                  Пройти для стану «{suggested.title}»
+                </button>
+              )}
+            </section>
+          )}
+
+          {/* 5. THE PATH */}
+          <Step n={next()} title="Ваш шлях" delay={0.05} reduce={reduce}>
+            <ol className="relative grid gap-4 md:grid-cols-3">
+              {[
+                { label: "Зараз", title: "Ви помітили свій стан", text: "Ви чесно відповіли на питання й побачили, що відбувається. Саме з цього починаються зміни." },
+                { label: "Далі", title: profile.recoveryFocusShort, text: profile.focusSupportLine },
+                { label: "Поступово", title: profile.stepMilestone, text: profile.hope },
+              ].map((s, i) => (
+                <li key={s.label} className="relative rounded-2xl border border-white/15 bg-[#2a4fd6]/40 p-5 backdrop-blur">
+                  <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-white/60">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold text-white" style={{ background: i === 0 ? accent : "rgba(255,255,255,0.2)" }}>{i + 1}</span>
+                    {s.label}
+                  </div>
+                  <h3 className="text-lg font-semibold leading-snug">{s.title}</h3>
+                  <p className="mt-2 leading-relaxed text-white/75">{s.text}</p>
+                </li>
+              ))}
+            </ol>
+          </Step>
+
+          {/* 6. WHAT FITS */}
+          <Step n={next()} title="Що вам може підійти" delay={0.05} reduce={reduce}>
+            <p className="mb-6 text-[17px] leading-relaxed text-white/85">
+              Ми зберемо матеріали авторів на тему «{chosenName}» у вашу особисту добірку.
+            </p>
+            <div className="grid gap-4 md:grid-cols-3">
+              {formats.map((f) => (
+                <div key={f.title} className="flex flex-col rounded-2xl border border-white/15 bg-white/[0.06] p-5">
+                  <span className={`mb-3 self-start rounded-full px-2.5 py-1 text-[12px] font-semibold ${f.start ? "bg-white text-[#1e3a8a]" : "bg-white/15 text-white/85"}`}>{f.tag}</span>
+                  <span className="mb-2 inline-flex items-center gap-2 text-lg font-semibold"><Icon name={f.icon} size={20} /> {f.title}</span>
+                  <p className="leading-relaxed text-white/75">{f.text}</p>
+                </div>
+              ))}
+            </div>
+          </Step>
+
+          {/* disclaimer agreed with the lawyer (Ю2–Ю3); the crisis line is shown for every result */}
+          <div className="px-1 text-[13px] leading-relaxed text-white/55">
+            <p>
+              Це самоспостереження за вашими відповідями за останні 2 тижні, а не діагноз і не висновок фахівця. Результат розраховується автоматично й допомагає підібрати освітні матеріали, але не замінює консультацію психолога, психотерапевта чи лікаря.
+            </p>
+            <p className="mt-2">
+              Якщо вам зараз дуже важко або небезпечно —{" "}
+              <a href="/crisis-help" className="rounded underline underline-offset-2 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white">Допомога в кризі</a>{" "}
+              або <a href="tel:112" className="rounded underline underline-offset-2 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white">112</a>.
+            </p>
+          </div>
         </div>
-      </motion.section>
 
+        {/* NEXT STEP — the interactive meter (kept as the owner liked it) */}
+        <motion.section
+          initial={reduce ? false : { opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={sectionTransition(0.36, 0.6)}
+          className="relative overflow-hidden pb-16 pt-28 text-center md:pt-36"
+        >
+          <NextStepAtmosphere prefersReducedMotion={reduce} />
+          <div className="relative z-10 mx-auto max-w-[600px]">
+            <h2 className="mb-4 text-3xl font-bold md:text-4xl">Отримайте добірку матеріалів</h2>
+            <p className="mb-10 text-base text-white/70 md:text-lg">
+              Створіть акаунт, це безкоштовно. Ми покажемо матеріали саме для вашого стану, а результат збережеться лише з вашої згоди.
+            </p>
+            <div className="relative flex justify-center">
+              <ProgressAction onActivate={onContinue} accent={accentObj} secondaryAccent={secondaryAccentObj} prefersReducedMotion={reduce} percent={92} />
+            </div>
+            <p className="mt-4 text-sm text-white/50">Залишився лише один крок</p>
+          </div>
+        </motion.section>
       </div>
-
     </div>
-
   );
 }

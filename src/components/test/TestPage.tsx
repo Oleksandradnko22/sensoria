@@ -1,5 +1,5 @@
 import { Icon, type IconName } from "../ui/Icon";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 
 import QuestionCard from "./QuestionCard";
 import LoadingScreen from "./LoadingScreen";
@@ -111,7 +111,18 @@ export default function TestPage({
   }, [activeMicroInsight]);
 
   // ANSWER
+  const insightShown = useRef(false);
+
+  const handleBack = () => {
+    if (current === 0) return;
+    const prevId = questions[current - 1].id;
+    setAnswers((prev) => prev.filter((a) => a.questionId !== prevId));
+    setCurrent(current - 1);
+  };
+
   const handleAnswer = (answer: AssessmentAnswer) => {
+    // a fast double click must not answer the next question too: only the question on screen counts, once
+    if (answer.questionId !== questions[current]?.id || answers.some((a) => a.questionId === answer.questionId)) return;
     const updated = [...answers, answer];
 
     setAnswers(updated);
@@ -122,7 +133,9 @@ export default function TestPage({
       (insight) => insight.triggerAfterQuestion === nextQuestion
     );
 
-    if (microInsight) {
+    // the halfway pause is shown once, not again after going back and re-answering
+    if (microInsight && !insightShown.current) {
+      insightShown.current = true;
       setActiveMicroInsight(microInsight);
       return;
     }
@@ -246,18 +259,27 @@ export default function TestPage({
     );
   }
 
-  // One question per screen is a locked invariant (RFC-004), not just the
-  // current behavior — `current` only ever addresses a single question.
-  // Assessment stays strictly linear: no back navigation exists anywhere
-  // in this flow, and none should be added (RFC-004: correction isn't the
-  // goal, re-editing an answer would require re-running category scoring
-  // mid-flow).
+  // One question per screen (RFC-004). «Назад» is allowed since version 2 (owner, 22.11.2026): scoring runs only
+  // at the end (calculateResults), so going back simply drops the previous answer and asks it again.
+  // opened without a chosen state (e.g. a direct link): nothing to ask yet
+  if (questions.length === 0 || !questions[current]) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6 text-center text-white">
+        <div>
+          <p className="mb-6 text-lg text-white/80">Спершу оберіть стан, з яким хочете попрацювати.</p>
+          <a href="/" className="inline-flex min-h-[48px] items-center rounded-full bg-white px-6 font-semibold text-[#1e3a8a]">На головну</a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <QuestionCard
       question={questions[current]}
       current={current + 1}
       total={questions.length}
       onAnswer={handleAnswer}
+      onBack={current > 0 ? handleBack : undefined}
     />
   );
 }

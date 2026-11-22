@@ -1415,11 +1415,15 @@ if (page === "recommendation") {
 
           setPage("program");
         }}
-        onOpenMeditation={() => {
+        onOpenMeditation={(meditation) => {
+          // opens THIS meditation, not just the catalog
           setMeditationsInitialCategories([]);
+          setMeditationInitialId(meditation.id);
           setPage("meditations");
         }}
-        onOpenGuide={() => {
+        onOpenGuide={(guide) => {
+          setGuidesInitialCategories([]);
+          setGuideInitialId(guide.id);
           setPage("guides");
         }}
         onViewAllCourses={() => {
@@ -1431,6 +1435,8 @@ if (page === "recommendation") {
           setPage("meditations");
         }}
         onViewAllGuides={() => {
+          setGuideInitialId(undefined);
+          setGuidesInitialCategories(relevantCategories);
           setPage("guides");
         }}
         onViewEntireLibrary={() => {

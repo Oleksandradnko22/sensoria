@@ -61,7 +61,9 @@ export function scoreAssessment(primaryState: PrimaryStateId, secondaryState: Pr
     .slice(0, MAX_SUPPORTING_PATTERNS)
     .map((x) => ({ category: x.category, normalizedScore: Math.round((x.value / MAX_ANSWER) * 100) }));
 
-  const suggestedState = primaryPercent <= SUGGEST_IF_PRIMARY_AT_MOST
+  const safety = intensity === "critical" || impact >= 3;
+  // only when the chosen state really reads as mild on the page too: not when the impact on life raised the level
+  const suggestedState = primaryPercent <= SUGGEST_IF_PRIMARY_AT_MOST && !safety && (intensity === "low" || intensity === "moderate")
     ? STATE_ORDER.find((s) => s !== primaryState && s !== secondaryState && screen(s) === SUGGEST_IF_OTHER) ?? null
     : null;
 
@@ -74,7 +76,7 @@ export function scoreAssessment(primaryState: PrimaryStateId, secondaryState: Pr
     primaryScore: clampScore(primaryPercent),
     version: ASSESSMENT_VERSION,
     impact,
-    safety: intensity === "critical" || impact >= 3,
+    safety,
     suggestedState,
     secondaryIntensity: secondaryPercent === null ? null : getIntensity(secondaryPercent),
   };

@@ -73,6 +73,9 @@ test("another state is suggested only when the chosen one is mild and the other 
   assert.equal(mild.primaryState, "relationships", "only suggested, never switched");
   const notMild = scoreAssessment("relationships", null, answer("relationships", null, (id) => (id === "burnout-screen" ? 3 : id.endsWith("-screen") ? 0 : 2)));
   assert.equal(notMild.suggestedState, null);
+  const raised = scoreAssessment("relationships", null, answer("relationships", null, (id) => (id === "burnout-screen" || id === "impact" ? 3 : id.endsWith("-screen") ? 0 : 1)));
+  assert.equal(raised.intensity, "high");
+  assert.equal(raised.suggestedState, null, "no «mild» hint next to a level raised by the impact on life");
   const often = scoreAssessment("relationships", null, answer("relationships", null, (id) => (id === "burnout-screen" ? 2 : 0)));
   assert.equal(often.suggestedState, null);
 });
@@ -83,4 +86,23 @@ test("two chosen states: the second gets its own level and is not a supporting p
   assert.equal(r.secondaryIntensity, "critical");
   assert.ok(!r.supportingPatterns.some((p) => p.category === "stress"));
   assert.equal(scoreAssessment("anxiety", null, answer("anxiety", null, flat(1))).secondaryIntensity, null);
+});
+
+test("all 36 state choices × every core / screening / impact level (8 064 runs): invariants hold", async () => {
+  const { STATE_ORDER } = await import("../components/test/questions.ts");
+  const { stateProfiles } = await import("../data/stateProfiles.ts");
+  let runs = 0;
+  for (const p of STATE_ORDER) for (const s of [null, ...STATE_ORDER.filter((x) => x !== p)] as (PrimaryStateId | null)[]) {
+    for (let c1 = 0; c1 <= 3; c1++) for (let c2 = 0; c2 <= (s ? 3 : 0); c2++) for (let scr = 0; scr <= 3; scr++) for (let imp = 0; imp <= 3; imp++) {
+      const r = scoreAssessment(p, s, answer(p, s, (id) => (id === "impact" ? imp : id.endsWith("-screen") ? scr : id.startsWith(`${p}-`) ? c1 : c2)));
+      runs++;
+      assert.ok(stateProfiles[r.primaryState][r.intensity], "a profile for every result");
+      assert.equal(r.primaryState, p);
+      if (r.suggestedState) assert.ok(!r.safety && (r.intensity === "low" || r.intensity === "moderate") && r.suggestedState !== p && r.suggestedState !== s);
+      assert.ok(r.supportingPatterns.length <= 2 && !r.supportingPatterns.some((x) => x.category === p || x.category === s));
+      if (imp === 3) assert.equal(r.safety, true);
+      if (s) assert.ok(r.secondaryIntensity);
+    }
+  }
+  assert.equal(runs, 8064);
 });

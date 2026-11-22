@@ -67,7 +67,11 @@ const loadingTexts = [
   transition={{
     duration: 0.5,
   }}
+      // relative + overflow-hidden: the two glows stay inside the screen (they used to stick out below it and add a
+      // blue band and a scroll at the bottom)
       className="
+      relative
+      overflow-hidden
       min-h-screen 
 
       flex 

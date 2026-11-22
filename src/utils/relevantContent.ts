@@ -21,6 +21,10 @@ let programPool: Program[] = programs;
 export function setRecommendationPrograms(list: Program[]) {
   programPool = list;
 }
+/** every program the catalog shows (for filling a short selection with other programs) */
+export function getRecommendationPrograms(): readonly Program[] {
+  return programPool;
+}
 
 // The two signal categories of questionnaire version 1 → the states they stand for.
 const PATTERN_STATES: Record<string, PrimaryStateId[]> = {

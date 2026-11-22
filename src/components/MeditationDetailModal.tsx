@@ -4,7 +4,7 @@ import { Icon } from "./ui/Icon";
 import HeroArt from "./programDetail/HeroArt";
 import { coverImageStyle, coverUrlForFrame } from "../utils/coverFocus";
 import GuideAuthorCard from "./guideDetail/GuideAuthorCard";
-import { categoryLabels } from "../data/categoryLabels";
+import { categoryLabels, currentTopic } from "../data/categoryLabels";
 import type { Meditation } from "../data/meditations";
 import { heroVisualForTags } from "../utils/heroVisual";
 import { requestOpenCart, useCart } from "../lib/cartStore";
@@ -113,7 +113,8 @@ export default function MeditationDetailModal({ meditation, onClose, userId, isP
   };
 
   const visual = heroVisualForTags(meditation.tags);
-  const topics = meditation.tags.filter((t) => t in categoryLabels).map((t) => categoryLabels[t as keyof typeof categoryLabels]);
+  // old categories shown as the current catalog category, without repeats
+  const topics = [...new Set(meditation.tags.map(currentTopic).filter((t): t is string => !!t))].map((t) => categoryLabels[t as keyof typeof categoryLabels]);
   // always exactly four: what the practice is, what you can set, and the last one depends on the download choice
   const facts = [
     { title: `Аудіопрактика ${meditation.durationMinutes} хв`, hint: "Одна сесія: сядьте зручно й увімкніть звук." },

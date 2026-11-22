@@ -66,6 +66,8 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
   const [rows, setRows] = useState<PurchaseView[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [refundOpen, setRefundOpen] = useState(false);
+  // the purchase the refund form opens for (a visible button on each refundable purchase)
+  const [refundFor, setRefundFor] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   // the seller's fiscal receipts from Checkbox, by purchase: the same receipt the buyer got by email
@@ -189,6 +191,12 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
         <button type="button" onClick={() => void receipt(p)} disabled={pdfBusy === p.id} aria-label={`Квитанція PDF: ${title(p)}`} className={`${link} bg-white text-[#4338ca] ring-1 ring-[#e3def9] hover:ring-[#c9bff7] disabled:opacity-50`}>
           {pdfBusy === p.id ? "Створюємо…" : "Квитанція PDF"}
         </button>
+        {/* the right to a refund is never hidden (consumer law): a visible button on every refundable purchase */}
+        {refundable.some((r) => r.id === p.id) && (
+          <button type="button" onClick={() => { setRefundFor(p.id); setRefundOpen(true); }} aria-label={`Повернення коштів: ${title(p)}`} className={`${link} bg-white text-[#4338ca] ring-1 ring-[#e3def9] hover:ring-[#c9bff7]`}>
+            Повернення коштів
+          </button>
+        )}
       </span>
     );
   };
@@ -274,6 +282,11 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
               {hasReceipt(latest) && (
                 <button type="button" onClick={() => void receipt(latest)} disabled={pdfBusy === latest.id} className="disabled:opacity-50 min-h-[46px] whitespace-nowrap rounded-xl bg-white px-5 text-[14px] font-semibold text-[#4338ca] ring-1 ring-[#e3def9] hover:bg-[#faf9ff]">
                   {pdfBusy === latest.id ? "Створюємо…" : "Квитанція PDF"}
+                </button>
+              )}
+              {refundable.some((r) => r.id === latest.id) && (
+                <button type="button" onClick={() => { setRefundFor(latest.id); setRefundOpen(true); }} className="min-h-[46px] whitespace-nowrap rounded-xl bg-white px-5 text-[14px] font-semibold text-[#4338ca] ring-1 ring-[#e3def9] hover:bg-[#faf9ff]">
+                  Повернення коштів
                 </button>
               )}
             </div>
@@ -367,7 +380,7 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
             <div className="text-[16px] font-bold text-[#12172b]">Проблема з оплатою?</div>
             <p className="mt-0.5 text-[14px] text-black/55">Кошти списано, а матеріалу немає в «Моє навчання», або оплата пройшла двічі. Напишіть нам, і ми перевіримо разом із банком.</p>
             {refundable.length > 0 && (
-              <button type="button" onClick={() => setRefundOpen(true)} className="mt-1 text-[13px] text-black/45 underline-offset-4 hover:text-black/70 hover:underline">
+              <button type="button" onClick={() => { setRefundFor(null); setRefundOpen(true); }} className="mt-3 inline-flex min-h-[44px] items-center rounded-xl bg-white px-5 text-[14px] font-semibold text-[#4338ca] ring-1 ring-[#e3def9] hover:bg-[#faf9ff]">
                 Повернення коштів
               </button>
             )}
@@ -380,16 +393,16 @@ export default function ParticipantBilling({ onNavigate, onOpenMaterial, active 
         </section>
       )}
 
-      {refundOpen && refundable.length > 0 && <RefundDialog items={refundable} onClose={() => setRefundOpen(false)} />}
+      {refundOpen && refundable.length > 0 && <RefundDialog items={refundable} initialId={refundFor} onClose={() => setRefundOpen(false)} />}
     </div>
   );
 }
 
-function RefundDialog({ items, onClose }: { items: PurchaseView[]; onClose: () => void }) {
+function RefundDialog({ items, initialId = null, onClose }: { items: PurchaseView[]; initialId?: string | null; onClose: () => void }) {
   const root = useRef<HTMLDivElement>(null);
   useModal(root, onClose);
   const session = useSession();
-  const [pickedId, setPickedId] = useState(items[0].id);
+  const [pickedId, setPickedId] = useState(initialId && items.some((i) => i.id === initialId) ? initialId : items[0].id);
   const [name, setName] = useState(session?.profile.name ?? "");
   const [email, setEmail] = useState(session?.profile.email ?? "");
   const [phone, setPhone] = useState("");

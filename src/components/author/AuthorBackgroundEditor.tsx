@@ -37,7 +37,7 @@ import {
   type CredentialKind,
 } from "../../utils/authorCredentials";
 import { CASE_LIMITS, EMPTY_CASE_DETAILS, validateCase, type CaseDetails } from "../../utils/authorCases";
-import { categoryLabels } from "../../data/categoryLabels";
+import { currentTopicEntries } from "../../data/categoryLabels";
 import { fetchAuthorContent } from "../../lib/authorPublic";
 import type { AuthorContentItem } from "../../utils/authorProfileView";
 import BrandSelect from "../ui/BrandSelect";
@@ -373,7 +373,7 @@ export default function AuthorBackgroundEditor({ authorId }: { authorId: string 
               <div className={label}>Тема</div>
               <BrandSelect value={kd.details.topic} onChange={(e) => setKd({ ...kd, details: { ...kd.details, topic: e.target.value } })} className={pick}>
                 <option value="">Без теми</option>
-                {Object.entries(categoryLabels).map(([k, v]) => (
+                {currentTopicEntries().map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
                 ))}
               </BrandSelect>

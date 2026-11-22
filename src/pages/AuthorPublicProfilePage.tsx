@@ -26,7 +26,7 @@ import { getInitials, type Profile } from "../lib/auth";
 import { fetchAuthorPublicProfile, saveReviewReply, type AuthorPublicProfile } from "../lib/authorPublic";
 import { fetchAuthorPosts, PostsUnavailableError, type AuthorPost } from "../lib/authorPosts";
 import { fetchIsFollowing, setFollowing, type FollowState } from "../lib/authorFollows";
-import { categoryLabels } from "../data/categoryLabels";
+import { categoryLabels, currentTopic } from "../data/categoryLabels";
 import AuthorCover from "../components/author/public/AuthorCover";
 import { pluralUk } from "../utils/plural";
 import { AUTHOR_LEFT_NOTICE, useAuthorLeft } from "../lib/authorStatus";
@@ -293,7 +293,8 @@ export default function AuthorPublicProfilePage({
   // no reviews yet, the header shows a sample 4.5 so the layout can be judged.
   const headerRatings = isAuthorPreview() && ratings.count === 0 ? { average: 4.5, count: 2 } : ratings;
   const since = formatSinceMonth(data?.memberSince);
-  const topics = (data?.details.topics ?? [])
+  // old categories shown as the current catalog category they belong to, without repeats
+  const topics = [...new Set((data?.details.topics ?? []).map(currentTopic).filter((k): k is string => !!k))]
     .map((k) => (categoryLabels as Record<string, string>)[k])
     .filter(Boolean);
   const hasPosts = !!pinned || posts.length > 0;
@@ -394,7 +395,7 @@ export default function AuthorPublicProfilePage({
             <Avatar avatarUrl={data.avatarUrl} initials={getInitials(data.name)} className="w-7 h-7 text-[12px] text-white" />
             <div className="min-w-0 flex-1 text-[14px] truncate">
               <span className="font-semibold">{data.name}</span>
-              <span className="text-black/60"> · Автор Sensoria</span>
+              <span className="text-black/60"> · Автор на Sensoria</span>
             </div>
             {canMessage && (
               <button
@@ -478,7 +479,7 @@ export default function AuthorPublicProfilePage({
                   {data.details.verified && <VerifiedBadge />}
                 </h1>
                 <div className="text-[14px] text-black/60 mt-0.5">
-                  {data.details.title ? `${data.details.title} · ` : ""}Автор Sensoria
+                  {data.details.title ? `${data.details.title} · ` : ""}Автор на Sensoria
                 </div>
                 <AuthorKindBadge educationVerified={data.details.educationVerified} showNote className="mt-2" />
 

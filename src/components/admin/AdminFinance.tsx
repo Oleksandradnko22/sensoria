@@ -71,7 +71,6 @@ export default function AdminFinance() {
   const [refs, setRefs] = useState<Record<string, string>>({});
   const [confirmForm, setConfirmForm] = useState({ purchaseId: "", reference: "" });
   const [repay, setRepay] = useState({ amount: "", source: "cash" });
-  const [partial, setPartial] = useState<Record<string, string>>({});
   const [form, setForm] = useState<Record<string, string> | null>(null);
 
   const owner = ov?.role === "owner";
@@ -490,11 +489,7 @@ export default function AdminFinance() {
                             text: "Покупець отримає повну суму. У день оплати банк скасує платіж повністю. Пізніше — банк спише всю суму з рахунку автора, тариф залишиться на рахунку Sensoria: його треба перерахувати автору протягом 5 робочих днів (з’явиться в списку «Тариф до повернення авторам»).",
                             run: async (reason) => { await callFinance({ action: "refund", paymentId: p.id, kind: "full", reason, requestKey: key() }); setInfo("Повернення оформлено."); await refreshAll(authorId); },
                           })} className="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-700 bg-rose-50 disabled:opacity-30">Повне повернення</button>
-                          <input value={partial[p.id] ?? ""} onChange={(e) => setPartial({ ...partial, [p.id]: e.target.value.replace(/[^\d.,]/g, "") })} placeholder="Частково, ₴" className="w-28 px-2 py-1.5 rounded-lg border border-black/10" />
-                          <button disabled={!owner || !partial[p.id]} onClick={() => ask({
-                            title: "Часткове повернення", confirmLabel: "Повернути", danger: true,
-                            run: async (reason) => { await callFinance({ action: "refund", paymentId: p.id, kind: "partial", amountKop: Math.round(Number(partial[p.id].replace(",", ".")) * 100), reason, requestKey: key() }); setPartial({ ...partial, [p.id]: "" }); await refreshAll(authorId); },
-                          })} className="px-3 py-1.5 rounded-lg border border-black/10 disabled:opacity-30">Повернути частину</button>
+                          {/* no partial refunds: one item per order, and monobank refunds only whole items (accountant, 23.11.2026) */}
                           {!p.disputed ? (
                             <button disabled={!owner} onClick={() => ask({
                               title: "Позначити платіж спірним?", confirmLabel: "Підтвердити", danger: false,

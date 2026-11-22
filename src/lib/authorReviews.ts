@@ -47,7 +47,7 @@ export async function fetchMyAuthorReviews(participantId: string, opts: { strict
     id: r.id,
     participantId,
     authorId: r.author_id,
-    authorName: nameById.get(r.author_id) ?? "Автор Sensoria",
+    authorName: nameById.get(r.author_id) ?? "Автор на Sensoria",
     rating: r.rating,
     text: r.text,
     createdAt: r.created_at,

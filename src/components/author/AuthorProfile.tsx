@@ -6,7 +6,7 @@ import { useSession } from "../../context/SessionContext";
 import { getInitials, updateProfile, updateAvatar, removeAvatar } from "../../lib/auth";
 import { fetchAuthorDetails, updateAuthorDetails } from "../../lib/authorDetails";
 import Avatar from "../ui/Avatar";
-import { categoryLabels } from "../../data/categoryLabels";
+import { currentTopicEntries } from "../../data/categoryLabels";
 import AuthorStoryEditor from "./AuthorStoryEditor";
 import AuthorBackgroundEditor from "./AuthorBackgroundEditor";
 import CoverPicker, { type CoverChoice } from "./CoverPicker";
@@ -293,7 +293,7 @@ export default function AuthorProfile(_props: Props) {
             <div>
               <div className="text-[13px] font-semibold text-[#2d2a5c] mb-2">Теми</div>
               <div className="flex flex-wrap gap-2">
-                {Object.entries(categoryLabels).map(([key, label]) => {
+                {currentTopicEntries().map(([key, label]) => {
                   const on = topics.includes(key);
                   return (
                     <button

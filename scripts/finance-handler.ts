@@ -770,9 +770,9 @@ function purchaseConfirmationEmail(o: {
 }
 
 /** Letters to the buyer about a refund (Правила повернення, Угода учасника 6.5; lawyer, 22.11.2026, Ю-5.1а). Best effort. */
-async function sendBuyerRefundMail(to: string | null | undefined, subject: string, heading: string, lines: string[]): Promise<void> {
+async function sendBuyerRefundMail(to: string | null | undefined, subject: string, heading: string, lines: string[]): Promise<boolean> {
   const key = Deno.env.get("RESEND_API_KEY");
-  if (!key || !to) return;
+  if (!key || !to) { console.error("refund mail: no key or recipient"); return false; }
   const msg: BrandEmail = {
     preheader: lines[0].slice(0, 120),
     heading,
@@ -780,13 +780,17 @@ async function sendBuyerRefundMail(to: string | null | undefined, subject: strin
     reason: "Ви отримали цей лист, бо подали запит на повернення коштів на Sensoria.",
   };
   try {
-    await fetch("https://api.resend.com/emails", {
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ from: Deno.env.get("RESEND_FROM") ?? "Sensoria <onboarding@resend.dev>", to, subject, ...renderBrandEmail(msg) }),
     });
+    // a refusal is visible in the function's logs (Supabase → Edge Functions → finance → Logs)
+    if (!res.ok) { console.error("refund mail refused", res.status, (await res.text()).slice(0, 300)); return false; }
+    return true;
   } catch (e) {
     console.error("refund mail", e);
+    return false;
   }
 }
 async function buyerOfInvoice(invoiceId: string): Promise<{ email: string | null; title: string }> {
@@ -1450,9 +1454,12 @@ Deno.serve(async (req) => {
       const { data: rr } = await admin.from("refund_requests").update({ ack_sent_at: nowIso() })
         .eq("id", String(payload.requestId ?? "")).eq("participant_id", user.id).is("ack_sent_at", null).select("email, content_title").maybeSingle();
       if (rr) {
-        await sendBuyerRefundMail(rr.email as string, "Ми отримали ваш запит на повернення", "Запит на повернення отримано", [
+        const sent = await sendBuyerRefundMail(rr.email as string, "Ми отримали ваш запит на повернення", "Запит на повернення отримано", [
           `Ми отримали ваш запит на повернення коштів за «${rr.content_title ?? "матеріал"}». Розглянемо протягом 5 робочих днів і повідомимо рішення.`,
         ]);
+        // not sent: the mark is taken back, so the letter can be tried again
+        if (!sent) await admin.from("refund_requests").update({ ack_sent_at: null }).eq("id", String(payload.requestId ?? ""));
+        return json({ ok: true, sent });
       }
       return json({ ok: true });
     }
@@ -1748,6 +1755,9 @@ Deno.serve(async (req) => {
 
     if (action === "refund") {
       if (!reason) throw new FinanceError("reason_required", "Вкажіть причину.");
+      // one item per order and monobank refunds only whole items: a partial refund would give a wrong return receipt
+      // (accountant, 23.11.2026)
+      if (payload.kind === "partial") throw new FinanceError("no_partial", "Часткове повернення недоступне: повертається вся сума замовлення.");
       const requestKey = String(payload.requestKey ?? "");
       if (requestKey.length < 8) throw new FinanceError("no_key", "Бракує ключа запиту (захист від подвійного повернення).");
       const { data: pay } = await admin.from("finance_payments").select("*").eq(payload.paymentId ? "id" : "purchase_id", payload.paymentId ?? payload.purchaseId).single();

@@ -32,7 +32,7 @@ import { useSession } from "../../context/SessionContext";
 import { contentFilePath, deleteContentFile, deleteStoredImage, isPaidFileRef, signPaidFileRefs, uploadContentFile, uploadPaidFile } from "../../lib/storage";
 import { notifyNewContent } from "../../lib/content";
 import { fetchAuthorStory } from "../../lib/authorStory";
-import { categoryLabels } from "../../data/categoryLabels";
+import { categoryLabels, currentTopicEntries } from "../../data/categoryLabels";
 import { fetchAuthorDetails } from "../../lib/authorDetails";
 import { RISK_TOPICS, riskKeywordWords, unknownRiskTopics } from "../../utils/riskTopics";
 import { formatPrice } from "../../utils/price";
@@ -1892,7 +1892,7 @@ export default function AuthorCourseEditor({
       <Step n={3} current={step} errors={stepErrors} icon="library" title="Категорії" hint={`Оберіть до трьох категорій, які найкраще описують ${W.acc}. За ними ${W.pron} знаходять у каталозі.`}>
       <div className="flex flex-col gap-5">
         <div role="group" aria-label={`Категорії ${W.gen}`} className={`${stepErrors.length > 0 && catCount === 0 ? "rounded-2xl ring-2 ring-rose-400 ring-offset-4" : ""} grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`}>
-          {Object.entries(categoryLabels).map(([id, label]) => {
+          {currentTopicEntries().map(([id, label]) => {
             const on = tags.includes(id);
             const full = !on && catCount >= MAX_CATEGORIES;
             const primary = on && categoryTags(tags)[0] === id;
@@ -1900,7 +1900,7 @@ export default function AuthorCourseEditor({
               <button
                 key={id}
                 type="button"
-                data-focus-invalid={stepErrors.length > 0 && catCount === 0 && id === Object.keys(categoryLabels)[0] ? "true" : undefined}
+                data-focus-invalid={stepErrors.length > 0 && catCount === 0 && id === currentTopicEntries()[0][0] ? "true" : undefined}
                 aria-pressed={on}
                 aria-disabled={full || undefined}
                 onClick={() => pickCategory(id)}

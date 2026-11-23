@@ -157,7 +157,8 @@ export default function TestPage({
         flex
         items-center
         justify-center
-        px-6
+        px-4
+        sm:px-6
         "
       >
 
@@ -173,7 +174,9 @@ export default function TestPage({
 
           border border-white/20
 
-          p-10
+          px-6
+          py-10
+          sm:p-10
 
           text-center
           text-white
@@ -184,11 +187,11 @@ export default function TestPage({
             <span className="inline-flex"><Icon name={activeMicroInsight.icon} size={60} /></span>
           </div>
 
-          <h2 className="text-4xl font-bold mb-6">
+          <h2 className="text-[28px] sm:text-4xl font-bold leading-tight mb-4 sm:mb-6">
             {activeMicroInsight.title}
           </h2>
 
-          <p className="text-white/70 text-lg leading-relaxed">
+          <p className="text-white/75 text-[16px] sm:text-lg leading-relaxed">
             {activeMicroInsight.text}
           </p>
 

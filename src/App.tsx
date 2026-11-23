@@ -38,6 +38,7 @@ import { fetchPublishedPrograms } from "./lib/publicContent";
 import { setRecommendationPrograms } from "./utils/relevantContent";
 import { saveAssessmentResult } from "./lib/assessment";
 import funnelStore from "./store/funnelStore";
+import { devFunnelPage } from "./utils/devFunnelPreview";
 import { programs as demoPrograms, type Program } from "./data/programs";
 import { meditations } from "./data/meditations";
 import { guides } from "./data/guides";
@@ -142,7 +143,7 @@ function AppInner() {
 
   // The page lives in state; the address bar mirrors it (see utils/routes.ts).
   const initialRoute = typeof window !== "undefined" ? pageForPath(window.location.pathname) : { page: "home" as Page, authorId: null, programId: null };
-  const [page, setPage] = useState<Page>(initialRoute.page);
+  const [page, setPage] = useState<Page>(() => devFunnelPage() ?? initialRoute.page);
 
   // Public author profile ("Переглянути профіль"): requested from many
   // places through context/AuthorProfileContext. "Назад" returns to the
@@ -1179,6 +1180,7 @@ if (page === "state-selection") {
         onContinue={() => {
           setPage("test");
         }}
+        onExit={() => setPage("home")}
       />
     </div>
   );

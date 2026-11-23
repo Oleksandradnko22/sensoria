@@ -264,7 +264,7 @@ export default function ResultPage({ onContinue, onMissingData, onRetake }: Prop
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#7c5cf0] px-4 pb-10 pt-16 text-white sm:px-6 sm:pt-20">
-      <div className="mx-auto w-full max-w-[1040px]">
+      <div className="result-wrap mx-auto w-full max-w-[1040px]">
         {/* HERO */}
         <motion.header
           initial={reduce ? false : { opacity: 0, y: 24 }}

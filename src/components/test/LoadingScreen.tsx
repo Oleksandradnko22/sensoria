@@ -77,8 +77,8 @@ const loadingTexts = [
       flex 
       items-center
       justify-center
-      
-        px-6
+      px-4
+      sm:px-6
       text-white"
     >
 
@@ -104,7 +104,7 @@ const loadingTexts = [
         ></div>
 
        {/* CONTENT */}
-<div className="relative z-10">
+<div className="relative z-10 w-full max-w-2xl">
 
 <div
     className="
@@ -117,8 +117,9 @@ const loadingTexts = [
       backdrop-blur-2xl
 
       border border-white/20
-
-      p-10
+      px-6
+      py-10
+      sm:p-10
     "
   >
 
@@ -150,7 +151,7 @@ const loadingTexts = [
   </div>
 
     {/* TITLE */}
-    <h1 className="text-4xl font-bold text-center text-white mb-10">
+    <h1 className="text-[28px] sm:text-4xl font-bold leading-tight text-center text-white mb-5 sm:mb-10">
       Формуємо ваш результат
     </h1>
 
@@ -158,8 +159,9 @@ const loadingTexts = [
 
   <p
     className="
-      text-white/70
-      text-lg
+      text-white/75
+      text-[16px]
+      sm:text-lg
       leading-relaxed
       mb-8
       max-w-xl
@@ -178,9 +180,9 @@ const loadingTexts = [
 
   <div
     className="
-      h-3
+      h-2
       rounded-full
-      bg-white/10
+      bg-white/15
       overflow-hidden
       mb-4
     "
@@ -192,9 +194,8 @@ const loadingTexts = [
         rounded-full
 
         bg-gradient-to-r
-        from-cyan-400
-        via-blue-400
-        to-purple-400
+        from-[#a8e8ff]
+        to-[#e4ddff]
 
         transition-all
         duration-300

@@ -342,3 +342,111 @@ body {
 
 /* Safari draws its own ▸ on <summary> even with list-style none: the cards use their own arrow */
 summary.list-none::-webkit-details-marker { display: none; }
+
+/* The test (state choice and questions): on big screens the whole step is scaled up, not stretched — the cards and
+   the text grow together and the sides stop looking empty. vh is divided by the zoom so the step still fits one
+   screen. Height limits keep short laptops (1366×768, 1536×864) without a scroll. */
+.funnel-page { --funnel-zoom: 1; zoom: var(--funnel-zoom); min-height: calc(100svh / var(--funnel-zoom)); }
+@media (min-width: 834px) and (min-height: 1100px) { .funnel-page { --funnel-zoom: 1.09; } }
+@media (min-width: 1024px) and (min-height: 1300px) { .funnel-page { --funnel-zoom: 1.12; } }
+@media (min-width: 1280px) and (min-height: 850px) { .funnel-page { --funnel-zoom: 1.15; } }
+@media (min-width: 1500px) and (min-height: 950px) { .funnel-page { --funnel-zoom: 1.22; } }
+@media (min-width: 1700px) and (min-height: 1050px) { .funnel-page { --funnel-zoom: 1.32; } }
+@media (min-width: 2200px) and (min-height: 1300px) { .funnel-page { --funnel-zoom: 1.75; } }
+
+/* Test questions on short wide screens (iPhone Duo / Surface Duo unfolded, phones in landscape): the card gets
+   compact so the question and all answers fit without a scroll. */
+@media (min-width: 640px) and (max-height: 760px) {
+  .question-page .qcard-wrap { padding-top: 8px; padding-bottom: 0; }
+  .funnel-page.question-page { padding-bottom: 12px; }
+  .question-page .qcard { padding: 18px 32px; }
+  .question-page .qcard .qlead { margin-top: 14px; }
+  .question-page .qcard h1 { font-size: 24px; margin-top: 6px; margin-bottom: 14px; }
+  .question-page .qcard .qanswers { gap: 8px; }
+  .question-page .qcard .qanswers > button { padding-top: 11px; padding-bottom: 11px; font-size: 16px; }
+}
+
+/* Rings under the test answers on phones (owner, 24.11.2026), tuned per screen so a ring never shows behind the last
+   answer: none on short or wide phone screens (iPhone SE, iPhone Duo outer screen, Surface Duo one screen); no outer
+   ring on 12 mini, 12–14, 16e, Galaxy S24, budget Android, Galaxy Z Fold outer screen, 16 Pro / 17 / 17 Pro; the
+   outer ring drawn whole on the tall ones (Air, Pixel / S Ultra, Plus, Pro Max, Z Flip) and one more on Z Flip. */
+.test-ring-extra { display: none; }
+@media (max-height: 700px), (min-width: 500px) { .test-rings { display: none; } }
+@media (max-height: 849px), (max-width: 350px), (max-height: 880px) and (max-width: 405px) { .test-ring-outer { display: none; } }
+@media (min-height: 900px) and (min-width: 410px) { .test-rings-svg { overflow: visible; } }
+@media (min-height: 990px) { .test-ring-extra { display: inline; } }
+/* the outer ring a little lower where it would touch the last answer (Pixel / S Ultra, iPhone Air, Z Flip) */
+@media (min-width: 410px) and (max-width: 425px) and (min-height: 900px) and (max-height: 930px) { .test-rings-svg { translate: 0 30px; } }
+@media (min-height: 990px) { .test-rings-svg { translate: 0 40px; } }
+/* Surface Duo, two screens (1114×720): the questions were too small for the width — scaled up, still one screen */
+@media (min-width: 1100px) and (max-width: 1199px) and (min-height: 700px) and (max-height: 760px) { .funnel-page.question-page { --funnel-zoom: 1.22; } }
+
+/* First test step on portrait tablets (iPad mini, Air 11, Pro 11, Pro/Air 13, Galaxy Tab S9): two
+   columns of taller cards in a narrower column — wider side margins, less empty space above and below. */
+@media (min-width: 700px) and (max-width: 1100px) and (min-height: 1000px) and (min-aspect-ratio: 3/5) {
+  .state-page .state-bar, .state-page .state-inner { max-width: 640px; }
+  .state-page .state-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .state-page .state-card { min-height: 176px; }
+}
+@media (min-width: 1000px) and (max-width: 1100px) and (min-height: 1300px) {
+  .state-page .state-bar, .state-page .state-inner { max-width: 760px; }
+  .state-page .state-card { min-height: 230px; }
+}
+@media (min-width: 700px) and (max-width: 767px) and (min-height: 1000px) and (min-aspect-ratio: 13/20) {
+  .state-page .state-card { min-height: 150px; }
+  /* iPad mini: the colour line runs from the top of the title to the bottom of the description */
+  .state-page .state-body { align-items: stretch; }
+  .state-page .state-accent { height: auto; }
+}
+/* Test questions on portrait tablets: the width stays (the margins on the grid), the card gets taller — roomier
+   answers and padding — so it fills about as much of the height as on iPad Pro 11 (≈59 %). */
+@media (min-width: 700px) and (max-width: 767px) and (min-height: 1000px) {
+  .question-page .qcard .qanswers > button { padding-top: 24px; padding-bottom: 24px; }
+}
+@media (min-width: 768px) and (max-width: 833px) and (min-height: 1100px) and (max-height: 1220px) {
+  .question-page .qcard .qanswers { gap: 20px; }
+  .question-page .qcard .qanswers > button { padding-top: 24px; padding-bottom: 24px; }
+}
+@media (min-width: 768px) and (max-width: 833px) and (min-height: 1221px) {
+  .question-page .qcard { padding: 52px; }
+  .question-page .qcard .qanswers { gap: 20px; }
+  .question-page .qcard .qanswers > button { padding-top: 28px; padding-bottom: 28px; }
+}
+@media (min-width: 1000px) and (max-width: 1100px) and (min-height: 1300px) {
+  .question-page .qcard { padding: 56px; }
+  .question-page .qcard .qlead { margin-top: 32px; }
+  .question-page .qcard h1 { margin-bottom: 32px; }
+  .question-page .qcard .qanswers { gap: 20px; }
+  .question-page .qcard .qanswers > button { padding-top: 28px; padding-bottom: 28px; }
+}
+
+/* Test questions on tall screens: the card sits a little above the middle (the optical centre). */
+@media (min-width: 640px) and (min-height: 1000px) { .question-page .qcard-wrap { padding-bottom: 7vh; } }
+
+/* Rings behind the question card: portrait tablets only (not foldables, Duo, laptops — there they distract). */
+@media (min-width: 640px) and (max-width: 1100px) and (min-height: 1000px) { .question-page .test-bg-rings { display: block; } }
+/* The test top bar keeps its compact size on short wide screens (foldables, Duo, 1366×768 / 1536×864 laptops). */
+@media (min-width: 640px) and (max-height: 860px) {
+  .funnel-page .tb-logo { gap: 4px; padding: 6px 16px 6px 10px; }
+  .funnel-page .tb-logo-img { width: 28px; height: 28px; }
+  .funnel-page .tb-logo-text { font-size: 13px; }
+  .funnel-page .tb-chip { padding: 6px 12px; font-size: 13px; }
+}
+
+/* Test questions on landscape screens (tablets turned sideways, laptops, monitors, TV): the card runs wide, about 78 %
+   of the screen, as on iPad mini in landscape — the question reads on one line, the top bar follows the card edges. */
+@media (min-width: 900px) and (min-aspect-ratio: 5/4) {
+  .question-page .qcard, .question-page .qbar { max-width: calc(78vw / var(--funnel-zoom)); }
+}
+
+/* Personal result on laptops and monitors (MacBook Air 13 and up, Full HD, 2K): a wider column; 1280–1366 and
+   1536×864 laptops keep 1040 px. On 2K the column is also scaled, like the home page. */
+@media (min-width: 1440px) and (min-height: 900px) { .result-wrap { max-width: 1200px; } }
+@media (min-width: 1700px) and (min-height: 1000px) { .result-wrap { max-width: 1360px; } }
+@media (min-width: 2200px) and (min-height: 1300px) { .result-wrap { zoom: 1.4; } }
+/* per laptop (owner, 24.11.2026): a little wider on the budget 1366×768, Windows 15″, MacBook Pro 14, Full HD and 2K */
+@media (min-width: 1340px) and (max-width: 1400px) and (max-height: 800px) { .result-wrap { max-width: 1120px; } }
+@media (min-width: 1500px) and (max-width: 1560px) and (max-height: 880px) { .result-wrap { max-width: 1240px; } }
+@media (min-width: 1500px) and (max-width: 1560px) and (min-height: 900px) { .result-wrap { max-width: 1260px; } }
+@media (min-width: 1880px) and (max-width: 2000px) and (min-height: 1000px) { .result-wrap { max-width: 1520px; } }
+@media (min-width: 2200px) and (min-height: 1300px) { .result-wrap { max-width: 1440px; } }

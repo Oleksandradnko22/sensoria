@@ -123,6 +123,26 @@ export default function HeroTestimonial({
 
   const s = slides[Math.min(index, slides.length - 1)];
 
+  const slideBody = (sl: Slide, animate: boolean) => {
+    const rise = animate ? "hero-rise" : "";
+    return (
+      <>
+          {sl.title && <div className={`${rise} font-bold leading-snug text-[clamp(1.25rem,1.05rem+0.9vw,1.75rem)] mb-3`}>{sl.title}</div>}
+          <blockquote style={{ animationDelay: "0.25s" }} className={`${rise} m-0 ${real ? "text-[clamp(1.0625rem,0.95rem+0.6vw,1.375rem)] font-semibold leading-snug" : "text-[clamp(1rem,0.95rem+0.3vw,1.125rem)] leading-relaxed text-white"}`}>
+            {real ? `«${sl.text}»` : sl.text}
+          </blockquote>
+          {sl.name && (
+            <figcaption style={{ animationDelay: "0.5s" }} className={`${rise} mt-3 flex items-center gap-3`}>
+              <span aria-hidden="true" className="w-9 h-9 rounded-full bg-white/25 flex items-center justify-center t-small font-semibold">
+                {sl.name[0]}
+              </span>
+              <span className="t-small font-medium">{sl.name}</span>
+            </figcaption>
+          )}
+      </>
+    );
+  };
+
   return (
     <section
       ref={root}
@@ -172,20 +192,18 @@ export default function HeroTestimonial({
         aria-live={autoplay ? "off" : "polite"}
         className="relative z-10 mt-auto w-full px-6 sm:px-10 pb-6 sm:pb-8 pt-24 text-white pointer-events-none"
       >
-        <figure key={s.id} className="m-0">
-          {s.title && <div className="hero-rise font-bold leading-snug text-[clamp(1.25rem,1.05rem+0.9vw,1.75rem)] mb-3">{s.title}</div>}
-          <blockquote style={{ animationDelay: "0.25s" }} className={`hero-rise m-0 ${real ? "text-[clamp(1.0625rem,0.95rem+0.6vw,1.375rem)] font-semibold leading-snug" : "text-[clamp(1rem,0.95rem+0.3vw,1.125rem)] leading-relaxed text-white"}`}>
-            {real ? `«${s.text}»` : s.text}
-          </blockquote>
-          {s.name && (
-            <figcaption style={{ animationDelay: "0.5s" }} className="hero-rise mt-3 flex items-center gap-3">
-              <span aria-hidden="true" className="w-9 h-9 rounded-full bg-white/25 flex items-center justify-center t-small font-semibold">
-                {s.name[0]}
-              </span>
-              <span className="t-small font-medium">{s.name}</span>
-            </figcaption>
-          )}
-        </figure>
+        {/* every slide is laid out invisibly in the same cell, so the card keeps the height of the longest one
+            and does not jump when a slide with a longer title comes up */}
+        <div className="grid">
+          {slides.map((sl) => (
+            <div key={`size-${sl.id}`} aria-hidden="true" className="invisible [grid-area:1/1]">
+              {slideBody(sl, false)}
+            </div>
+          ))}
+          <figure key={s.id} className="m-0 [grid-area:1/1] self-end">
+            {slideBody(s, true)}
+          </figure>
+        </div>
 
         {slides.length > 1 && (
           <div className="mt-3 flex justify-end -mb-2 pointer-events-auto" role="group" aria-label="Вибір слайда">

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   GROUP3_LIMIT_2026_KOP, differentQuarters, incomeBook, kyivDay, kyivQuarter, limitLevel, monthlyAct, quarterIncomeKop,
-  refundOfEarlierQuarter, registerRow, rolling12Kop, vatLevel, addWorkingDays, buildAct, uahInWords, sameDayCancel, type ActOrder,
+  refundOfEarlierQuarter, registerRow, rolling12Kop, vatLevel, addWorkingDays, buildAct, uahInWords, sameDayCancel, registryCreditDay, tariffByDay, tariffDayStatus, type ActOrder,
 } from "./taxRegister.ts";
 
 test("register: paid = tariff + bank fee + credited to the author, to the kopeck", () => {
@@ -109,4 +109,25 @@ test("refund on the day of payment cancels it; the boundary is a setting (whole 
   assert.equal(sameDayCancel("2026-11-20T08:00:00Z", "2026-11-20T21:30:00Z", "23:00"), false); // 23:30 is already the next day
   assert.equal(sameDayCancel("2026-11-20T21:30:00Z", "2026-11-21T07:00:00Z", "23:00"), true); // paid 23:30, refunded 09:00 next morning
   assert.equal(sameDayCancel("2026-11-20T21:30:00Z", "2026-11-21T21:30:00Z", "23:00"), false);
+});
+
+test("daily tariff check: the bank's registry payment, the statement's agentFee by day, the status", () => {
+  assert.equal(registryCreditDay("Прийняті платежі за 23.11.2026 згідно реєстру № 15"), "2026-11-23");
+  assert.equal(registryCreditDay("Прийняті платежі за 2026-11-23 згідно реєстру"), "2026-11-23");
+  assert.equal(registryCreditDay("Повернення плати за послуги"), null);
+  const by = tariffByDay([
+    { date: "2026-11-23T08:00:00Z", agentFeeKop: 30000 },
+    { date: "2026-11-23T21:30:00Z", agentFeeKop: 15000 }, // 23:30 Kyiv — still the 23rd
+    { date: "2026-11-23T22:30:00Z", agentFeeKop: 100 }, // 00:30 Kyiv — the 24th
+    { date: "2026-11-23T10:00:00Z", agentFeeKop: 0 },
+  ]);
+  assert.equal(by.get("2026-11-23"), 45000);
+  assert.equal(by.get("2026-11-24"), 100);
+  assert.equal(tariffDayStatus("2026-11-23", 45000, 45000, "2026-11-24"), "ok");
+  assert.equal(tariffDayStatus("2026-11-23", 45000, 44999, "2026-11-24"), "mismatch");
+  assert.equal(tariffDayStatus("2026-11-23", 45000, null, "2026-11-24"), "waiting"); // may still come on the next working day
+  assert.equal(tariffDayStatus("2026-11-23", 45000, null, "2026-11-25"), "missing");
+  assert.equal(tariffDayStatus("2026-11-27", 100, null, "2026-11-30"), "waiting"); // Friday → Monday is the next working day
+  assert.equal(tariffDayStatus("2026-11-27", 100, null, "2026-12-01"), "missing");
+  assert.equal(tariffDayStatus("2026-11-23", 0, null, "2026-12-01"), "ok");
 });

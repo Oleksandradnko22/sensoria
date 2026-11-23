@@ -205,6 +205,8 @@ export default function AdminFinance() {
 
       {owner && <IncomeBook />}
 
+      {owner && <TariffDays onInfo={setInfo} />}
+
       {/* М6 / Б39: a refund after the day of payment or a lost chargeback debited from the author — Sensoria transfers its
           tariff back within 5 working days; «Сплачено» also issues Sensoria's return receipt for the tariff */}
       {owner && tariffTasks.length > 0 && (
@@ -480,7 +482,7 @@ export default function AdminFinance() {
                       <div className="min-w-[200px]">
                         <div className="font-medium">{k(p.amount_kop)} <span className="text-black/40">(автор {k(p.author_kop)} / Sensoria {k(p.sensoria_kop)})</span></div>
                         <div className="text-black/40">{dt(p.confirmed_at)} · {p.mode === "test" ? "тест" : "реальний"} · повернено {k(p.refunded_kop)}{p.disputed ? " · спір" : ""}</div>
-                        {p.refund_declined && <div className="mt-1 inline-block rounded-full bg-rose-50 px-2.5 py-0.5 text-[12px] font-semibold text-rose-700 ring-1 ring-rose-100">Повернення відхилено банком · доступ покупця збережено</div>}
+                        {p.refund_declined && <div className="mt-1 inline-block rounded-full bg-rose-50 px-2.5 py-0.5 text-[12px] font-semibold text-rose-700 ring-1 ring-rose-100">Повернення відхилено банком (найчастіше бракує коштів на рахунку автора) · доступ покупця збережено · повторюємо щоранку</div>}
                       </div>
                       {left > 0 && (
                         <>
@@ -488,7 +490,7 @@ export default function AdminFinance() {
                             title: `Повернути ${k(left)} покупцю?`, confirmLabel: "Повернути повністю", danger: true,
                             text: "Покупець отримає повну суму. У день оплати банк скасує платіж повністю. Пізніше — банк спише всю суму з рахунку автора, тариф залишиться на рахунку Sensoria: його треба перерахувати автору протягом 5 робочих днів (з’явиться в списку «Тариф до повернення авторам»).",
                             run: async (reason) => { await callFinance({ action: "refund", paymentId: p.id, kind: "full", reason, requestKey: key() }); setInfo("Повернення оформлено."); await refreshAll(authorId); },
-                          })} className="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-700 bg-rose-50 disabled:opacity-30">Повне повернення</button>
+                          })} className="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-700 bg-rose-50 disabled:opacity-30">{p.refund_declined ? "Повторити повернення" : "Повне повернення"}</button>
                           {/* no partial refunds: one item per order, and monobank refunds only whole items (accountant, 23.11.2026) */}
                           {!p.disputed ? (
                             <button disabled={!owner} onClick={() => ask({
@@ -776,6 +778,73 @@ function IncomeBook() {
           )}
         </div>
       )}
+    </section>
+  );
+}
+
+// «Звірка тарифу за днями» (monobank 23.11.2026, п. 5; rules Б2): the bank pays a day's tariffs to Sensoria in ONE payment
+// «Прийняті платежі за (дата) згідно реєстру». Expected = the statement's agentFee for that day. Received comes from
+// Sensoria's account statement (when its token is set) or is entered here from the bank statement.
+const DAY_STATUS: Record<string, { label: string; cls: string }> = {
+  ok: { label: "Збігається", cls: "bg-emerald-50 text-emerald-800" },
+  waiting: { label: "Очікуємо платіж", cls: "bg-black/5 text-black/60" },
+  missing: { label: "Платіж не надійшов", cls: "bg-rose-50 text-rose-700" },
+  mismatch: { label: "Розбіжність", cls: "bg-rose-50 text-rose-700" },
+};
+function TariffDays({ onInfo }: { onInfo: (s: string) => void }) {
+  const [days, setDays] = useState<Row[] | null>(null);
+  const [auto, setAuto] = useState(false);
+  const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    try {
+      const r = await callFinance<{ days: Row[]; autoSource: boolean }>({ action: "tariffDays" });
+      setDays(r.days);
+      setAuto(r.autoSource);
+    } catch {
+      setDays([]);
+    }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+  if (!days || days.length === 0) return null;
+  const save = async (day: string) => {
+    const v = Math.round(Number(String(inputs[day] ?? "").replace(",", ".")) * 100);
+    if (!Number.isFinite(v) || v < 0) return setError("Вкажіть суму в гривнях, напр. 450.00");
+    setError(null);
+    try {
+      const r = await callFinance<{ status: string }>({ action: "tariffDayCredit", day, creditedKop: v, reason: "Сума з виписки рахунку Sensoria" });
+      onInfo(r.status === "ok" ? `${day}: збігається.` : `${day}: розбіжність — адміністратору надіслано лист.`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не вдалося зберегти.");
+    }
+  };
+  return (
+    <section className="rounded-2xl bg-white border border-black/5 p-5">
+      <h3 className="text-[16px] font-semibold mb-1">Звірка тарифу за днями</h3>
+      <p className="text-[13px] text-black/50 mb-3">
+        Сума тарифів за день у виписці еквайрингу має дорівнювати одному платежу банку на рахунок Sensoria «Прийняті платежі за (дата) згідно реєстру» — не пізніше наступного робочого дня.
+        {auto ? " Надходження беремо з виписки рахунку Sensoria автоматично." : " Введіть суму цього платежу з виписки рахунку Sensoria."}
+      </p>
+      {error && <p role="alert" className="mb-2 text-[13px] text-rose-700">{error}</p>}
+      <div className="flex flex-col gap-2">
+        {days.map((d) => {
+          const st = DAY_STATUS[d.status as string] ?? DAY_STATUS.waiting;
+          return (
+            <div key={d.day} className="flex flex-wrap items-center gap-3 rounded-xl border border-black/5 px-4 py-2.5 text-[13px]">
+              <div className="min-w-[110px] font-medium">{d.day}</div>
+              <div className="min-w-0 flex-1 text-black/60">За випискою {k(d.expected_kop)} · надійшло {d.credited_kop == null ? "—" : k(d.credited_kop)}{d.source === "manual" ? " (введено вручну)" : ""}</div>
+              <span className={`rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${st.cls}`}>{st.label}</span>
+              {d.status !== "ok" && (
+                <span className="flex items-center gap-2">
+                  <input value={inputs[d.day] ?? ""} onChange={(e) => setInputs({ ...inputs, [d.day]: e.target.value })} inputMode="decimal" placeholder="Сума, ₴" aria-label={`Надійшло за ${d.day}, грн`} className="w-28 px-2 py-1.5 rounded-lg border border-black/10" />
+                  <button type="button" disabled={!(inputs[d.day] ?? "").trim()} onClick={() => void save(d.day)} className="px-3 py-1.5 rounded-lg border border-black/10 disabled:opacity-30">Зберегти</button>
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }

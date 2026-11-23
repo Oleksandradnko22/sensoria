@@ -42,7 +42,7 @@ export default function TestPopup({ onOpenTest }: Props) {
         <div
           role="region"
           aria-label="Підбір програми"
-          className="fixed left-3 right-3 bottom-[max(12px,env(safe-area-inset-bottom))] sm:left-auto sm:right-8 sm:bottom-8 z-50"
+          className="fixed left-3 right-3 bottom-[max(12px,env(safe-area-inset-bottom))] sm:left-auto sm:right-8 sm:bottom-8 z-50 min-[1700px]:[zoom:var(--page-zoom)]"
         >
           <div className="relative sm:w-[360px] flex items-center gap-3 rounded-2xl bg-white/95 backdrop-blur-md border border-[#dfe3fb] text-[#0f172a] p-3 sm:p-4 pr-8 sm:pr-10 shadow-[0_18px_50px_-12px_rgba(15,23,90,0.45)] animate-[fadeIn_0.6s_ease-out] motion-reduce:animate-none">
             <span aria-hidden="true" className="shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-[#3b6df0] to-[#7c5cf0] text-white flex items-center justify-center">
@@ -76,7 +76,7 @@ export default function TestPopup({ onOpenTest }: Props) {
         <button
           onClick={reopen}
           aria-label="Підібрати програму: пройти тест"
-          className="fixed right-4 bottom-[max(16px,env(safe-area-inset-bottom))] sm:right-8 sm:bottom-8 z-50 w-12 h-12 rounded-full flex items-center justify-center text-white bg-gradient-to-br from-[#3b6df0] to-[#7c5cf0] ring-4 ring-white/40 shadow-[0_10px_28px_-8px_rgba(15,23,90,0.55)] hover:scale-105 transition focus:outline-none focus-visible:ring-white"
+          className="fixed right-4 bottom-[max(16px,env(safe-area-inset-bottom))] sm:right-8 sm:bottom-8 z-50 min-[1700px]:[zoom:var(--page-zoom)] w-12 h-12 rounded-full flex items-center justify-center text-white bg-gradient-to-br from-[#3b6df0] to-[#7c5cf0] ring-4 ring-white/40 shadow-[0_10px_28px_-8px_rgba(15,23,90,0.55)] hover:scale-105 transition focus:outline-none focus-visible:ring-white"
         >
           <Icon name="compass" size={20} />
         </button>

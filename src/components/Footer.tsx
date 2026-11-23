@@ -85,19 +85,19 @@ export default function Footer({
   return (
     <footer className={`relative z-10 bg-white text-[#0f172a] ${compact ? "mt-4 sm:mt-6" : "mt-8 sm:mt-12"}`}>
       <div className="page-container pt-8 sm:pt-14 pb-5">
-        <div className="grid grid-cols-1 min-[360px]:grid-cols-2 md:grid-cols-3 gap-x-4 min-[375px]:gap-x-6 gap-y-7 md:gap-x-8 lg:gap-x-10">
+        <div className="grid grid-cols-1 min-[360px]:grid-cols-2 md:grid-cols-3 min-[2200px]:grid-cols-[1.4fr_1fr_1fr_1.2fr] gap-x-4 min-[375px]:gap-x-6 gap-y-7 md:gap-x-8 lg:gap-x-10">
           {/* BRAND */}
-          <div className="min-[360px]:col-span-2 md:col-span-3 md:flex md:items-center md:gap-5 pb-1 md:pb-6 md:border-b md:border-[#eceef7]">
+          <div className="min-[360px]:col-span-2 md:col-span-3 md:flex md:items-center md:gap-5 pb-1 md:pb-6 md:border-b md:border-[#eceef7] min-[2200px]:col-span-1 min-[2200px]:block min-[2200px]:pb-0 min-[2200px]:border-0">
             <a
               href="/"
               onClick={go(onGoHome)}
               aria-label="Sensoria — на головну"
-              className="inline-flex items-center gap-1 bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white pl-2.5 pr-4 py-1.5 rounded-full font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3b6df0] focus-visible:ring-offset-2"
+              className="shrink-0 whitespace-nowrap inline-flex items-center gap-1 bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white pl-2.5 pr-4 py-1.5 rounded-full font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3b6df0] focus-visible:ring-offset-2"
             >
               <img src={logo} alt="" className="w-7 h-7 object-contain brightness-0 invert" />
               <span className="text-[13px] tracking-wide">SENSORIA</span>
             </a>
-            <p className="text-[14px] sm:text-[15px] leading-relaxed text-[#5b6280] mt-3 md:mt-0">
+            <p className="text-[14px] sm:text-[15px] leading-relaxed text-[#5b6280] mt-3 md:mt-0 min-[2200px]:mt-3 min-[2200px]:max-w-[34ch]">
               Психологічні програми, гайди й медитації від авторів — для розвитку та внутрішнього балансу.
             </p>
           </div>

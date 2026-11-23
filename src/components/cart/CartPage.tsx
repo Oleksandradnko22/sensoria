@@ -431,7 +431,8 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
                         <summary className="cursor-pointer font-medium text-[#4338ca] underline-offset-2 hover:underline">Відомості про продавця</summary>
                         <p className="mt-2 leading-relaxed">
                           Продавець: {sellers[l.item.id].legalName}, {sellers[l.item.id].codeMasked}.
-                          {sellers[l.item.id].address ? ` Місцезнаходження: ${sellers[l.item.id].address}.` : ""} Претензії щодо матеріалу й оплати приймає Sensoria за дорученням продавця:{" "}
+                          {sellers[l.item.id].address ? ` Місцезнаходження: ${sellers[l.item.id].address}.` : ""}
+                          {sellers[l.item.id].email || sellers[l.item.id].phone ? ` Контакти продавця: ${[sellers[l.item.id].email, sellers[l.item.id].phone].filter(Boolean).join(", ")}.` : ""} Претензії щодо матеріалу й оплати також приймає Sensoria за дорученням продавця:{" "}
                           <a href={`mailto:${LEGAL.email}`} className="underline underline-offset-2">{LEGAL.email}</a>.
                         </p>
                       </details>

@@ -50,20 +50,20 @@ export default function Hero({ onOpenTest, onBecomeAuthor }: { onOpenTest: () =>
           <circle cx="150" cy="150" r="140" />
         </svg>
       </div>
-      <div className="page-container relative pt-28 pb-16 lg:pt-32 lg:pb-28 lg:min-h-[min(100vh,900px)] flex items-center">
-        <div className="grid grid-cols-1 md:grid-cols-[1.1fr_0.9fr] lg:grid-cols-[1.15fr_0.85fr] gap-12 md:gap-10 lg:gap-24 items-center w-full">
+      <div className="page-container relative pt-28 pb-16 lg:pt-32 lg:pb-28 lg:min-h-[min(100vh,820px)] min-[1440px]:min-h-[calc(100svh/var(--page-zoom,1))] flex items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-12 lg:gap-24 items-center w-full">
           {/* LEFT — reading order: headline → one sentence → ONE main action → quiet extras */}
           <div className="flex flex-col min-w-0">
-            <p aria-hidden="true" className="md:hidden self-start inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[12px] font-semibold uppercase tracking-[0.08em] text-white/90 mb-5">
+            <p aria-hidden="true" className="lg:hidden self-start inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[12px] font-semibold uppercase tracking-[0.08em] text-white/90 mb-5">
               <span className="w-1.5 h-1.5 rounded-full bg-[#9be7ff] shadow-[0_0_10px_#9be7ff]" />
               Психологічна платформа
             </p>
-            <h1 id="hero-title" className="fluid-h1 max-lg:text-[34px] max-lg:min-[400px]:text-[38px] max-lg:sm:text-[44px] max-lg:md:text-[40px] max-lg:leading-[1.08] max-lg:tracking-[-0.02em] font-bold max-w-[16ch]">
+            <h1 id="hero-title" className="fluid-h1 max-lg:text-[34px] max-lg:min-[400px]:text-[38px] max-lg:sm:text-[46px] max-lg:md:text-[52px] max-lg:leading-[1.08] max-lg:tracking-[-0.02em] font-bold max-w-[16ch] sm:max-lg:max-w-[20ch]">
               Простір для розвитку, підтримки та{" "}
               <span className="max-lg:bg-gradient-to-r max-lg:from-[#e4ddff] max-lg:to-[#a8e8ff] max-lg:bg-clip-text max-lg:text-transparent">глибоких змін</span>
             </h1>
 
-            <p className="fluid-lead max-lg:text-[16px] max-lg:leading-[1.55] text-white/85 lg:text-white/90 max-w-[30em] mt-4 lg:mt-6">
+            <p className="fluid-lead max-lg:text-[16px] max-lg:leading-[1.55] text-white/85 lg:text-white/90 max-w-[30em] sm:max-lg:max-w-[36em] mt-4 lg:mt-6">
               Проходьте психологічні програми, відкривайте практичні інструменти та рухайтесь до внутрішнього балансу у власному темпі.
             </p>
 
@@ -84,7 +84,7 @@ export default function Hero({ onOpenTest, onBecomeAuthor }: { onOpenTest: () =>
               </button>
             </div>
 
-            <ul className="max-[374px]:hidden md:max-lg:hidden mt-6 lg:mt-8 flex flex-wrap items-center gap-2 lg:gap-x-8 lg:gap-y-3">
+            <ul className="max-[374px]:hidden mt-6 lg:mt-8 flex flex-wrap items-center gap-2 lg:gap-x-8 lg:gap-y-3">
               {BENEFITS.map((b) => (
                 <li key={b.title} className="flex items-center gap-2 lg:gap-2.5 t-small max-lg:text-[13px] font-semibold text-white whitespace-nowrap max-lg:rounded-full max-lg:border max-lg:border-white/15 max-lg:bg-white/10 max-lg:px-3 max-lg:py-1.5">
                   <span aria-hidden="true" className="shrink-0 text-white/75">
@@ -97,7 +97,7 @@ export default function Hero({ onOpenTest, onBecomeAuthor }: { onOpenTest: () =>
           </div>
 
           {/* RIGHT */}
-          <div className={`min-w-0 w-full max-w-[600px] md:ml-auto flex-col gap-4 ${realCard ? "flex sm:max-md:hidden" : "hidden md:flex"}`}>
+          <div className={`min-w-0 w-full max-w-[600px] min-[2200px]:max-w-[700px] lg:ml-auto flex-col gap-4 ${realCard ? "flex sm:max-lg:hidden" : "hidden lg:flex"}`}>
             <HeroTestimonial testimonials={data?.testimonials ?? []} onRealChange={setRealCard} />
 
             {stats.length > 0 && (
@@ -118,7 +118,10 @@ export default function Hero({ onOpenTest, onBecomeAuthor }: { onOpenTest: () =>
           </div>
         </div>
 
-        <ScrollHintArrow />
+        {/* only on desktop, where the first screen is tall; on phones and tablets it sat on the pills */}
+        <div className="hidden lg:block">
+          <ScrollHintArrow />
+        </div>
       </div>
 
       {/* quiet organic edge into the next section */}

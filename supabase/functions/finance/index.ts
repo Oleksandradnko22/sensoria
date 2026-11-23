@@ -389,9 +389,18 @@ export function promoQuote(listKop: Kop, percent: number, s: Settings): { listKo
 /**
  * monobank pays Sensoria `agentFeePercent` (two decimals) of the amount. With a discount, the fixed tariff is not a
  * two-decimal percent of the promised amount (150 of 900 ₴ = 16.666…%), so the amount is lowered by a few kopecks
- * to the highest one where the bank's percent gives the tariff EXACTLY (rounded or truncated to the kopeck):
+ * to the highest one where the bank's percent gives the tariff EXACTLY (rounded from 0.45, or truncated, to the kopeck):
  * the tariff never changes, the buyer pays at most what the code promised, the kopecks come from the author's part.
  */
+/**
+ * How monobank rounds a share to the kopeck (bank's answer 23.11.2026, п. 4): a part of a kopeck from 0.45 goes up,
+ * less goes down. `x10000` is the share × 10000 (amount in kopecks × percent × 100), an integer.
+ */
+export const BANK_ROUND_UP_FROM = 4500; // 0.45 of a kopeck, in 1/10000
+export function bankRoundKop(x10000: number): Kop {
+  return Math.floor((x10000 + 10000 - BANK_ROUND_UP_FROM) / 10000);
+}
+
 export function exactAgentAmount(promisedKop: Kop, sensoriaKop: Kop): Kop {
   if (sensoriaKop <= 0) return promisedKop;
   // the smallest two-decimal percent that reaches the tariff at the promised amount keeps the extra kopecks smallest
@@ -400,7 +409,7 @@ export function exactAgentAmount(promisedKop: Kop, sensoriaKop: Kop): Kop {
   for (const b of [basis, basis + 1, basis + 2]) {
     for (let a = promisedKop; a > promisedKop - span && a > sensoriaKop; a -= 1) {
       const fee = a * b; // the bank's share × 10000
-      if (fee >= sensoriaKop * 10000 && fee < sensoriaKop * 10000 + 5000 && Math.round((sensoriaKop * 10000) / a) === b) return a;
+      if (fee >= sensoriaKop * 10000 && fee < sensoriaKop * 10000 + BANK_ROUND_UP_FROM && Math.round((sensoriaKop * 10000) / a) === b) return a;
     }
   }
   throw new FinanceError("promo_percent", "Цю знижку не можна точно передати банку. Оберіть інший відсоток.");
@@ -2068,6 +2077,42 @@ export function buildAct(p: { period: string; authorId: string; orders: ActOrder
   };
 }
 
+// ── daily check of Sensoria's tariff (monobank 23.11.2026, п. 5; rules Б2) ──
+// The bank pays the day's tariffs to Sensoria's account in ONE payment «Прийняті платежі за (дата) згідно реєстру»,
+// not later than the next operational day. The sum of `agentFee` in the merchant statement for that day must equal it.
+
+/** "Прийняті платежі за 23.11.2026 згідно реєстру № 15" → "2026-11-23"; null for any other payment. */
+export function registryCreditDay(description: string): string | null {
+  if (!/прийняті\s+платежі/i.test(description)) return null;
+  const m = description.match(/(\d{2})[./](\d{2})[./](\d{4})/) ?? null;
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  const iso = description.match(/(\d{4})-(\d{2})-(\d{2})/);
+  return iso ? `${iso[1]}-${iso[2]}-${iso[3]}` : null;
+}
+
+/** Sum of the bank's tariff by the Kyiv day of payment. */
+export function tariffByDay(items: { date: string; agentFeeKop: number }[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const it of items) {
+    if (!(it.agentFeeKop > 0)) continue;
+    const d = kyivDay(it.date);
+    out.set(d, (out.get(d) ?? 0) + it.agentFeeKop);
+  }
+  return out;
+}
+
+export type TariffDayStatus = "ok" | "waiting" | "missing" | "mismatch";
+
+/**
+ * One day: expected (statement) against what reached Sensoria's account. Until the end of the next working day the
+ * payment may still come («waiting»); after that, no payment is «missing» and a different sum is a «mismatch».
+ */
+export function tariffDayStatus(day: string, expectedKop: number, creditedKop: number | null, today: string): TariffDayStatus {
+  if (creditedKop != null) return creditedKop === expectedKop ? "ok" : "mismatch";
+  if (expectedKop <= 0) return "ok";
+  return today > addWorkingDays(day, 1) ? "missing" : "waiting";
+}
+
 // ── /tax registers ────────────────────────────────────────────────────────
 
 const corsHeaders = {
@@ -2399,6 +2444,29 @@ async function runJobs() {
     res.errors.push(`tariff refunds: ${e instanceof Error ? e.message : e}`);
   }
 
+  // 7c) refunds (monobank rules, Б9): the money must go back not later than the next working day after the request.
+  //     A refund the bank declined (the author's account lacked the money) is retried every morning; a request still
+  //     undecided or a refund still not done by its deadline reaches the owner.
+  try {
+    (res as Record<string, unknown>).refundRetries = await retryDeclinedRefunds();
+  } catch (e) {
+    res.errors.push(`refund retries: ${e instanceof Error ? e.message : e}`);
+  }
+  try {
+    (res as Record<string, unknown>).refundReminders = await remindRefundDeadlines();
+  } catch (e) {
+    res.errors.push(`refund reminders: ${e instanceof Error ? e.message : e}`);
+  }
+
+  // 7d) Sensoria's tariff, day by day: the statement's agentFee against the bank's one registry payment (Б2)
+  if (Deno.env.get("MONO_TOKEN")) {
+    try {
+      (res as Record<string, unknown>).tariffCheck = await reconcileTariffDays();
+    } catch (e) {
+      res.errors.push(`tariff check: ${e instanceof Error ? e.message : e}`);
+    }
+  }
+
   // 8) the books themselves: the journal must balance and every author's balance must match it; any night job that
   // failed is reported too — the owner hears about it by email, not only when she opens «Фінанси»
   try {
@@ -2461,6 +2529,126 @@ async function monoReconcileStatement() {
     if ((row as MonoRow).status === "success") continue;
     const bank = await monoCall(`/api/merchant/invoice/status?invoiceId=${encodeURIComponent(invoiceId)}`);
     if (bank && (await applyMonoStatus(row as MonoRow, bank)).applied) out.fixed += 1;
+  }
+  return out;
+}
+
+/** Refunds the bank declined: try again once a day with a fresh key (the first attempt's key stays in the log). */
+async function retryDeclinedRefunds() {
+  const out = { tried: 0, done: 0, failed: 0 };
+  const { data: rows } = await admin.from("mono_invoices").select("id").eq("review_reason", "refund_declined_by_bank").limit(50);
+  for (const r of rows ?? []) {
+    const { data: pay } = await admin.from("finance_payments").select("id, amount_kop, refunded_kop").eq("purchase_id", r.id).maybeSingle();
+    if (!pay || Number(pay.refunded_kop) >= Number(pay.amount_kop)) continue;
+    const { data: log } = await admin.from("finance_audit_log").select("reason, new_value").eq("action", "refund_failed_at_bank").eq("entity_id", pay.id).order("created_at", { ascending: false }).limit(1);
+    const last = log?.[0];
+    const first = String((last?.new_value as { first?: string } | null)?.first ?? "");
+    if (!first) continue; // declined before the retries existed: the admin repeats it by hand
+    out.tried += 1;
+    try {
+      await executeRefund({ paymentId: pay.id as string, kind: "full", reason: `${last?.reason ?? "Повернення"} (повторна спроба)`, requestKey: `${first}-r${kyivDay(nowIso()).replace(/-/g, "")}`, actorId: null, retryOf: first });
+      out.done += 1;
+    } catch {
+      out.failed += 1; // logged inside; the owner hears from remindRefundDeadlines once the deadline has passed
+    }
+  }
+  return out;
+}
+
+/** Reminders: an undecided refund request on its last day (once), and a refund the bank declined past its deadline. */
+async function remindRefundDeadlines() {
+  const out = { requests: 0, declined: 0 };
+  const today = kyivDay(nowIso());
+  const { data: open } = await admin.from("refund_requests").select("id, content_title, created_at").eq("status", "open").is("deadline_reminded_at", null).limit(200);
+  for (const r of open ?? []) {
+    const due = addWorkingDays(kyivDay(r.created_at as string), 1);
+    if (today < due) continue;
+    await reconcileAlert(
+      today > due ? "Повернення: строк минув" : "Повернення: сьогодні останній день",
+      `Запит на повернення за «${r.content_title}» від ${kyivDay(r.created_at as string)} ще не розглянуто. За правилами банку повернення має пройти не пізніше ${due} (адмінка → «Повернення»).`,
+    );
+    await admin.from("refund_requests").update({ deadline_reminded_at: nowIso() }).eq("id", r.id);
+    out.requests += 1;
+  }
+  const { data: declined } = await admin.from("mono_invoices").select("id").eq("review_reason", "refund_declined_by_bank").limit(50);
+  for (const d of declined ?? []) {
+    const { data: pay } = await admin.from("finance_payments").select("id, content_title").eq("purchase_id", d.id).maybeSingle();
+    if (!pay) continue;
+    const { data: log } = await admin.from("finance_audit_log").select("created_at").eq("action", "refund_failed_at_bank").eq("entity_id", pay.id).order("created_at").limit(1);
+    const since = log?.[0]?.created_at as string | undefined;
+    if (!since || today <= addWorkingDays(kyivDay(since), 1)) continue;
+    await reconcileAlert("Повернення досі не виконано", `«${pay.content_title ?? "матеріал"}», замовлення ${String(d.id).slice(0, 8)}: банк відхиляє повернення з ${kyivDay(since)}, строк (наступний робочий день) минув. Зв’яжіться з автором: поповнити рахунок або призупинити продажі (адмінка → «Фінанси»).`);
+    out.declined += 1;
+  }
+  return out;
+}
+
+/**
+ * The bank pays Sensoria's tariffs for a day in ONE payment «Прийняті платежі за (дата) згідно реєстру» (rules Б2).
+ * Expected: the sum of `agentFee` in the merchant statement by the Kyiv day of payment (refunds on the day of payment
+ * are cancels: no tariff). Received: Sensoria's own account statement (MONO_FOP_TOKEN + MONO_FOP_ACCOUNT, the
+ * personal API of the FOP account), or the sum the admin enters from the bank statement. A difference → log + owner.
+ */
+async function reconcileTariffDays() {
+  const out = { days: 0, ok: 0, waiting: 0, problems: 0, source: "manual" as "bank" | "manual" };
+  const today = kyivDay(nowIso());
+  const to = Math.floor(Date.now() / 1000);
+  const from = to - 10 * 86400;
+  const st = await monoCall(`/api/merchant/statement?from=${from}&to=${to}`);
+  const cutoff = await sameDayCutoff();
+  const items: { date: string; agentFeeKop: number }[] = [];
+  for (const it of (Array.isArray(st?.list) ? st.list : []) as Record<string, unknown>[]) {
+    const fee = agentFeeKopOf(it) ?? agentFeeKopOf(it.paymentInfo) ?? 0;
+    const date = String(it.date ?? "");
+    if (!fee || !date) continue;
+    if (it.status !== "success") {
+      // a refund later than the day of payment leaves the tariff credited; a cancel on the same day does not
+      const { data: inv } = await admin.from("mono_invoices").select("id").eq("mono_invoice_id", String(it.invoiceId ?? "")).maybeSingle();
+      const { data: pay } = inv ? await admin.from("finance_payments").select("id").eq("purchase_id", inv.id).maybeSingle() : { data: null };
+      const { data: ref } = pay ? await admin.from("finance_refunds").select("created_at").eq("payment_id", pay.id).order("created_at").limit(1) : { data: null };
+      const at = ref?.[0]?.created_at as string | undefined;
+      if (it.status !== "reversed" || !at || sameDayCancel(date, at, cutoff)) continue;
+    }
+    items.push({ date, agentFeeKop: fee });
+  }
+  const expected = tariffByDay(items);
+  // received: the bank's registry payments on Sensoria's own account, when its token is set
+  const credited = new Map<string, number>();
+  const fopToken = Deno.env.get("MONO_FOP_TOKEN"), fopAccount = Deno.env.get("MONO_FOP_ACCOUNT");
+  if (fopToken && fopAccount) {
+    out.source = "bank";
+    const r = await fetch(`https://api.monobank.ua/personal/statement/${encodeURIComponent(fopAccount)}/${from}/${to}`, { headers: { "X-Token": fopToken } });
+    if (!r.ok) throw new FinanceError("fop_statement", `Виписка рахунку Sensoria недоступна (${r.status}).`);
+    for (const t of (await r.json()) as { amount?: number; description?: string; comment?: string }[]) {
+      const day = registryCreditDay(`${t.description ?? ""} ${t.comment ?? ""}`);
+      if (day && Number(t.amount) > 0) credited.set(day, (credited.get(day) ?? 0) + Number(t.amount));
+    }
+  }
+  const days = new Set<string>([...expected.keys()]);
+  const { data: saved } = await admin.from("tariff_daily_checks").select("*").gte("day", kyivDay(new Date(from * 1000).toISOString()));
+  for (const s0 of saved ?? []) days.add(s0.day as string);
+  for (const day of [...days].sort()) {
+    if (day >= today) continue; // the day is not over yet
+    const prev = (saved ?? []).find((x) => x.day === day);
+    const exp = expected.get(day) ?? 0;
+    const got = credited.has(day) ? credited.get(day)! : prev?.credited_kop != null ? Number(prev.credited_kop) : null;
+    const status = tariffDayStatus(day, exp, got, today);
+    out.days += 1;
+    if (status === "ok") out.ok += 1; else if (status === "waiting") out.waiting += 1; else out.problems += 1;
+    const source = credited.has(day) ? "bank" : prev?.source ?? null;
+    await admin.from("tariff_daily_checks").upsert({ day, expected_kop: exp, credited_kop: got, source, status, updated_at: nowIso() }, { onConflict: "day" });
+    if ((status === "missing" || status === "mismatch") && !prev?.alerted_at) {
+      await admin.from("finance_audit_log").insert({
+        administrator_id: null, action: "tariff_day_mismatch", entity_type: "payment", entity_id: day,
+        reason: status === "missing" ? "Платіж банку з тарифом за день не надійшов" : "Сума платежу банку не дорівнює сумі agentFee з виписки",
+        previous_value: null, new_value: { day, expectedKop: exp, creditedKop: got },
+      });
+      await reconcileAlert(
+        "Звірка тарифу: розбіжність за день",
+        `${day}: за випискою еквайрингу тариф ${(exp / 100).toFixed(2)} ₴, ${got == null ? "платіж «Прийняті платежі за дату згідно реєстру» не надійшов" : `на рахунок Sensoria надійшло ${(got / 100).toFixed(2)} ₴`}. Перевірте реєстр банку (адмінка → «Фінанси» → «Звірка тарифу за днями»).`,
+      );
+      await admin.from("tariff_daily_checks").update({ alerted_at: nowIso() }).eq("day", day);
+    }
   }
   return out;
 }
@@ -2561,8 +2749,20 @@ const IMMEDIATE_ACCESS_TEXT =
 // The seller before payment (ЗУ «Про електронну комерцію», ст. 7; ЗУ «Про захист прав споживачів», ст. 13; lawyer,
 // 22.11.2026, Ю-2.1): full name, the FULL tax code (open data of the register, so not masked) and the registered address.
 // `codeMasked` keeps its old name for the stored consent column; it now holds the full code.
-async function sellerOf(authorId: string): Promise<{ legalName: string; codeMasked: string; address: string | null }> {
-  let { data: r, error } = await admin.from("author_mono_receivers").select("legal_name, ipn, status, legal_address").eq("author_id", authorId).maybeSingle();
+/** "+380 67 123 45 67", "067-123-45-67" → "+380671234567"; null if it is not a Ukrainian number. */
+function normalizeUaPhone(raw: string): string | null {
+  const d = raw.replace(/[^\d+]/g, "");
+  const digits = d.replace(/\D/g, "");
+  const full = digits.length === 12 && digits.startsWith("380") ? digits : digits.length === 10 && digits.startsWith("0") ? `38${digits}` : null;
+  return full ? `+${full}` : null;
+}
+
+// The seller's working email and phone for buyers (monobank rules Б11; lawyer, 23.11.2026, Ю-Б, Б-3): shown only here —
+// before payment and in the order confirmation — never in the author's public profile.
+type Seller = { legalName: string; codeMasked: string; address: string | null; email: string | null; phone: string | null };
+async function sellerOf(authorId: string): Promise<Seller> {
+  let { data: r, error } = await admin.from("author_mono_receivers").select("legal_name, ipn, status, legal_address, buyer_email, buyer_phone").eq("author_id", authorId).maybeSingle();
+  if (error) ({ data: r, error } = await admin.from("author_mono_receivers").select("legal_name, ipn, status, legal_address").eq("author_id", authorId).maybeSingle()); // before monobank-rules-2026-11-23.sql
   if (error) ({ data: r } = await admin.from("author_mono_receivers").select("legal_name, ipn, status").eq("author_id", authorId).maybeSingle()); // before seller-address.sql
   const code = String(r?.ipn ?? "");
   if (r?.legal_name && code) {
@@ -2574,10 +2774,12 @@ async function sellerOf(authorId: string): Promise<{ legalName: string; codeMask
       legalName,
       codeMasked: code.length === 8 ? `код ЄДРПОУ ${code}` : `РНОКПП ${code}`,
       address: (r as { legal_address?: string | null }).legal_address ?? null,
+      email: (r as { buyer_email?: string | null }).buyer_email ?? null,
+      phone: (r as { buyer_phone?: string | null }).buyer_phone ?? null,
     };
   }
   const { data: p } = await admin.from("profiles").select("name").eq("id", authorId).maybeSingle();
-  return { legalName: `автор матеріалу${p?.name ? ` ${p.name}` : ""}`, codeMasked: "дані ФОП ще не підключено", address: null };
+  return { legalName: `автор матеріалу${p?.name ? ` ${p.name}` : ""}`, codeMasked: "дані ФОП ще не підключено", address: null, email: null, phone: null };
 }
 const immediateAccessText = (seller: { legalName: string; codeMasked: string }) =>
   IMMEDIATE_ACCESS_TEXT.replace("{{назва ФОП/ТОВ автора}}", `${seller.legalName} (${seller.codeMasked})`);
@@ -2589,7 +2791,7 @@ async function sellerInfoFor(payload: Record<string, unknown>) {
   const { data: content } = await admin.from("content").select("id, author_id, status").eq(isUuid ? "id" : "slug", contentId).maybeSingle();
   if (!content || content.status !== "published") throw new FinanceError("not_for_sale", "Цей матеріал недоступний для купівлі.");
   const seller = await sellerOf(content.author_id as string);
-  return { ...seller, consentText: immediateAccessText(seller) };
+  return { ...seller, operatorEmail: OPERATOR.email, consentText: immediateAccessText(seller) };
 }
 
 /** An author's promo code valid for this material right now (offer Б33). Only the author's own codes count. */
@@ -2669,6 +2871,9 @@ async function monoCheckout(userId: string, payload: Record<string, unknown>, cl
     // the author's receipt is issued on the author's own PRRO: no register — no paid sale (ТЗ 3.4)
     const { data: af } = await admin.from("author_fiscal").select("status").eq("author_id", content.author_id).maybeSingle();
     if (af?.status !== "active") throw new FinanceError("author_no_prro", "Автор ще не підключив касу для чеків. Спробуйте пізніше.");
+    // the buyer must see the seller's address, email and phone before paying (Ю-Б, Б-3): without them — no sale
+    const sc = await sellerOf(content.author_id as string);
+    if (!sc.address || !sc.email || !sc.phone) throw new FinanceError("author_no_contacts", "Автор ще не вказав контакти продавця для покупців. Спробуйте пізніше.");
   }
   // referral rate only on the server's own record of the buyer's click (never from the client)
   const { data: attr } = await admin.from("referral_attributions").select("created_at").eq("buyer_id", userId).eq("author_id", content.author_id).maybeSingle();
@@ -2698,7 +2903,8 @@ async function monoCheckout(userId: string, payload: Record<string, unknown>, cl
     invoice_id: ref, buyer_id: userId, content_id: content.id, seller_legal_name: seller.legalName, seller_code_masked: seller.codeMasked,
     consent_text: immediateAccessText(seller), ip: client.ip, user_agent: client.userAgent,
   };
-  let { error: pcErr } = await admin.from("purchase_consents").insert({ ...pcRow, seller_address: seller.address });
+  let { error: pcErr } = await admin.from("purchase_consents").insert({ ...pcRow, seller_address: seller.address, seller_email: seller.email, seller_phone: seller.phone });
+  if (pcErr && /seller_email|seller_phone|PGRST204|42703/i.test(`${pcErr.code} ${pcErr.message}`)) ({ error: pcErr } = await admin.from("purchase_consents").insert({ ...pcRow, seller_address: seller.address }));
   if (pcErr && /seller_address|PGRST204|42703/i.test(`${pcErr.code} ${pcErr.message}`)) ({ error: pcErr } = await admin.from("purchase_consents").insert(pcRow));
   if (pcErr && !/does not exist|schema cache|PGRST205|42P01/i.test(`${pcErr.code} ${pcErr.message}`)) throw new Error(pcErr.message);
   try {
@@ -2768,7 +2974,7 @@ const kyivDateTime = (iso: string) => new Date(iso).toLocaleString("uk-UA", { ti
 
 function purchaseConfirmationEmail(o: {
   order: string; title: string; kind: string | null; listKop: number; discountKop: number; paidKop: number; paidAt: string;
-  seller: string; sellerCode: string; sellerAddress?: string | null; consentText: string; consentAt: string; test: boolean; site: string; agreementEdition: string;
+  seller: string; sellerCode: string; sellerAddress?: string | null; sellerEmail?: string | null; sellerPhone?: string | null; consentText: string; consentAt: string; test: boolean; site: string; agreementEdition: string;
 }): { subject: string } & BrandEmail {
   const rows = [
     { label: "Замовлення", value: `№ ${o.order}` },
@@ -2779,6 +2985,7 @@ function purchaseConfirmationEmail(o: {
     { label: "У виписці", value: "оплата може відображатися з назвою «Sensoria»" },
     { label: "Продавець", value: `${o.seller} (${o.sellerCode})` },
     ...(o.sellerAddress ? [{ label: "Місцезнаходження продавця", value: o.sellerAddress }] : []),
+    ...(o.sellerEmail || o.sellerPhone ? [{ label: "Контакти продавця", value: [o.sellerEmail, o.sellerPhone].filter(Boolean).join(", ") }] : []),
   ];
   return {
     subject: `${o.test ? "[ТЕСТ] " : ""}Замовлення № ${o.order} на Sensoria: оплату отримано`,
@@ -2794,7 +3001,7 @@ function purchaseConfirmationEmail(o: {
       { type: "text", text: "Фіскальний чек продавця надійде окремим листом від касового сервісу Checkbox. Чек і квитанцію також можна відкрити в кабінеті, у розділі «Оплати»." },
       { type: "details", title: "Повернення й претензії", rows: [
         { label: "Повернення коштів", value: `За Правилами повернення коштів (${o.site}/refunds) і законом; запит — у розділі «Оплати» під цією покупкою.` },
-        { label: "Претензії", value: `Щодо матеріалу й оплати приймає Sensoria за дорученням продавця: ${OPERATOR.email} або поштою — ${OPERATOR.mailingAddress}.` },
+        { label: "Претензії", value: `Щодо матеріалу й оплати — продавцю за контактами вище; також приймає Sensoria за дорученням продавця: ${OPERATOR.email} або поштою — ${OPERATOR.mailingAddress}.` },
         { label: "Умови, які ви прийняли", value: `Угода учасника (${o.agreementEdition}) — у кабінеті: «Профіль → Документи і згоди», там її можна завантажити в PDF.` },
       ] },
       { type: "note", text: `Оператор платформи: ${OPERATOR.operatorName}, РНОКПП ${OPERATOR.registration}, місцезнаходження: ${OPERATOR.address}. Питання: ${o.site}/contacts` },
@@ -2862,7 +3069,8 @@ async function sendPurchaseConfirmation(invoiceId: string): Promise<"sent" | "sk
     const msg = purchaseConfirmationEmail({
       order: invoiceId.replace(/-/g, "").slice(0, 8).toUpperCase(), title: content?.title ?? "Цифровий освітній матеріал", kind: content?.kind ?? null,
       listKop: Number(inv.list_kop ?? paidKop), discountKop: Number(inv.discount_kop ?? 0), paidKop, paidAt: pay?.confirmed_at ?? nowIso(),
-      seller: pc.seller_legal_name, sellerCode: pc.seller_code_masked, sellerAddress: (pc as { seller_address?: string | null }).seller_address ?? null, consentText: pc.consent_text, consentAt: pc.accepted_at,
+      seller: pc.seller_legal_name, sellerCode: pc.seller_code_masked, sellerAddress: (pc as { seller_address?: string | null }).seller_address ?? null,
+      sellerEmail: (pc as { seller_email?: string | null }).seller_email ?? null, sellerPhone: (pc as { seller_phone?: string | null }).seller_phone ?? null, consentText: pc.consent_text, consentAt: pc.accepted_at,
       test: inv.mode !== "live", site: siteUrl(), agreementEdition,
     });
     const res = await fetch("https://api.resend.com/emails", {
@@ -3397,18 +3605,96 @@ async function monoStatusFor(userId: string, ref: string) {
   return { status: cur.status, purchaseId: cur.status === "success" ? cur.id : null, contentId: siteId };
 }
 
+/**
+ * A full refund: first the bank (monobank returns the money to the card), then the books, access and the buyer's letter.
+ * Used by the admin's «Повне повернення» and by the nightly retry of a refund the bank declined (Б9).
+ */
+async function executeRefund(a: { paymentId?: string; purchaseId?: string; kind: RefundKind; reason: string; requestKey: string; actorId: string | null; retryOf?: string }) {
+  const { reason, requestKey, kind } = a;
+  const user = { id: a.actorId };
+      const { data: pay } = await admin.from("finance_payments").select("*").eq(a.paymentId ? "id" : "purchase_id", a.paymentId ?? a.purchaseId).single();
+      if (!pay) throw new FinanceError("no_payment", "Платіж не знайдено: оплату ще не підтверджено.");
+      const authorId = pay.author_id as string;
+      try {
+        await monoCancelIfNeeded(pay.purchase_id as string, kind, requestKey);
+      } catch (e) {
+        // monobank refuses a refund when a receiver's account lacks the money: the author learns it at once and the
+        // attempt stays in the audit log, so the team can agree with the author and try again
+        if (e instanceof FinanceError && e.code === "mono_cancel_failed") {
+          const noMoney = lacksFunds(e.message);
+          const first = a.retryOf ?? requestKey;
+          // the author: once per refund (the nightly retries do not repeat it); the bank's rule — top up by the next working day (Б9)
+          await admin.from("financial_notifications").insert({
+            author_id: authorId, event_type: "REFUND_FAILED", dedupe_key: `refund-failed:${first}`,
+            message: `Банк не провів повернення коштів покупцю за «${pay.content_title ?? "матеріал"}»${noMoney ? ": на вашому рахунку ФОП бракує коштів" : ""}. Банк повертає покупцю всю суму з вашого рахунку, а Sensoria потім перераховує вам свій тариф. Поповніть рахунок не пізніше наступного робочого дня: ми повторюємо повернення автоматично щоранку, а адміністратор може повторити його й раніше. Якщо рахунок не буде поповнено, нові продажі буде призупинено (оферта, розділ «Повернення коштів покупцям»).`,
+          }).then(() => {}, () => {});
+          await admin.from("finance_audit_log").insert({
+            administrator_id: user.id, action: "refund_failed_at_bank", entity_type: "payment", entity_id: pay.id, reason,
+            previous_value: null, new_value: { purchaseId: pay.purchase_id, paymentId: pay.id, kind, first, noMoney, bank: e.message.slice(0, 200) },
+          });
+          // the order shows «Повернення відхилено банком» in the admin panel; the buyer keeps access until it goes through
+          await admin.from("mono_invoices").update({ review_reason: "refund_declined_by_bank", updated_at: nowIso() }).eq("id", pay.purchase_id);
+          if (!a.retryOf) {
+            await admin.from("admin_alert_outbox").insert({
+              kind: "refund_declined", title: "Повернення відхилено банком", urgent: true,
+              details: `«${pay.content_title ?? "матеріал"}», замовлення ${String(pay.purchase_id).slice(0, 8)}: ${noMoney ? "на рахунку автора бракує коштів" : "банк не провів повернення"}. Автора повідомлено; доступ покупця не знято. Повторна спроба — щоранку автоматично або кнопкою «Повторити повернення».`,
+            }).then(() => {}, () => {});
+          }
+          const msg = noMoney
+            ? "Банк не провів повернення: на рахунку автора бракує коштів. Автора повідомлено; повторимо автоматично завтра вранці або натисніть «Повторити повернення», коли автор поповнить рахунок."
+            : `Банк не провів повернення. Автора повідомлено; повторимо автоматично завтра вранці. Відповідь банку: ${e.message}`.slice(0, 400);
+          throw new FinanceError("mono_cancel_failed", msg);
+        }
+        throw e;
+      }
+      const plan = await applyWithRetry(async () => {
+        const [account, fresh, reserveRows] = await Promise.all([
+          loadAccount(authorId),
+          admin.from("finance_payments").select("*").eq("id", pay.id).single(),
+          admin.from("refund_reserves").select("*").eq("payment_id", pay.id).limit(1),
+        ]);
+        const payment = toPayment(fresh.data);
+        const amountKop = payment.amountKop - payment.refundedKop;
+        return planRefund({
+          now: nowIso(), account, payment, reserve: reserveRows.data?.[0] ? toReserve(reserveRows.data[0]) : null,
+          refundId: uuid(), debtId: uuid(), idempotencyKey: requestKey, amountKop, kind, reason,
+        });
+      }, a.actorId);
+      // a fully refunded order no longer gives the buyer access
+      const after = (await admin.from("finance_payments").select("amount_kop, refunded_kop, purchase_id").eq("id", pay.id).single()).data;
+      if (after && Number(after.refunded_kop) >= Number(after.amount_kop)) {
+        await admin.from("mono_invoices").update({ review_reason: null }).eq("id", pay.purchase_id).eq("review_reason", "refund_declined_by_bank");
+        await revokePaidAccess(after.purchase_id as string);
+      }
+      {
+        const b = await buyerOfInvoice(pay.purchase_id as string);
+        const refundedNow = Number(after?.refunded_kop ?? 0) - Number(pay.refunded_kop ?? 0);
+        await sendBuyerRefundMail(b.email, "Повернення коштів схвалено", "Запит на повернення схвалено", [
+          `Запит на повернення за «${b.title}» схвалено. Ми ініціюємо повернення ${uah(refundedNow > 0 ? refundedNow : Number(pay.amount_kop))} на картку, з якої ви платили, не пізніше наступного робочого дня; зарахування — до 3 робочих днів залежно від вашого банку. Доступ до матеріалу припиниться після повернення.`,
+        ]);
+      }
+      await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: `refund_${kind}`, entity_type: "payment", entity_id: pay.id, reason, previous_value: null, new_value: { key: plan?.key, retryOf: a.retryOf ?? null } });
+}
+
+/** The bank's refusal says the account lacks the money (monobank refuses a refund without a balance on the author's account, Б9). */
+function lacksFunds(message: string): boolean {
+  const bank = message.replace(/^Банк відхилив повернення коштів:?\s*/, ""); // our own prefix says «коштів» too
+  return /недостат|бракує|не вистача|insufficient|not enough|balance|баланс/i.test(bank);
+}
+
 /** A full refund of a payment made through monobank goes back to the buyer's card first; only then the books change. */
 async function monoCancelIfNeeded(purchaseId: string, kind: RefundKind, requestKey: string) {
   if (kind === "chargeback") return; // the bank already took the money
   const { data: inv } = await admin.from("mono_invoices").select("mono_invoice_id, status").eq("id", purchaseId).maybeSingle();
   if (!inv || inv.status !== "success" || !inv.mono_invoice_id) return; // not a monobank payment (e.g. a TEST confirmation)
   if (kind !== "full") throw new FinanceError("mono_partial_refund", "Часткове повернення через банк ще не підтримується: зверніться до розробника.");
-  let res: Record<string, unknown> | null = null;
+  let res: Record<string, unknown> | null;
   try {
     res = await monoCall("/api/merchant/invoice/cancel", { invoiceId: inv.mono_invoice_id, extRef: requestKey.slice(0, 60) });
   } catch (e) {
     // the bank answers with an error when a receiver's account lacks the money: the same as a refused refund
-    if (e instanceof MonoError) throw new FinanceError("mono_cancel_failed", `Банк відхилив повернення коштів: ${e.message}`.slice(0, 300));
+    // (monoCall reports the bank's refusal as FinanceError "mono_error")
+    if (e instanceof MonoError || (e instanceof FinanceError && e.code === "mono_error")) throw new FinanceError("mono_cancel_failed", `Банк відхилив повернення коштів: ${e.message}`.slice(0, 300));
     throw e;
   }
   if (res?.status === "failure") throw new FinanceError("mono_cancel_failed", "Банк відхилив повернення коштів.");
@@ -3612,8 +3898,10 @@ Deno.serve(async (req) => {
       // connecting the author's FOP/TOV to the monobank split: the author names it, the owner links monobank's receiver id
       if (action === "monoConnection") {
         const { data: r } = await admin.from("author_mono_receivers").select("status, ipn, legal_name, updated_at").eq("author_id", user.id).maybeSingle();
-        const { data: addr } = await admin.from("author_mono_receivers").select("legal_address").eq("author_id", user.id).maybeSingle();
-        return json({ ok: true, status: r?.status ?? "none", ipnLast4: r?.ipn ? String(r.ipn).slice(-4) : null, legalName: r?.legal_name ?? null, legalAddress: (addr as { legal_address?: string | null } | null)?.legal_address ?? null, updatedAt: r?.updated_at ?? null });
+        const full = await admin.from("author_mono_receivers").select("legal_address, buyer_email, buyer_phone, single_partner_at").eq("author_id", user.id).maybeSingle();
+        const addr = full.error ? (await admin.from("author_mono_receivers").select("legal_address").eq("author_id", user.id).maybeSingle()).data : full.data; // before monobank-rules-2026-11-23.sql
+        const x = (addr ?? {}) as { legal_address?: string | null; buyer_email?: string | null; buyer_phone?: string | null; single_partner_at?: string | null };
+        return json({ ok: true, status: r?.status ?? "none", ipnLast4: r?.ipn ? String(r.ipn).slice(-4) : null, legalName: r?.legal_name ?? null, legalAddress: x.legal_address ?? null, buyerEmail: x.buyer_email ?? null, buyerPhone: x.buyer_phone ?? null, singlePartner: !!x.single_partner_at, updatedAt: r?.updated_at ?? null });
       }
       if (action === "requestMonoConnection") {
         const ipn = String(payload.ipn ?? "").replace(/\s+/g, "");
@@ -3622,18 +3910,26 @@ Deno.serve(async (req) => {
         if (legalName.length < 5) throw new FinanceError("bad_name", "Вкажіть назву ФОП або ТОВ повністю, як у документах.");
         const legalAddress = String(payload.legalAddress ?? "").trim().replace(/\s+/g, " ").slice(0, 300);
         if (legalAddress.length < 10) throw new FinanceError("bad_address", "Вкажіть місцезнаходження ФОП або ТОВ, як у Єдиному державному реєстрі.");
+        // working contacts for buyers: shown before payment and in the order confirmation (Ю-Б, Б-3)
+        const buyerEmail = String(payload.buyerEmail ?? "").trim().toLowerCase().slice(0, 160);
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(buyerEmail)) throw new FinanceError("bad_email", "Вкажіть робочий email для покупців.");
+        const buyerPhone = normalizeUaPhone(String(payload.buyerPhone ?? ""));
+        if (!buyerPhone) throw new FinanceError("bad_phone", "Вкажіть робочий телефон для покупців у форматі +380XXXXXXXXX.");
+        // monobank: one information partner at a time (rules Б7; offer 1.2)
+        if (payload.singlePartner !== true) throw new FinanceError("single_partner", "Підтвердіть, що не приймаєте оплати з розподілом платежу через іншу платформу — партнера monobank.");
+        const contacts = { buyer_email: buyerEmail, buyer_phone: buyerPhone, single_partner_at: nowIso() };
         // A6 (paid sales) must be signed with a code first; a missing function = not migrated yet
         const { data: paidOk, error: paidErr } = await admin.rpc("has_current_consent", { p_uid: user.id, p_document: "author_paid_sales" });
         if (!paidErr && paidOk === false) throw new FinanceError("paid_consent_required", "Спершу підтвердьте умови платних продажів кодом з листа.");
         const { data: cur } = await admin.from("author_mono_receivers").select("status, ipn").eq("author_id", user.id).maybeSingle();
         if (cur?.status === "active" && cur.ipn === ipn) {
           // same FOP: only the name or the address may change, sales keep going
-          await admin.from("author_mono_receivers").update({ legal_name: legalName, legal_address: legalAddress, updated_at: nowIso() }).eq("author_id", user.id);
+          await admin.from("author_mono_receivers").update({ legal_name: legalName, legal_address: legalAddress, ...contacts, updated_at: nowIso() }).eq("author_id", user.id);
           return json({ ok: true, status: "active", unchanged: true });
         }
         // a new FOP means a new receiver: until the owner links it, paid sales wait (the old receiver is not reused)
         const { error: upErr } = await admin.from("author_mono_receivers").upsert(
-          { author_id: user.id, ipn, legal_name: legalName, legal_address: legalAddress, status: "requested", receiver_id: null, updated_at: nowIso() },
+          { author_id: user.id, ipn, legal_name: legalName, legal_address: legalAddress, ...contacts, status: "requested", receiver_id: null, updated_at: nowIso() },
           { onConflict: "author_id" },
         );
         if (upErr) throw new Error(upErr.message);
@@ -3794,57 +4090,7 @@ Deno.serve(async (req) => {
       if (payload.kind === "partial") throw new FinanceError("no_partial", "Часткове повернення недоступне: повертається вся сума замовлення.");
       const requestKey = String(payload.requestKey ?? "");
       if (requestKey.length < 8) throw new FinanceError("no_key", "Бракує ключа запиту (захист від подвійного повернення).");
-      const { data: pay } = await admin.from("finance_payments").select("*").eq(payload.paymentId ? "id" : "purchase_id", payload.paymentId ?? payload.purchaseId).single();
-      if (!pay) throw new FinanceError("no_payment", "Платіж не знайдено: оплату ще не підтверджено.");
-      const kind = (payload.kind as RefundKind) ?? "full";
-      const authorId = pay.author_id as string;
-      try {
-        await monoCancelIfNeeded(pay.purchase_id as string, kind, requestKey);
-      } catch (e) {
-        // monobank refuses a refund when a receiver's account lacks the money: the author learns it at once and the
-        // attempt stays in the audit log, so the team can agree with the author and try again
-        if (e instanceof FinanceError && e.code === "mono_cancel_failed") {
-          await admin.from("financial_notifications").insert({
-            author_id: authorId, event_type: "REFUND_FAILED", dedupe_key: `refund-failed:${requestKey}`,
-            message: `Банк не провів повернення коштів покупцю за «${pay.content_title ?? "матеріал"}». Найчастіше причина — на вашому рахунку ФОП бракує повної суми повернення: банк списує її з вашого рахунку повністю, а Sensoria потім повертає вам тариф. Поповніть рахунок протягом 3 робочих днів, і ми повторимо повернення. Якщо рахунок не буде поповнено, нові продажі буде призупинено (оферта, розділ «Повернення коштів покупцям»).`,
-          });
-          await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: "refund_failed_at_bank", entity_type: "payment", entity_id: pay.id, reason, previous_value: null, new_value: { purchaseId: pay.purchase_id, kind } });
-          // the order shows «Повернення відхилено банком» in the admin panel; the buyer keeps access until it goes through
-          await admin.from("mono_invoices").update({ review_reason: "refund_declined_by_bank", updated_at: nowIso() }).eq("id", pay.purchase_id);
-          await admin.from("admin_alert_outbox").insert({
-            kind: "refund_declined", title: "Повернення відхилено банком", urgent: true,
-            details: `«${pay.content_title ?? "матеріал"}», замовлення ${String(pay.purchase_id).slice(0, 8)}: банк не провів повернення (найчастіше бракує коштів на рахунку автора). Автора повідомлено; доступ покупця не знято.`,
-          }).then(() => {}, () => {});
-        }
-        throw e;
-      }
-      const plan = await applyWithRetry(async () => {
-        const [account, fresh, reserveRows] = await Promise.all([
-          loadAccount(authorId),
-          admin.from("finance_payments").select("*").eq("id", pay.id).single(),
-          admin.from("refund_reserves").select("*").eq("payment_id", pay.id).limit(1),
-        ]);
-        const payment = toPayment(fresh.data);
-        const amountKop = kind === "partial" ? Number(payload.amountKop) : payment.amountKop - payment.refundedKop;
-        return planRefund({
-          now: nowIso(), account, payment, reserve: reserveRows.data?.[0] ? toReserve(reserveRows.data[0]) : null,
-          refundId: uuid(), debtId: uuid(), idempotencyKey: requestKey, amountKop, kind, reason,
-        });
-      }, user.id);
-      // a fully refunded order no longer gives the buyer access
-      const after = (await admin.from("finance_payments").select("amount_kop, refunded_kop, purchase_id").eq("id", pay.id).single()).data;
-      if (after && Number(after.refunded_kop) >= Number(after.amount_kop)) {
-        await admin.from("mono_invoices").update({ review_reason: null }).eq("id", pay.purchase_id).eq("review_reason", "refund_declined_by_bank");
-        await revokePaidAccess(after.purchase_id as string);
-      }
-      {
-        const b = await buyerOfInvoice(pay.purchase_id as string);
-        const refundedNow = Number(after?.refunded_kop ?? 0) - Number(pay.refunded_kop ?? 0);
-        await sendBuyerRefundMail(b.email, "Повернення коштів схвалено", "Запит на повернення схвалено", [
-          `Запит на повернення за «${b.title}» схвалено. Ми ініціюємо повернення ${uah(refundedNow > 0 ? refundedNow : Number(pay.amount_kop))} на картку, з якої ви платили, не пізніше наступного робочого дня; зарахування — до 3 робочих днів залежно від вашого банку. Доступ до матеріалу припиниться після повернення.`,
-        ]);
-      }
-      await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: `refund_${kind}`, entity_type: "payment", entity_id: pay.id, reason, previous_value: null, new_value: { key: plan?.key } });
+      await executeRefund({ paymentId: payload.paymentId as string | undefined, purchaseId: payload.purchaseId as string | undefined, kind: (payload.kind as RefundKind) ?? "full", reason, requestKey, actorId: user.id });
       return json({ ok: true });
     }
 
@@ -3980,6 +4226,24 @@ Deno.serve(async (req) => {
           purpose: `Повернення плати за послуги технічного характеру (Тарифу) за замовленням № ${String(t.purchase_id).replace(/-/g, "").slice(0, 8).toUpperCase()} у зв’язку з поверненням коштів покупцю згідно з публічною офертою, без ПДВ`,
         })),
       });
+    }
+    // «Звірка тарифу за днями»: what the bank's statement says against the day's payment on Sensoria's account
+    if (action === "tariffDays") {
+      const { data } = await admin.from("tariff_daily_checks").select("*").order("day", { ascending: false }).limit(45);
+      return json({ days: data ?? [], autoSource: !!(Deno.env.get("MONO_FOP_TOKEN") && Deno.env.get("MONO_FOP_ACCOUNT")) });
+    }
+    if (action === "tariffDayCredit") {
+      const day = String(payload.day ?? "");
+      const kop = Number(payload.creditedKop);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new FinanceError("bad_day", "Некоректна дата.");
+      if (!Number.isInteger(kop) || kop < 0) throw new FinanceError("bad_amount", "Вкажіть суму з виписки рахунку Sensoria.");
+      const { data: cur } = await admin.from("tariff_daily_checks").select("*").eq("day", day).maybeSingle();
+      if (!cur) throw new FinanceError("no_day", "За цей день немає оплат у виписці банку.");
+      const status = tariffDayStatus(day, Number(cur.expected_kop), kop, kyivDay(nowIso()));
+      await admin.from("tariff_daily_checks").update({ credited_kop: kop, source: "manual", status, updated_at: nowIso() }).eq("day", day);
+      await admin.from("finance_audit_log").insert({ administrator_id: user.id, action: "tariff_day_credit", entity_type: "payment", entity_id: day, reason: reason || "Сума з виписки рахунку Sensoria", previous_value: { creditedKop: cur.credited_kop }, new_value: { creditedKop: kop, status } });
+      if (status === "mismatch") await reconcileAlert("Звірка тарифу: розбіжність за день", `${day}: за випискою еквайрингу ${(Number(cur.expected_kop) / 100).toFixed(2)} ₴, на рахунок Sensoria надійшло ${(kop / 100).toFixed(2)} ₴.`);
+      return json({ ok: true, status });
     }
     if (action === "tariffTaskPaid") {
       if (!reason) throw new FinanceError("reason_required", "Вкажіть причину.");

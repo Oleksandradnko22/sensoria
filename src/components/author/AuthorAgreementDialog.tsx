@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LEGAL } from "../../data/legalOperator";
+import { DOC_EDITIONS } from "../../data/legalOperator";
 
 type Props = {
   onAccept: () => Promise<void>;
@@ -37,7 +37,7 @@ export default function AuthorAgreementDialog({ onAccept, onCancel }: Props) {
         </h2>
         <p className="mt-2 text-[14px] leading-relaxed text-black/60">
           Перед першою публікацією потрібно прийняти договір з автором
-          (редакція {LEGAL.edition}). Він визначає права на контент, виплати, повернення коштів і
+          (редакція {DOC_EDITIONS.author_agreement.edition}). Він визначає права на контент, виплати, повернення коштів і
           порядок припинення співпраці.
         </p>
         <label className="mt-4 flex items-start gap-3 text-[14px] leading-relaxed text-black/75 cursor-pointer">

@@ -7,6 +7,10 @@ import ConfirmDialog from "../components/author/public/ConfirmDialog";
 import AdminActionsLog from "../components/admin/AdminActionsLog";
 import AdminModeration from "../components/admin/AdminModeration";
 import { useEffect, useState } from "react";
+import { addWorkingDays, kyivDay } from "../utils/taxRegister";
+
+/** The last day to carry out a refund: the next working day after the request (monobank rules, Б9). */
+const refundDueDay = (createdAt: string) => addWorkingDays(kyivDay(createdAt), 1);
 import type { Profile } from "../lib/auth";
 import { getInitials } from "../lib/auth";
 import Avatar from "../components/ui/Avatar";
@@ -680,6 +684,16 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
                       <div className="flex items-center justify-between">
                         <div className="text-[11px] text-black/35">
                           Запит подано {formatAbsoluteDate(r.createdAt)}
+                          {r.status === "open" && (() => {
+                            // monobank: the refund must go through not later than the next working day after the request (Б9)
+                            const due = refundDueDay(r.createdAt);
+                            const today = kyivDay(new Date().toISOString());
+                            return (
+                              <span className={`ml-2 font-semibold ${today > due ? "text-rose-700" : today === due ? "text-amber-700" : "text-black/50"}`}>
+                                {today > due ? `· строк минув ${formatAbsoluteDate(due)}` : `· повернути до кінця ${formatAbsoluteDate(due)}`}
+                              </span>
+                            );
+                          })()}
                         </div>
                         {r.status === "open" && (
                           <div className="flex gap-2">

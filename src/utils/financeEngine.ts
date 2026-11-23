@@ -358,9 +358,18 @@ export function promoQuote(listKop: Kop, percent: number, s: Settings): { listKo
 /**
  * monobank pays Sensoria `agentFeePercent` (two decimals) of the amount. With a discount, the fixed tariff is not a
  * two-decimal percent of the promised amount (150 of 900 ₴ = 16.666…%), so the amount is lowered by a few kopecks
- * to the highest one where the bank's percent gives the tariff EXACTLY (rounded or truncated to the kopeck):
+ * to the highest one where the bank's percent gives the tariff EXACTLY (rounded from 0.45, or truncated, to the kopeck):
  * the tariff never changes, the buyer pays at most what the code promised, the kopecks come from the author's part.
  */
+/**
+ * How monobank rounds a share to the kopeck (bank's answer 23.11.2026, п. 4): a part of a kopeck from 0.45 goes up,
+ * less goes down. `x10000` is the share × 10000 (amount in kopecks × percent × 100), an integer.
+ */
+export const BANK_ROUND_UP_FROM = 4500; // 0.45 of a kopeck, in 1/10000
+export function bankRoundKop(x10000: number): Kop {
+  return Math.floor((x10000 + 10000 - BANK_ROUND_UP_FROM) / 10000);
+}
+
 export function exactAgentAmount(promisedKop: Kop, sensoriaKop: Kop): Kop {
   if (sensoriaKop <= 0) return promisedKop;
   // the smallest two-decimal percent that reaches the tariff at the promised amount keeps the extra kopecks smallest
@@ -369,7 +378,7 @@ export function exactAgentAmount(promisedKop: Kop, sensoriaKop: Kop): Kop {
   for (const b of [basis, basis + 1, basis + 2]) {
     for (let a = promisedKop; a > promisedKop - span && a > sensoriaKop; a -= 1) {
       const fee = a * b; // the bank's share × 10000
-      if (fee >= sensoriaKop * 10000 && fee < sensoriaKop * 10000 + 5000 && Math.round((sensoriaKop * 10000) / a) === b) return a;
+      if (fee >= sensoriaKop * 10000 && fee < sensoriaKop * 10000 + BANK_ROUND_UP_FROM && Math.round((sensoriaKop * 10000) / a) === b) return a;
     }
   }
   throw new FinanceError("promo_percent", "Цю знижку не можна точно передати банку. Оберіть інший відсоток.");

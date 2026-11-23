@@ -518,7 +518,7 @@ export default function AuthorFinance() {
             </div>
 
             <ul className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <InfoTile icon="idcard" title="Податки з усієї оплати покупця" text="Ваш дохід для єдиного податку — уся сума, яку сплатив покупець (з урахуванням знижки за промокодом). Тариф Sensoria й комісія банку його не зменшують; повернення коштів покупцям — зменшують. Порадьтеся зі своїм бухгалтером." />
+              <InfoTile icon="idcard" title="Податки з усієї оплати покупця" text="Ваш дохід для єдиного податку — уся сума, яку сплатив покупець (з урахуванням знижки за промокодом). Тариф Sensoria й комісія банку його не зменшують; повернення коштів покупцям — зменшують. На рахунок надходить сума за вирахуванням тарифу Sensoria й комісії банку. Для Книги обліку доходів беріть суму «Загалом» із призначення платежу або суми ваших чеків, а не суму зарахування. Порадьтеся зі своїм бухгалтером." />
               <InfoTile icon="note" title="Акт про надання послуг Sensoria" text="Щомісячний акт про надання послуг з’явиться тут після запуску оплат." />
               <InfoTile icon="card" title="Чеки покупцям" text="Чек покупцю на повну ціну видає ваш ПРРО; Sensoria формує його автоматично після оплати. Підключіть касу в розділі «Приймання оплат»." />
               <InfoTile icon="shield" title="Реквізити захищені" text="Код ФОП або ТОВ бачите лише ви й команда Sensoria. Дані картки покупця ми не бачимо й не зберігаємо: оплату приймає банк." />
@@ -584,6 +584,9 @@ function MonoConnectCard() {
   const [legalName, setLegalName] = useState("");
   const [legalAddress, setLegalAddress] = useState("");
   const [ipn, setIpn] = useState("");
+  const [buyerEmail, setBuyerEmail] = useState("");
+  const [buyerPhone, setBuyerPhone] = useState("");
+  const [singlePartner, setSinglePartner] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // A6 — the conditions of paid sales, signed with a code from the email before the first connection
@@ -611,7 +614,7 @@ function MonoConnectCard() {
     void load();
   }, []);
 
-  const problem = legalName.trim().length < 5 ? "Вкажіть назву ФОП або ТОВ повністю, як у документах." : legalAddress.trim().length < 10 ? "Вкажіть місцезнаходження, як у Єдиному державному реєстрі." : !/^(\d{8}|\d{10})$/.test(ipn) ? "РНОКПП ФОП — 10 цифр, ЄДРПОУ ТОВ — 8 цифр." : null;
+  const problem = legalName.trim().length < 5 ? "Вкажіть назву ФОП або ТОВ повністю, як у документах." : legalAddress.trim().length < 10 ? "Вкажіть місцезнаходження, як у Єдиному державному реєстрі." : !/^(\d{8}|\d{10})$/.test(ipn) ? "РНОКПП ФОП — 10 цифр, ЄДРПОУ ТОВ — 8 цифр." : !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(buyerEmail.trim()) ? "Вкажіть робочий email для покупців." : !/^(\+?38)?0\d{9}$/.test(buyerPhone.replace(/[\s()-]/g, "")) ? "Вкажіть робочий телефон для покупців у форматі +380XXXXXXXXX." : !singlePartner ? "Підтвердіть, що не приймаєте оплати з розподілом платежу через іншу платформу — партнера monobank." : null;
   const save = async () => {
     if (problem) return setError(problem);
     if (!paidOk && !a6) return setError("Підтвердьте умови платних продажів.");
@@ -630,7 +633,7 @@ function MonoConnectCard() {
         setCodeStep(null);
         setCode("");
       }
-      await requestMonoConnection({ ipn, legalName: legalName.trim(), legalAddress: legalAddress.trim() });
+      await requestMonoConnection({ ipn, legalName: legalName.trim(), legalAddress: legalAddress.trim(), buyerEmail: buyerEmail.trim(), buyerPhone: buyerPhone.trim(), singlePartner });
       setEditing(false);
       await load();
     } catch (e) {
@@ -675,6 +678,17 @@ function MonoConnectCard() {
           {/* the buyer sees it before paying (ЗУ «Про електронну комерцію», ст. 7) */}
           <label className="text-[13px] font-semibold text-[#2d2a5c]">Місцезнаходження (як у Єдиному державному реєстрі)<input value={legalAddress} onChange={(e) => setLegalAddress(e.target.value.slice(0, 300))} placeholder="Україна, індекс, область, місто, вулиця, будинок" className={`${input} mt-1`} /><span className="mt-1 block text-[12px] font-normal text-black/50">Покупці бачать його в кошику перед оплатою, як вимагає закон.</span></label>
           <label className="text-[13px] font-semibold text-[#2d2a5c]">РНОКПП (ФОП) або ЄДРПОУ (ТОВ)<input value={ipn} onChange={(e) => setIpn(e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" className={`${input} mt-1`} /></label>
+          {/* working contacts for buyers: before payment and in the order confirmation only, never in the public profile (Ю-Б, Б-3) */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-[13px] font-semibold text-[#2d2a5c]">Робочий email для покупців<input type="email" value={buyerEmail} onChange={(e) => setBuyerEmail(e.target.value.slice(0, 160))} autoComplete="email" placeholder="name@example.com" className={`${input} mt-1`} /></label>
+            <label className="text-[13px] font-semibold text-[#2d2a5c]">Робочий телефон для покупців<input type="tel" value={buyerPhone} onChange={(e) => setBuyerPhone(e.target.value.slice(0, 20))} autoComplete="tel" placeholder="+380 XX XXX XX XX" className={`${input} mt-1`} /></label>
+          </div>
+          <p className="-mt-1 text-[12px] text-black/50">Обов’язково, як і адреса: покупці бачать ці контакти перед оплатою й у листі-підтвердженні замовлення. У вашому публічному профілі вони не показуються. Можна вказати окремий робочий номер.</p>
+          <p className="rounded-xl bg-[#faf9ff] px-4 py-3 text-[13px] leading-relaxed text-black/65 ring-1 ring-[#efeafd]">Тримайте на рахунку ФОП у monobank залишок не менше 600 ₴ — цього вимагає банк для повернень коштів покупцям і спірних платежів. Якщо банк не провів повернення через брак коштів, поповніть рахунок не пізніше наступного робочого дня.</p>
+          <label className={`flex cursor-pointer items-start gap-3 rounded-xl p-2 ${singlePartner ? "bg-[#eef0fd]" : ""}`}>
+            <input type="checkbox" checked={singlePartner} onChange={(e) => setSinglePartner(e.target.checked)} className="mt-[3px] h-[18px] w-[18px] shrink-0 accent-[#4338ca]" />
+            <span className="text-[14px] leading-relaxed text-[#12172b]">Я не приймаю оплати з розподілом платежу через іншу платформу — партнера monobank. <a href="/author-agreement#technical-services" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Чому це важливо</a></span>
+          </label>
           {status === "active" && <p className="text-[13px] text-amber-800">Після зміни даних продажі зупиняться, доки банк не підключить новий рахунок.</p>}
           {!paidOk && (
             <div className="rounded-2xl bg-[#faf9ff] p-4 ring-1 ring-[#efeafd]">
@@ -711,7 +725,7 @@ function MonoConnectCard() {
           </div>
         </div>
       ) : (
-        conn && <button type="button" onClick={() => { setLegalName(conn.legalName ?? ""); setLegalAddress(conn.legalAddress ?? ""); setIpn(""); setEditing(true); }} className="mt-4 inline-flex min-h-[44px] items-center rounded-xl bg-[#f1eeff] px-4 text-[14px] font-semibold text-[#5b4bd0] hover:bg-[#e7e1ff]">{status === "none" ? "Підключити ФОП" : "Змінити дані"}</button>
+        conn && <button type="button" onClick={() => { setLegalName(conn.legalName ?? ""); setLegalAddress(conn.legalAddress ?? ""); setBuyerEmail(conn.buyerEmail ?? ""); setBuyerPhone(conn.buyerPhone ?? ""); setSinglePartner(!!conn.singlePartner); setIpn(""); setEditing(true); }} className="mt-4 inline-flex min-h-[44px] items-center rounded-xl bg-[#f1eeff] px-4 text-[14px] font-semibold text-[#5b4bd0] hover:bg-[#e7e1ff]">{status === "none" ? "Підключити ФОП" : "Змінити дані"}</button>
       )}
     </section>
   );

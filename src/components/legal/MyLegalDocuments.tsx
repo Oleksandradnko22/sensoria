@@ -10,16 +10,16 @@ import { downloadAsJson, exportMyData } from "../../lib/dataExport";
 import { AUTHOR_IPK_TEMPLATE, DPS_NON_MONETARY_NOTE } from "../../data/ipkTemplate";
 import { fetchMonoConnection } from "../../lib/finance";
 import type { LegalSection } from "./LegalLayout";
-import { LEGAL } from "../../data/legalOperator";
+import { DOC_EDITIONS } from "../../data/legalOperator";
 
 // the full text of each document, loaded only when its PDF is asked for
 type Source = { title: string; edition: string; effectiveDate?: string; load: () => Promise<{ SECTIONS: LegalSection[] }> };
 const SOURCES: Record<string, Source> = {
-  participant_agreement: { title: "Угода учасника", edition: LEGAL.edition, effectiveDate: LEGAL.effectiveDate || undefined, load: () => import("../../pages/ParticipantAgreementPage") },
-  author_agreement: { title: "Публічний договір про надання послуг технічного характеру (оферта для авторів)", edition: LEGAL.edition, effectiveDate: LEGAL.effectiveDate || undefined, load: () => import("../../pages/AuthorAgreementPage") },
-  terms: { title: "Умови використання", edition: LEGAL.edition, effectiveDate: LEGAL.effectiveDate || undefined, load: () => import("../../pages/TermsPage") },
-  refunds: { title: "Правила повернення коштів", edition: LEGAL.edition, effectiveDate: LEGAL.effectiveDate || undefined, load: () => import("../../pages/RefundsPage") },
-  privacy: { title: "Політика конфіденційності", edition: LEGAL.edition, effectiveDate: LEGAL.effectiveDate || undefined, load: () => import("../../pages/PrivacyPage") },
+  participant_agreement: { title: "Угода учасника", edition: DOC_EDITIONS.participant_agreement.edition, effectiveDate: DOC_EDITIONS.participant_agreement.effectiveDate, load: () => import("../../pages/ParticipantAgreementPage") },
+  author_agreement: { title: "Публічний договір про надання послуг технічного характеру (оферта для авторів)", edition: DOC_EDITIONS.author_agreement.edition, effectiveDate: DOC_EDITIONS.author_agreement.effectiveDate, load: () => import("../../pages/AuthorAgreementPage") },
+  terms: { title: "Умови використання", edition: DOC_EDITIONS.terms.edition, effectiveDate: DOC_EDITIONS.terms.effectiveDate, load: () => import("../../pages/TermsPage") },
+  refunds: { title: "Правила повернення коштів", edition: DOC_EDITIONS.refunds.edition, effectiveDate: DOC_EDITIONS.refunds.effectiveDate, load: () => import("../../pages/RefundsPage") },
+  privacy: { title: "Політика конфіденційності", edition: DOC_EDITIONS.privacy.edition, effectiveDate: DOC_EDITIONS.privacy.effectiveDate, load: () => import("../../pages/PrivacyPage") },
 };
 const FILE: Record<string, string> = {
   participant_agreement: "ugoda-uchasnyka", author_agreement: "oferta-dlia-avtoriv", terms: "umovy-vykorystannia", refunds: "pravyla-povernennia", privacy: "polityka-konfidentsiinosti",

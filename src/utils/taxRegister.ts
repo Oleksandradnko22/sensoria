@@ -273,3 +273,39 @@ export function buildAct(p: { period: string; authorId: string; orders: ActOrder
     })),
   };
 }
+
+// ── daily check of Sensoria's tariff (monobank 23.11.2026, п. 5; rules Б2) ──
+// The bank pays the day's tariffs to Sensoria's account in ONE payment «Прийняті платежі за (дата) згідно реєстру»,
+// not later than the next operational day. The sum of `agentFee` in the merchant statement for that day must equal it.
+
+/** "Прийняті платежі за 23.11.2026 згідно реєстру № 15" → "2026-11-23"; null for any other payment. */
+export function registryCreditDay(description: string): string | null {
+  if (!/прийняті\s+платежі/i.test(description)) return null;
+  const m = description.match(/(\d{2})[./](\d{2})[./](\d{4})/) ?? null;
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  const iso = description.match(/(\d{4})-(\d{2})-(\d{2})/);
+  return iso ? `${iso[1]}-${iso[2]}-${iso[3]}` : null;
+}
+
+/** Sum of the bank's tariff by the Kyiv day of payment. */
+export function tariffByDay(items: { date: string; agentFeeKop: number }[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const it of items) {
+    if (!(it.agentFeeKop > 0)) continue;
+    const d = kyivDay(it.date);
+    out.set(d, (out.get(d) ?? 0) + it.agentFeeKop);
+  }
+  return out;
+}
+
+export type TariffDayStatus = "ok" | "waiting" | "missing" | "mismatch";
+
+/**
+ * One day: expected (statement) against what reached Sensoria's account. Until the end of the next working day the
+ * payment may still come («waiting»); after that, no payment is «missing» and a different sum is a «mismatch».
+ */
+export function tariffDayStatus(day: string, expectedKop: number, creditedKop: number | null, today: string): TariffDayStatus {
+  if (creditedKop != null) return creditedKop === expectedKop ? "ok" : "mismatch";
+  if (expectedKop <= 0) return "ok";
+  return today > addWorkingDays(day, 1) ? "missing" : "waiting";
+}

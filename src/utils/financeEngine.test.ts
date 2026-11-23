@@ -27,6 +27,7 @@ import {
   projectionMismatch,
   splitAmount,
   promoQuote,
+  bankRoundKop,
   MIN_PROMO_PRICE_KOP,
   MAX_PROMO_PERCENT,
   type AccountState,
@@ -703,6 +704,15 @@ test("split (monobank 18.11.2026): Sensoria gets its commission in full — no b
   }
 });
 
+test("split: a refund (incl. a cancel on the day of payment) writes nothing about the bank fee (monobank 23.11.2026, п. 3)", () => {
+  const w = new World();
+  w.settings = { ...DEFAULT_SETTINGS, splitAtSource: 1, bankFeeBps: 130 };
+  const p = w.pay(100000, T0, w.id("purchase"));
+  const plan = w.refund(p, 100000);
+  assert.equal(plan.lines.some((l: Line) => l.account === "bank_fee" || l.type === "BANK_FEE_COLLECTED"), false);
+  assert.equal(conservationGap(plan.lines), 0);
+});
+
 test("pickSaleSource: referral only for a record made before the purchase and inside 30 days", () => {
   const buy = "2026-11-10T12:00:00Z";
   assert.equal(pickSaleSource(null, buy), "catalog");
@@ -742,7 +752,25 @@ test("promo: the tariff is exactly 15 % of the list price for every price and ev
       const fee = (q.amountKop * Math.round(agentFeePercentOf(q.amountKop, q.sensoriaKop) * 100)) / 10000;
       assert.equal(Math.floor(fee), exact, `bank truncates: ${list} −${pct}%`);
       assert.equal(Math.round(fee), exact, `bank rounds: ${list} −${pct}%`);
+      assert.equal(bankRoundKop(q.amountKop * Math.round(agentFeePercentOf(q.amountKop, q.sensoriaKop) * 100)), exact, `bank rounds from 0.45: ${list} −${pct}%`);
       buildSplitBasket({ amountKop: q.amountKop, authorKop: q.authorKop, sensoriaKop: q.sensoriaKop, title: "t", contentCode: "c", authorReceiverId: "r" });
+    }
+  }
+});
+
+test("bank rounding: a part of a kopeck from 0.45 goes up, below 0.45 goes down (monobank, 23.11.2026)", () => {
+  assert.equal(bankRoundKop(15000_4400), 15000); // 150.0044 ₴ → 150.00
+  assert.equal(bankRoundKop(15000_4499), 15000);
+  assert.equal(bankRoundKop(15000_4500), 15001); // 150.0045 ₴ → 150.01
+  assert.equal(bankRoundKop(15000_5000), 15001);
+  assert.equal(bankRoundKop(15000_0000), 15000);
+  assert.equal(bankRoundKop(15000_9999), 15001);
+  // a promo amount is accepted only while the bank's share stays below 0.45 of a kopeck over the tariff
+  for (const list of [10000, 33333, 123457, 999999]) {
+    for (let pct = 1; pct <= MAX_PROMO_PERCENT; pct++) {
+      const q = promoQuote(list, pct, DEFAULT_SETTINGS);
+      const x = q.amountKop * Math.round(agentFeePercentOf(q.amountKop, q.sensoriaKop) * 100);
+      assert.ok(x - q.sensoriaKop * 10000 < 4500 && x >= q.sensoriaKop * 10000, `${list} −${pct}%`);
     }
   }
 });

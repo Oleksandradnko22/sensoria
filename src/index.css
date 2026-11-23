@@ -183,6 +183,25 @@ html {
 .fluid-h1 { font-size: clamp(1.6rem, 0.9rem + 2.7vw, 3.5rem); line-height: 1.14; letter-spacing: -0.01em; }
 .fluid-h2 { font-size: clamp(1.4rem, 0.8rem + 2.2vw, 3rem); line-height: 1.15; }
 .fluid-lead { font-size: clamp(0.9375rem, 0.85rem + 0.3vw, 1.25rem); line-height: 1.6; }
+/* Laptops 13–14″ (from 1440 px): a wider column with generous margins.
+   MacBook Pro 16, Full HD and 2K monitors: the content column is scaled up (zoom on .page-container only, so
+   fixed windows and their vh limits stay as they are), filling the screen the way it does on a laptop —
+   1.125× from 1700 px, 1.6× from 2200 px. vh inside a zoomed column: divide by var(--page-zoom). */
+@media (min-width: 1440px) {
+  .page-container { max-width: 1440px; padding-inline: 64px; }
+}
+@media (min-width: 1700px) {
+  :root { --page-zoom: 1.125; }
+  .page-container { zoom: var(--page-zoom); max-width: 1600px; padding-inline: 64px; }
+  .fluid-h1 { font-size: 3.75rem; }
+  .fluid-h2 { font-size: 3.125rem; }
+  .fluid-lead { font-size: 1.3125rem; }
+}
+@media (min-width: 2200px) {
+  /* 2K: the page reads like a 1600 px laptop, only larger — full width with ~100 px margins */
+  :root { --page-zoom: 1.6; }
+  .page-container { max-width: 1600px; }
+}
 .section-y { padding-block: clamp(56px, 8vw, 112px); }
 
 /* Type scale for the home page — the SAME roles use the SAME size everywhere:

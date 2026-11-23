@@ -1,7 +1,7 @@
 // The monthly act of Sensoria's services (offer Б38; form — accountant В7) as a PDF. The same file is downloaded by the
 // owner to sign with КЕП on id.gov.ua and by the author, so it holds only what the act says — not its later status.
 import type { LegalSection } from "../components/legal/LegalLayout";
-import { LEGAL } from "../data/legalOperator";
+import { DOC_EDITIONS, LEGAL } from "../data/legalOperator";
 import type { ActData, TaxSystem } from "./finance";
 
 export const TAX_LABEL: Record<TaxSystem, string> = {
@@ -29,7 +29,7 @@ export async function downloadActPdf(act: { data: ActData; issued_at: string }):
       body: [
         `Виконавець: ${LEGAL.operatorName}, РНОКПП ${LEGAL.registration}, платник єдиного податку третьої групи, не є платником ПДВ. Місцезнаходження: ${LEGAL.address}.`,
         `Замовник: ${customer}.`,
-        `Підстава: Публічний договір про надання послуг технічного характеру (оферта для авторів), редакція ${LEGAL.edition} від ${LEGAL.effectiveDate}.`,
+        `Підстава: Публічний договір про надання послуг технічного характеру (оферта для авторів), редакція ${DOC_EDITIONS.author_agreement.edition} від ${DOC_EDITIONS.author_agreement.effectiveDate}.`,
       ],
     },
     {

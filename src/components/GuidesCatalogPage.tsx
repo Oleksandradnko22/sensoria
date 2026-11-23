@@ -392,7 +392,7 @@ export default function GuidesCatalogPage({ initialGuideId, initialCategories = 
       )}
 
       {/* inside the section, so the gap above the footer is the page colour (not the dark app background) */}
-      <Footer onOpenTest={() => {}} />
+      <Footer />
 
       {selectedGuide && <GuidePreviewModal guide={selectedGuide} onClose={() => setSelectedGuide(null)} userId={userId} isParticipant={role === "participant"} />}
     </section>

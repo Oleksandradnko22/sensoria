@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import CourseCard from "./CourseCard";
+import HomeProgramCard from "./home/HomeProgramCard";
 import type { Program } from "../data/programs";
 
 
@@ -13,15 +13,6 @@ import type { Program } from "../data/programs";
 // render, before the measurement effect has run.
 const FALLBACK_CARD_WIDTH = 280;
 const GAP = 24;
-
-// Pagination geometry — with 10 cards, a row of 10 individual dots reads
-// as busy/cluttered rather than premium. Top-shelf products (Apple's own
-// scrubbers, most polished media players) use a single slim progress
-// track with a sliding thumb instead once there are more than a handful
-// of items — same "continuous, physically connected to scroll" feel as
-// before, just one shape instead of ten.
-const TRACK_WIDTH = 168;
-const THUMB_WIDTH = 40;
 
 export default function ProgramsSection({
   onOpen = () => {},
@@ -37,8 +28,6 @@ export default function ProgramsSection({
   const programs: Program[] = items.slice(0, 10);
   const scrollRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const isDraggingThumb = useRef(false);
   // Continuous scroll progress (0..programs.length-1, fractional) — drives
   // the pagination pill 1:1 with real scrollLeft, iOS-home-screen style,
   // instead of a rounded integer "active index" that snaps between dots.
@@ -48,9 +37,13 @@ export default function ProgramsSection({
   // How many cards are visible at once — depends on the real width: 1 (with a
   // peek of the next one) on phones, 2 on small tablets, 3, then 4.
   const [perView, setPerView] = useState(4);
+  const [bleed, setBleed] = useState(0);
+  const [arrowsBelow, setArrowsBelow] = useState(false);
   const CARDS_PER_VIEW = perView;
 
-  const STEP = cardWidth + GAP;
+  // one card at a time: a wider gap keeps the next card (and its shadow) fully out of view
+  const gap = perView === 1 ? 48 : GAP;
+  const STEP = cardWidth + gap;
 
   // Measure the carousel's real rendered width and derive card width from
   // it, so exactly 4 complete cards fit regardless of the actual screen —
@@ -71,9 +64,22 @@ export default function ProgramsSection({
       // so there's no downside to keeping the exact value.
       if (available <= 0) return;
       if (available < 560) {
-        // phone: exactly one full card per screen, swipe for the next
+        // phone and in-between widths: one card per screen, between two round arrows
         setPerView(1);
-        setCardWidth(available);
+        // arrows (36 px) on the grid edges, 10 px from the card; on narrow phones they move 20 px into the
+        // page margin so the card stays readable
+        // narrowest phones (360 px Androids, Fold cover): the card takes the full grid and the arrows move
+        // under it, so nothing leaves the grid
+        if (available < 320) {
+          setBleed(0);
+          setArrowsBelow(true);
+          setCardWidth(available);
+          return;
+        }
+        const bleed = available < 360 ? 20 : 0;
+        setBleed(bleed);
+        setArrowsBelow(false);
+        setCardWidth(available + 2 * bleed - 2 * (36 + 10));
         return;
       }
       const n = available < 900 ? 2 : available < 1200 ? 3 : 4;
@@ -108,7 +114,8 @@ export default function ProgramsSection({
     // the scrubber's thumb could never reach the end of the track even
     // when the row was scrolled all the way to the last card.
     const maxProgress = Math.max(0, programs.length - CARDS_PER_VIEW);
-    const raw = el.scrollLeft / STEP;
+    const n = programs.length;
+    const raw = ((el.scrollLeft / STEP) % n + n) % n;
     setProgress(Math.min(maxProgress, Math.max(0, raw)));
   };
 
@@ -119,46 +126,6 @@ export default function ProgramsSection({
       updateScrollState();
       rafPending.current = false;
     });
-  };
-
-  // Shared by both "click the track to jump" and "drag the thumb" — both
-  // just need to turn a clientX into a scroll position.
-  const seekToClientX = (clientX: number, smooth: boolean) => {
-    const el = scrollRef.current;
-    const track = trackRef.current;
-    if (!el || !track) return;
-
-    const rect = track.getBoundingClientRect();
-    const fraction = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    const maxScroll = el.scrollWidth - el.clientWidth;
-    el.scrollTo({
-      left: fraction * maxScroll,
-      behavior: smooth ? "smooth" : "auto",
-    });
-  };
-
-  const seekTrack = (e: React.MouseEvent<HTMLDivElement>) => {
-    seekToClientX(e.clientX, true);
-  };
-
-  // The thumb is draggable, not just clickable — this is the part that
-  // makes it read as "a real slider" rather than a static bar. Uses
-  // pointer capture so the drag keeps tracking even if the cursor leaves
-  // the thumb/track while dragging fast.
-  const onThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    isDraggingThumb.current = true;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    seekToClientX(e.clientX, false);
-  };
-
-  const onThumbPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDraggingThumb.current) return;
-    seekToClientX(e.clientX, false);
-  };
-
-  const onThumbPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    isDraggingThumb.current = false;
-    e.currentTarget.releasePointerCapture(e.pointerId);
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -202,41 +169,128 @@ export default function ProgramsSection({
     }
   };
 
-  // Prev / next: move by one card, smooth, same scroll the
-  // scrubber already uses. Disabled at the ends so they never look dead-but-live.
-  const maxProgress = Math.max(0, programs.length - CARDS_PER_VIEW);
+  // Prev / next: move by one card, smooth (see `page`). «Previous» is off on the first card.
   const atStart = progress < 0.05;
-  const atEnd = progress > maxProgress - 0.05;
   // Slow eased scroll (native "smooth" is short and fights scroll-snap).
   // Snap is switched off while animating and restored at the end.
   const animRef = useRef<number | null>(null);
-  const page = (dir: 1 | -1) => {
+  // Endless forward: the first cards are repeated after the last one, so «next» on the last card glides on
+  // to the first (then the row quietly jumps back to the real first card — the picture is identical).
+  // No rewind across the whole row. «Previous» stops at the first card.
+  const page = (dir: 1 | -1, duration = 1100) => {
+    const el = scrollRef.current;
+    if (!el || programs.length === 0) return;
+    const n = programs.length;
+    let idx = Math.round(el.scrollLeft / STEP);
+    if (idx >= n) {
+      idx -= n;
+      el.scrollLeft = idx * STEP;
+    }
+    if (dir === -1 && idx === 0) return; // nothing before the first card
+    const next = Math.max(0, idx + dir);
+    scrollToX(next * STEP, duration, () => {
+      if (next >= n) el.scrollLeft = (next - n) * STEP;
+    });
+  };
+  const scrollToX = (to: number, ms = 1100, onDone?: () => void) => {
     const el = scrollRef.current;
     if (!el) return;
     if (animRef.current) cancelAnimationFrame(animRef.current);
     const from = el.scrollLeft;
-    const max = el.scrollWidth - el.clientWidth;
-    const to = Math.min(max, Math.max(0, Math.round((from + dir * STEP) / STEP) * STEP));
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const duration = reduce ? 0 : 800;
+    const duration = reduce ? 0 : ms;
     const t0 = performance.now();
     el.style.scrollSnapType = "none";
     const tick = (now: number) => {
       const t = duration === 0 ? 1 : Math.min(1, (now - t0) / duration);
-      const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; // easeInOutCubic
+      const e = -(Math.cos(Math.PI * t) - 1) / 2; // easeInOutSine: a calm start and a soft landing
       el.scrollLeft = from + (to - from) * e;
       if (t < 1) animRef.current = requestAnimationFrame(tick);
       else {
         animRef.current = null;
+        onDone?.();
         el.style.scrollSnapType = "";
       }
     };
     animRef.current = requestAnimationFrame(tick);
   };
+  // Autoplay: one card every 7 s (a slow 1.6 s glide) while the carousel is on screen and nobody is using it. Pauses on hover
+  // or focus, for 8 s after any swipe / drag / arrow / scrubber use, in a hidden tab, and is off entirely
+  // for people who asked the system for reduced motion. After the last card it simply carries on to the first.
+  const lastUserRef = useRef(0);
+  const markUser = () => {
+    lastUserRef.current = Date.now();
+  };
+  const autoRef = useRef({ page });
+  autoRef.current = { page };
+  useEffect(() => {
+    const el = scrollRef.current;
+    const wrap = wrapperRef.current;
+    if (!el || !wrap || programs.length <= perView) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let visible = false;
+    let hovered = false;
+    const io = new IntersectionObserver(([e]) => (visible = e.intersectionRatio >= 0.5), { threshold: [0, 0.5, 1] });
+    io.observe(wrap);
+    const mark = () => (lastUserRef.current = Date.now());
+    const enter = () => (hovered = true);
+    const leave = () => {
+      hovered = false;
+      mark();
+    };
+    el.addEventListener("pointerdown", mark);
+    el.addEventListener("wheel", mark, { passive: true });
+    el.addEventListener("touchstart", mark, { passive: true });
+    wrap.addEventListener("mouseenter", enter);
+    wrap.addEventListener("mouseleave", leave);
+    wrap.addEventListener("focusin", enter);
+    wrap.addEventListener("focusout", leave);
+    const id = window.setInterval(() => {
+      if (!visible || hovered || document.hidden || Date.now() - lastUserRef.current < 8000) return;
+      autoRef.current.page(1, 1600);
+    }, 7000);
+    return () => {
+      window.clearInterval(id);
+      io.disconnect();
+      el.removeEventListener("pointerdown", mark);
+      el.removeEventListener("wheel", mark);
+      el.removeEventListener("touchstart", mark);
+      wrap.removeEventListener("mouseenter", enter);
+      wrap.removeEventListener("mouseleave", leave);
+      wrap.removeEventListener("focusin", enter);
+      wrap.removeEventListener("focusout", leave);
+    };
+  }, [programs.length, perView]);
+
   const onKeyDown = (e: React.KeyboardEvent) => {
     // Only when focus is on the carousel itself or a card — never hijack typing.
     if (e.key === "ArrowRight") { e.preventDefault(); page(1); }
     if (e.key === "ArrowLeft") { e.preventDefault(); page(-1); }
+  };
+
+  const arrowClass = (size: string) =>
+    `${size} shrink-0 rounded-full border border-white/35 bg-white/15 text-white backdrop-blur-md flex items-center justify-center transition hover:bg-white/25 active:scale-95 disabled:opacity-30 disabled:hover:bg-white/15 disabled:cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-white`;
+  const arrowIcon = (dir: 1 | -1) => (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={dir === -1 ? "M15 5l-7 7 7 7" : "M9 5l7 7-7 7"} />
+    </svg>
+  );
+  const arrow = (dir: 1 | -1) => {
+    const off = dir === -1 && atStart;
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          markUser();
+          page(dir);
+        }}
+        disabled={off}
+        aria-label={dir === -1 ? "Попередня програма" : "Наступна програма"}
+        className={arrowClass("relative z-10 w-9 h-9")}
+      >
+        {arrowIcon(dir)}
+      </button>
+    );
   };
 
   if (programs.length === 0) return null;
@@ -245,39 +299,43 @@ export default function ProgramsSection({
     <section
       id="programs"
       className="page-container pt-6 pb-12 sm:pt-12 sm:pb-20 lg:pt-16 lg:pb-24 text-white relative overflow-visible">
-      {/* HEADER */}
-      <div className="mb-3 sm:mb-7 flex items-end justify-between gap-4">
-        <div>
-          <h2 className="fluid-h2 font-bold mb-3">
-            Популярні програми
-          </h2>
-          <p className="text-white/80 fluid-lead">
-            Оберіть програму для свого стану
-          </p>
+      {/* HEADER: title and a short line on the left; on wider screens the arrows and «all programs» on the right */}
+      <div className="mb-2 sm:mb-4 flex items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="fluid-h2 font-bold">Популярні програми</h2>
+          <p className="text-white/80 fluid-lead mt-2">Покрокові курси від авторів — оберіть ту, що відгукується вашому стану.</p>
         </div>
         {programs.length > CARDS_PER_VIEW && (
-          <div className="hidden sm:flex items-center gap-3 shrink-0">
-            {([-1, 1] as const).map((dir) => {
-              const disabled = dir === -1 ? atStart : atEnd;
-              return (
-                <button
-                  key={dir}
-                  type="button"
-                  onClick={() => page(dir)}
-                  disabled={disabled}
-                  aria-label={dir === -1 ? "Попередні програми" : "Наступні програми"}
-                  className="w-11 h-11 rounded-full border border-white/40 bg-white/10 text-white backdrop-blur-sm flex items-center justify-center transition hover:bg-white/20 disabled:opacity-35 disabled:hover:bg-white/10 disabled:cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                >
-                  <span aria-hidden="true">{dir === -1 ? "←" : "→"}</span>
-                </button>
-              );
-            })}
+          <div className="hidden sm:flex items-center gap-2.5 shrink-0">
+            {([-1, 1] as const).map((dir) => (
+              <button
+                key={dir}
+                type="button"
+                onClick={() => {
+                  markUser();
+                  page(dir);
+                }}
+                disabled={dir === -1 && atStart}
+                aria-label={dir === -1 ? "Попередні програми" : "Наступні програми"}
+                className={arrowClass("w-11 h-11")}
+              >
+                {arrowIcon(dir)}
+              </button>
+            ))}
           </div>
         )}
       </div>
 
       {/* КАРУСЕЛЬ */}
       <div ref={wrapperRef} onKeyDown={onKeyDown} role="region" aria-roledescription="карусель" aria-label="Популярні програми" className="group/carousel relative">
+        {/* one card at a time (phones, in-between widths): the row is exactly one card wide, so no half of
+            the next card shows; round arrows beside it page it instead */}
+        <div
+          className={perView === 1 ? "flex items-center justify-between" : undefined}
+          style={perView === 1 && bleed ? { marginInline: -bleed } : undefined}
+        >
+        {perView === 1 && !arrowsBelow && arrow(-1)}
+        <div className="relative" style={perView === 1 ? { width: cardWidth } : undefined}>
         <div
           ref={scrollRef}
           onScroll={handleScroll}
@@ -298,12 +356,11 @@ export default function ProgramsSection({
           // hover shadow clipping by a pixel or two on the very first
           // card is an acceptable trade for that.
           className={`
-            flex gap-6
+            flex
             overflow-x-auto
             no-scrollbar
-            pb-4 sm:pb-5
-            pt-2 sm:pt-8
-            sm:-mx-6 sm:px-6 sm:scroll-pl-6
+            pt-4 pb-10 -mb-6 sm:pt-8
+            -mx-6 px-6 scroll-pl-6
             sm:[mask-image:linear-gradient(to_right,transparent,#000_24px,#000_calc(100%_-_24px),transparent)] sm:[-webkit-mask-image:linear-gradient(to_right,transparent,#000_24px,#000_calc(100%_-_24px),transparent)]
 
             snap-x snap-mandatory
@@ -314,118 +371,45 @@ export default function ProgramsSection({
             transition-transform duration-200 ease-out
             ${isPressing ? "scale-[0.995]" : "scale-100"}
           `}
-          style={{ WebkitOverflowScrolling: "touch" }}
+          style={{ WebkitOverflowScrolling: "touch", gap }}
         >
-          {programs.map((program, i) => (
-            <div
-              key={i}
-              className="shrink-0 snap-start flex"
-              style={{ width: cardWidth }}
-            >
-              <CourseCard
-                program={program}
-                onClick={() => onOpen(program)}
-                premiumHover
-              />
-            </div>
-          ))}
+          {(programs.length > CARDS_PER_VIEW ? [...programs, ...programs.slice(0, CARDS_PER_VIEW)] : programs).map((program, i) => {
+            const copy = i >= programs.length; // loop copies: seen, never read twice by screen readers or Tab
+            return (
+              <div
+                key={i}
+                className="shrink-0 snap-start flex"
+                style={{ width: cardWidth }}
+                aria-hidden={copy || undefined}
+                inert={copy || undefined}
+              >
+                <HomeProgramCard program={program} onOpen={() => onOpen(program)} wide={cardWidth >= 400} />
+              </div>
+            );
+          })}
         </div>
-      </div>
-
-      {/* Progress scrubber — one slim track instead of 10 dots, with a
-          thumb that slides continuously with real scroll position (no
-          per-step snapping), plus a quiet hint label beside it.
-          Clickable AND draggable, and visibly so: the whole track grows
-          noticeably on hover (not just a color tint) and the thumb has a
-          grip mark + real drag support, so it actually reads as a slider
-          instead of a passive progress bar. */}
-      <div className="flex items-center justify-center gap-3 mt-1 sm:mt-1">
-        <span className="hidden sm:inline text-[12px] text-white/70 tracking-wide whitespace-nowrap">
-          Прокрутіть, щоб побачити більше
-        </span>
-
-        <div
-          ref={trackRef}
-          onClick={seekTrack}
-          className="group/track relative cursor-pointer py-3"
-          style={{ width: TRACK_WIDTH }}
-        >
-          <div className="h-1.5 rounded-full bg-white/20 transition-colors duration-200 group-hover/track:bg-white/30" />
-
-          {/* Position-only wrapper: no transition here on purpose. During
-              a drag this moves on every single pointermove event, and a
-              CSS transition on that same property makes it perpetually
-              chase the cursor instead of tracking it — that lag was the
-              actual bug. Any purely-visual hover effect (scale, glow)
-              belongs on the inner pill below instead, where a transition
-              is safe because it's not fighting a live drag. */}
-          <div
-            onPointerDown={onThumbPointerDown}
-            onPointerMove={onThumbPointerMove}
-            onPointerUp={onThumbPointerUp}
-            onPointerCancel={onThumbPointerUp}
-            className="absolute top-1/2 left-0 h-1.5 cursor-grab active:cursor-grabbing"
-            style={{
-              width: THUMB_WIDTH,
-              transform: `translateY(-50%) translateX(${
-                (progress / Math.max(1, programs.length - CARDS_PER_VIEW)) *
-                (TRACK_WIDTH - THUMB_WIDTH)
-              }px)`,
-            }}
-          >
-            <div className="h-full w-full flex items-center justify-center gap-[2px] rounded-full bg-white transition-transform duration-150 group-hover/track:scale-y-[1.6]">
-              <span className="w-[2px] h-[2px] rounded-full bg-black/25" />
-              <span className="w-[2px] h-[2px] rounded-full bg-black/25" />
-              <span className="w-[2px] h-[2px] rounded-full bg-black/25" />
-            </div>
+        </div>
+        {perView === 1 && !arrowsBelow && arrow(1)}
+        </div>
+        {perView === 1 && arrowsBelow && (
+          <div className="mt-1 flex items-center justify-center gap-3">
+            {arrow(-1)}
+            {arrow(1)}
           </div>
-        </div>
+        )}
       </div>
 
-      {/* КНОПКА */}
-      <div className="flex justify-center mt-5 sm:mt-12">
+      {/* all programs — the same white button as «Пройти тест» in the first block */}
+      <div className="flex justify-center mt-4 sm:mt-8">
         <button
+          type="button"
           onClick={onOpenCatalog}
-          className="
-            group
-            relative px-8 py-3.5 rounded-xl
-            bg-white text-black font-semibold
-            overflow-hidden
-            transition
-          "
+          className="cta-primary group inline-flex items-center gap-2.5 min-h-[56px] px-7 sm:px-9 rounded-2xl bg-white text-[#1e2a78] text-[16px] sm:text-[17px] font-bold shadow-[0_14px_40px_rgba(10,20,90,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#2563eb]"
         >
-          <span className="relative z-10 inline-flex items-center gap-2">
-            Переглянути всі програми
-            <span className="transition-transform duration-200 ease-out group-hover:translate-x-1">
-              →
-            </span>
-          </span>
-
-          {/* Same sweeping shine as before, just re-tinted for a white
-              button — the old white-on-translucent sweep would have been
-              invisible on a solid white background, so this uses a
-              faint dark sheen instead. */}
-          <span
-            className="
-              absolute inset-0
-              bg-gradient-to-r from-transparent via-black/10 to-transparent
-              translate-x-[-100%]
-              animate-[shine_3s_linear_infinite]
-            "
-          />
+          Переглянути всі програми
+          <span aria-hidden="true" className="cta-arrow">→</span>
         </button>
       </div>
-
-      {/* keyframes */}
-      <style>
-        {`
-          @keyframes shine {
-            100% {
-              transform: translateX(100%);
-            }
-          }
-        `}
-      </style>
     </section>
   );
 }

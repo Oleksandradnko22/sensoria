@@ -69,29 +69,9 @@ export default function CourseCard({
 
         ${
           premiumHover
-            ? // Rest and hover both use exactly two shadow layers, kept in
-              // the same order/shape so the browser actually interpolates
-              // each layer smoothly during the transition — mismatched
-              // layer counts (e.g. 2 layers at rest, 1 on hover) can't be
-              // animated per-layer and cause a hard shadow to flash/snap
-              // in instead of fading, which is what still read as a crisp
-              // line. Neither layer uses a tight spread anymore — both are
-              // large-blur/soft, just at two different sizes, so there's
-              // no defined edge at any point in the animation.
-              // Hover leans on lift + light, not size: scale stays barely
-              // perceptible (1.004) so the card never visually crowds its
-              // neighbors — enter is quick (280ms), the return to rest is
-              // slightly slower (330ms) for a calmer, more premium settle.
-              //
-              // Against this section's saturated blue/purple background, a
-              // shadow needs LOW opacity to actually read as a soft fade —
-              // at ~0.25+ opacity, even a huge blur still looks like a
-              // solid, sharply-bounded shape (most of a blurred shadow's
-              // area stays near-full-strength; only the outer sliver
-              // fades), which is exactly the "hard line" that kept showing
-              // up. Dropping opacity further (0.06 / 0.12) while keeping
-              // the blur large is what actually makes it dissolve.
-              "shadow-[0_2px_6px_-2px_rgba(0,0,0,0.08),0_8px_16px_-8px_rgba(0,0,0,0.1)] transition-all duration-[330ms] ease-out hover:duration-[280ms] hover:scale-[1.015] hover:shadow-[0_8px_16px_-6px_rgba(0,0,0,0.12),0_24px_40px_-14px_rgba(0,0,0,0.22)]"
+            ? // Home carousel: the card lifts instead of growing (growing got cut by the scroll area), and the
+              // shadow is a soft navy glow in the page's own colour, not grey; the carousel leaves room for it.
+              "shadow-[0_1px_2px_rgba(15,23,90,0.10),0_12px_28px_-14px_rgba(15,23,90,0.45)] transition-[transform,box-shadow] duration-[330ms] ease-out hover:duration-[280ms] hover:-translate-y-1 hover:shadow-[0_2px_4px_rgba(15,23,90,0.10),0_22px_40px_-16px_rgba(15,23,90,0.55)] active:translate-y-0 active:scale-[0.99] active:duration-150"
             : "shadow-xl hover:scale-[1.02] transition duration-300"
         }
       `}

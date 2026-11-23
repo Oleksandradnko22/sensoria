@@ -129,22 +129,46 @@ export default function Header({
     onSelectGuide(id);
   };
 
+  // header buttons on the white phone-menu sheet
+  const sheetBtn = "max-lg:border-[#e3e6f3] max-lg:bg-[#f4f5fd] max-lg:text-[#1e2a78] max-lg:hover:bg-[#eceefb] max-lg:focus-visible:ring-[#3b6df0]";
+
   return (
     <header className="w-full absolute top-0 left-0 z-[100]">
+      {/* phone menu open: the page behind dims and blurs; a tap on it closes the menu */}
+      {menuOpen && (
+        <div
+          aria-hidden="true"
+          onClick={() => setMenuOpen(false)}
+          className="lg:hidden fixed inset-0 -z-10 bg-[#0b1340]/45 backdrop-blur-[3px] animate-[menuFade_0.2s_ease-out] motion-reduce:animate-none"
+        />
+      )}
       <div
-        className={`page-container py-4 lg:py-6 flex flex-wrap lg:flex-nowrap items-center justify-between transition-colors ${
-          menuOpen ? "bg-[#1e3a8a]/95 backdrop-blur-md lg:bg-transparent lg:backdrop-blur-none" : ""
-        }`}
+        className="page-container relative isolate py-4 lg:py-6 flex flex-wrap lg:flex-nowrap items-center justify-between"
       >
+        {/* phone menu: the white sheet unfolds from the top, then its content fades in */}
+        {menuOpen && (
+          <div
+            aria-hidden="true"
+            className="lg:hidden absolute inset-0 -z-10 bg-white rounded-b-[28px] shadow-[0_30px_80px_-24px_rgba(10,20,90,0.55)] origin-top animate-[sheetIn_0.26s_cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:animate-none"
+          />
+        )}
 
         {/* LOGO — goes to the home page */}
         <button
           type="button"
           onClick={() => onGoHome?.()}
           aria-label="Sensoria — на головну"
-          className="flex items-center gap-0.5 text-white rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          className={`flex items-center gap-0.5 rounded-lg transition-colors duration-200 ${menuOpen ? "text-white max-lg:text-[#3b55e0]" : "text-white"} focus:outline-none focus-visible:ring-2 focus-visible:ring-white`}
         >
-          <img src={logo} alt="" aria-hidden="true" className="w-10 h-10 object-contain relative -top-[1.5px]" />
+          <img src={logo} alt="" aria-hidden="true" className={`w-10 h-10 object-contain relative -top-[1.5px] ${menuOpen ? "max-lg:hidden" : ""}`} />
+          {/* on the white phone-menu sheet: the logo in the same brand blue as the name next to it */}
+          {menuOpen && (
+            <span
+              aria-hidden="true"
+              className="lg:hidden w-10 h-10 relative -top-[1.5px] bg-[#3b55e0]"
+              style={{ WebkitMask: `url(${logo}) center / contain no-repeat`, mask: `url(${logo}) center / contain no-repeat` }}
+            />
+          )}
           <span className="font-semibold text-lg tracking-wide">
             SENSORIA
           </span>
@@ -154,9 +178,9 @@ export default function Header({
             guides (was previously a decorative input with no state). */}
         <div
           ref={searchRef}
-          className={`${menuOpen ? "flex" : "hidden"} lg:flex order-3 lg:order-none basis-full lg:basis-auto mt-3 lg:mt-0 items-center flex-1 lg:max-w-[460px] lg:mx-8 relative`}
+          className={`${menuOpen ? "flex max-lg:animate-[menuItemIn_0.3s_0.06s_ease-out_both] motion-reduce:animate-none" : "hidden"} lg:flex order-3 lg:order-none basis-full lg:basis-auto mt-3 lg:mt-0 max-lg:flex-wrap items-center flex-1 lg:max-w-[460px] lg:mx-8 relative`}
         >
-          <span aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/80">
+          <span aria-hidden="true" className={`pointer-events-none absolute z-10 left-4 top-[22px] -translate-y-1/2 text-white/80 ${menuOpen ? "max-lg:text-[#8a90ad]" : ""}`}>
             <Icon name="search" size={18} />
           </span>
           <input
@@ -171,7 +195,7 @@ export default function Header({
             }}
             placeholder="Знайти програму / медитацію / гайд…"
             aria-label="Пошук програм, медитацій і гайдів"
-            className="
+            className={`
               w-full pl-11 pr-4 py-2.5 min-h-[44px] text-[16px] lg:text-[14px] rounded-xl
               bg-white/10 border border-white/20
               placeholder-white/60 text-white
@@ -179,11 +203,14 @@ export default function Header({
               focus:border-white/40
               focus:bg-white/15
               transition
-            "
+              ${menuOpen ? "max-lg:bg-[#f4f5fd] max-lg:border-[#e3e6f3] max-lg:text-[#0f172a] max-lg:placeholder-[#8a90ad] max-lg:focus:bg-white max-lg:focus:border-[#3b6df0]" : ""}
+            `}
           />
 
           {searchOpen && q && (
             <div
+              // phones: results sit right under the field on the white menu sheet (the menu rows hide while
+              // searching); desktop: a dropdown card under the field
               className="
                 absolute top-full left-0 mt-3 w-full
                 max-h-[70vh] overflow-y-auto
@@ -193,6 +220,7 @@ export default function Header({
                 p-3
                 z-50
                 animate-[fadeIn_0.15s_ease]
+                max-lg:static max-lg:basis-full max-lg:mt-2 max-lg:max-h-[60vh] max-lg:shadow-none max-lg:border-0 max-lg:rounded-none max-lg:p-0 max-lg:-mx-1
               "
             >
               {!hasResults && (
@@ -459,7 +487,7 @@ export default function Header({
             type="button"
             onClick={requestOpenCart}
             aria-label={cartCount > 0 ? `Кошик, матеріалів: ${cartCount}` : "Кошик"}
-            className="relative inline-flex max-lg:mr-2 lg:ml-2 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-white/25 bg-white/10 text-white transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className={`relative inline-flex max-lg:mr-2 lg:ml-2 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-white/25 bg-white/10 text-white transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${menuOpen ? sheetBtn : ""}`}
           >
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M3 4h2l2.4 11h10.2L20 8H6.2" />
@@ -480,69 +508,95 @@ export default function Header({
             aria-expanded={menuOpen}
             aria-controls="mobile-menu"
             aria-label={menuOpen ? "Закрити меню" : "Відкрити меню"}
-            className="lg:hidden min-h-[44px] min-w-[44px] px-4 rounded-xl border border-white/30 bg-white/10 text-[14px] font-medium"
+            className={`lg:hidden min-h-[44px] min-w-[44px] rounded-xl border border-white/25 bg-white/10 text-white flex items-center justify-center transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${menuOpen ? sheetBtn : ""}`}
           >
-            {menuOpen ? "Закрити" : "Меню"}
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              {menuOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h10" />}
+            </svg>
           </button>
 
         </div>
 
-        {/* PHONE MENU PANEL */}
-        {menuOpen && (
+        {/* PHONE MENU PANEL — on the white sheet: formats as rows with a short line each, then sign-in,
+            then crisis help */}
+        {menuOpen && !(searchOpen && q) && (
           <nav
             id="mobile-menu"
             aria-label="Меню"
-            className="lg:hidden order-4 basis-full mt-3 pb-3 flex flex-col gap-2 text-white"
+            className="lg:hidden order-4 basis-full mt-3 -mx-2 text-[#0f172a] animate-[menuItemIn_0.34s_0.12s_ease-out_both] motion-reduce:animate-none"
           >
-            {[
-              { label: "Програми", icon: "program" as const, run: onOpenCatalog },
-              { label: "Гайди", icon: "guide" as const, run: onOpenGuides },
-              { label: "Медитації", icon: "meditation" as const, run: onOpenMeditations },
-              { label: "Пройти тест", icon: "brain" as const, run: onOpenTest },
-            ].map((i) => (
-              <button
-                key={i.label}
-                onClick={() => {
-                  setMenuOpen(false);
-                  i.run();
-                }}
-                className="min-h-[48px] px-4 rounded-xl bg-white/10 border border-white/15 text-left text-[16px] font-medium flex items-center gap-3"
-              >
-                <Icon name={i.icon} size={18} /> {i.label}
-              </button>
-            ))}
-            {session ? (
-              <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  (session.role === "author" ? onOpenAuthorDashboard : onOpenParticipantDashboard)();
-                }}
-                className="min-h-[48px] px-4 rounded-xl bg-white text-black text-[16px] font-semibold"
-              >
-                Мій кабінет
-              </button>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
+            <ul>
+              {[
+                { label: "Програми", note: "Покрокові курси від авторів", icon: "program" as const, tint: "bg-[#ece8ff] text-[#5b3fd1]", run: onOpenCatalog },
+                { label: "Гайди", note: "Практичні матеріали й вправи", icon: "guide" as const, tint: "bg-[#d9f2ea] text-[#0f766e]", run: onOpenGuides },
+                { label: "Медитації", note: "Аудіопрактики для спокою й сну", icon: "meditation" as const, tint: "bg-[#e0eaff] text-[#2557d6]", run: onOpenMeditations },
+                { label: "Пройти тест", note: "Підбір матеріалів під ваш стан", icon: "compass" as const, tint: "bg-gradient-to-br from-[#3b6df0] to-[#7c5cf0] text-white", run: onOpenTest },
+              ].map((i) => (
+                <li key={i.label}>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      i.run();
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left hover:bg-[#f4f5fd] active:bg-[#eceefb] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3b6df0]"
+                  >
+                    <span aria-hidden="true" className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${i.tint}`}>
+                      <Icon name={i.icon} size={20} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[16px] font-semibold leading-tight">{i.label}</span>
+                      <span className="block text-[13px] text-[#5b6280] mt-0.5 truncate">{i.note}</span>
+                    </span>
+                    <span aria-hidden="true" className="shrink-0 text-[#b3b8d0] -rotate-90">
+                      <Icon name="chevron" size={18} />
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-2 pt-3 px-1 pb-1 border-t border-[#eef0fa]">
+              {session ? (
                 <button
                   onClick={() => {
                     setMenuOpen(false);
-                    onOpenParticipantDashboard();
+                    (session.role === "author" ? onOpenAuthorDashboard : onOpenParticipantDashboard)();
                   }}
-                  className="min-h-[48px] px-3 rounded-xl bg-white text-black text-[14px] font-semibold"
+                  className="w-full min-h-[48px] rounded-2xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[16px] font-semibold shadow-[0_8px_20px_-8px_rgba(76,80,230,0.6)]"
                 >
-                  Увійти як учасник
+                  Мій кабінет
                 </button>
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onOpenAuthorDashboard();
-                  }}
-                  className="min-h-[48px] px-3 rounded-xl border border-white/40 text-[14px] font-medium"
-                >
-                  Увійти як автор
-                </button>
-              </div>
-            )}
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onOpenParticipantDashboard();
+                    }}
+                    className="w-full min-h-[48px] rounded-2xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white text-[16px] font-semibold shadow-[0_8px_20px_-8px_rgba(76,80,230,0.6)]"
+                  >
+                    Увійти як учасник
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onOpenAuthorDashboard();
+                    }}
+                    className="w-full min-h-[44px] mt-1 rounded-2xl text-[15px] font-medium text-[#3b3fb5] hover:bg-[#f4f5fd] transition-colors"
+                  >
+                    Ви автор? Увійти як автор
+                  </button>
+                </>
+              )}
+              <a
+                href="/crisis-help"
+                onClick={() => setMenuOpen(false)}
+                className="mt-1 flex items-center justify-center gap-1.5 min-h-[40px] rounded-2xl text-[14px] font-semibold text-[#be123c] hover:bg-[#fff1f3] transition-colors"
+              >
+                <Icon name="lifebuoy" size={16} />
+                Допомога в кризі
+              </a>
+            </div>
           </nav>
         )}
       </div>
@@ -550,6 +604,18 @@ export default function Header({
       {/* ANIMATION */}
       <style>
         {`
+          @keyframes sheetIn {
+            from { opacity: 0; transform: scaleY(0.9); }
+            to { opacity: 1; transform: none; }
+          }
+          @keyframes menuItemIn {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: none; }
+          }
+          @keyframes menuFade {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
           @keyframes fadeIn {
             from {
               opacity: 0;

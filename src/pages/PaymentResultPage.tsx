@@ -119,7 +119,7 @@ export default function PaymentResultPage({ session, onOpenCabinet, onOpenCart, 
           <section className="mx-auto max-w-[620px] rounded-[24px] bg-gradient-to-br from-white to-[#f1f1ff] p-6 shadow-[0_16px_40px_-26px_rgba(30,41,99,0.55)] sm:p-9">{body}</section>
         </div>
       </main>
-      <Footer onOpenTest={() => {}} onOpenCatalog={onOpenCatalog} />
+      <Footer onOpenCatalog={onOpenCatalog} />
     </>
   );
 }

@@ -705,7 +705,7 @@ export default function CartPage({ programs, programsLoaded, session, onOpenProg
           )}
         </div>
       </main>
-      <Footer onOpenTest={() => {}} onOpenCatalog={onOpenCatalog} />
+      <Footer onOpenCatalog={onOpenCatalog} />
     </>
   );
 }

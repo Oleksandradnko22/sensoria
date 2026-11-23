@@ -112,7 +112,7 @@ function FaqArt() {
 
 export default function FAQSection({ onOpenTest }: Props) {
   // "groupIndex-itemIndex" — one accordion item open at a time overall.
-  const [open, setOpen] = useState<string | null>("0-0");
+  const [open, setOpen] = useState<string | null>(null); // all closed: people open what interests them
   const reduce = useReducedMotion();
 
   const toggle = (key: string) => {
@@ -120,7 +120,7 @@ export default function FAQSection({ onOpenTest }: Props) {
   };
 
   return (
-    <section id="faq" className="relative z-10 w-full scroll-mt-6 pt-6 sm:pt-10 pb-4 sm:pb-24 text-white">
+    <section id="faq" className="relative z-10 w-full scroll-mt-6 pt-6 sm:pt-10 pb-4 sm:pb-10 text-white">
       <div className="page-container relative">
         <FaqArt />
 

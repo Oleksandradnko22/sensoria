@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Пристрої — превʼю Sensoria</title>
+<!-- Лише для розробки: відкривається через npm run dev (http://localhost:5173/devices.html), у збірку сайту не потрапляє. -->
+<style>
+  :root { --ink:#1d2340; --muted:#6b7190; --line:#e4e7f2; --bg:#f4f6fb; --brand:linear-gradient(90deg,#3b6df0,#7c5cf0); }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color:var(--ink); background:var(--bg); }
+  header { position:sticky; top:0; z-index:5; background:#fff; border-bottom:1px solid var(--line); padding:12px 16px; display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; }
+  h1 { font-size:16px; margin:0 8px 0 0; }
+  .row { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .chip { border:1px solid var(--line); background:#fff; border-radius:999px; padding:6px 12px; cursor:pointer; font:inherit; color:var(--ink); }
+  .chip.on { background:var(--brand); color:#fff; border-color:transparent; }
+  select, input[type=text] { font:inherit; padding:6px 10px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); }
+  label.t { display:flex; gap:6px; align-items:center; color:var(--muted); }
+  main { padding:16px; display:flex; flex-wrap:wrap; gap:24px 20px; align-items:flex-start; }
+  .card { display:flex; flex-direction:column; gap:6px; }
+  .name { font-weight:600; }
+  .size { color:var(--muted); font-size:12px; }
+  .meta { display:flex; justify-content:space-between; gap:8px; align-items:baseline; }
+  .meta a { color:#3b6df0; font-size:12px; text-decoration:none; }
+  .screen { position:relative; overflow:hidden; background:#fff; border:1px solid #cfd4e6; border-radius:14px; box-shadow:0 6px 20px rgba(29,35,64,.08); }
+  .screen.phone { border-radius:22px; }
+  .screen iframe { position:absolute; top:0; left:0; border:0; transform-origin:0 0; background:#fff; }
+  .note { padding:0 16px 24px; color:var(--muted); font-size:12px; max-width:900px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sensoria на пристроях</h1>
+  <div class="row" id="groups"></div>
+  <div class="row">
+    <select id="page"></select>
+    <input type="text" id="custom" placeholder="або свій шлях, напр. /programs/stress-course" size="34" />
+  </div>
+  <div class="row">
+    <label class="t">Масштаб <input type="range" id="zoom" min="25" max="100" value="60" /> <span id="zv">60%</span></label>
+    <label class="t"><input type="checkbox" id="rotate" /> Горизонтально</label>
+    <label class="t"><input type="checkbox" id="sync" checked /> Синхронна прокрутка</label>
+  </div>
+</header>
+<main id="grid"></main>
+<p class="note">
+  Розміри — це CSS-ширина й висота екрана (як їх бачить сайт). У Safari й Chrome на телефоні частину висоти займають адресний рядок і панелі,
+  тож реально видно приблизно на 100–150 px менше. Позначка «~» — розмір приблизний (складні телефони різних поколінь відрізняються).
+  Сторінки показуються з локального сервера, тож правки видно одразу. Натискання мишкою тут працюють як дотики.
+</p>
+<script>
+const DEVICES = [
+  // iPhone
+  { g:"iphone", n:"iPhone SE (2–3 покоління)", w:375, h:667 },
+  { g:"iphone", n:"iPhone 12 mini / 13 mini", w:375, h:812 },
+  { g:"iphone", n:"iPhone 12–14 / 16e", w:390, h:844 },
+  { g:"iphone", n:"iPhone 15 / 16 / 15 Pro", w:393, h:852 },
+  { g:"iphone", n:"iPhone 16 Pro / 17 / 17 Pro", w:402, h:874 },
+  { g:"iphone", n:"iPhone Air", w:420, h:912 },
+  { g:"iphone", n:"iPhone 14 Plus – 16 Plus / 14 Pro Max", w:430, h:932 },
+  { g:"iphone", n:"iPhone 16 Pro Max / 17 Pro Max", w:440, h:956 },
+  { g:"iphone", n:"iPhone Duo — зовнішній екран", w:466, h:678, a:true },
+  { g:"iphone", n:"iPhone Duo — розкритий", w:950, h:669, a:true },
+  // Android і складні
+  { g:"android", n:"Бюджетний Android (Galaxy A, Redmi)", w:360, h:800 },
+  { g:"android", n:"Galaxy S24 / S25", w:360, h:780 },
+  { g:"android", n:"Pixel 8–9 / Galaxy S Ultra", w:412, h:915 },
+  { g:"android", n:"Galaxy Z Flip (розкритий)", w:412, h:1004, a:true },
+  { g:"android", n:"Galaxy Z Fold — зовнішній екран", w:344, h:882, a:true },
+  { g:"android", n:"Galaxy Z Fold — розкритий", w:712, h:832, a:true },
+  { g:"android", n:"Surface Duo — один екран", w:540, h:720 },
+  { g:"android", n:"Surface Duo — два екрани", w:1114, h:720 },
+  // Планшети
+  { g:"tablet", n:"iPad mini", w:744, h:1133 },
+  { g:"tablet", n:"iPad / iPad Air 11", w:820, h:1180 },
+  { g:"tablet", n:"iPad Pro 11", w:834, h:1210 },
+  { g:"tablet", n:"iPad Pro 13 / Air 13", w:1032, h:1376 },
+  { g:"tablet", n:"Galaxy Tab S9", w:800, h:1280 },
+  // Ноутбуки, монітори, ТВ
+  { g:"desktop", n:"Ноутбук бюджетний (Windows)", w:1366, h:768 },
+  { g:"desktop", n:"Ноутбук Windows 15″ (масштаб 125%)", w:1536, h:864 },
+  { g:"desktop", n:"Малий ноутбук", w:1280, h:800 },
+  { g:"desktop", n:"MacBook Air 13 (M2 і новіші)", w:1470, h:956 },
+  { g:"desktop", n:"MacBook Pro 14", w:1512, h:982 },
+  { g:"desktop", n:"MacBook Pro 16", w:1728, h:1117 },
+  { g:"desktop", n:"Монітор Full HD", w:1920, h:1080 },
+  { g:"desktop", n:"Великий монітор 2K", w:2560, h:1440 },
+  { g:"desktop", n:"Телевізор (браузер ТВ)", w:960, h:540, a:true },
+];
+const GROUPS = [["iphone","iPhone"],["android","Android і складні"],["tablet","Планшети"],["desktop","Ноутбуки, монітори, ТВ"],["all","Усі"]];
+const PAGES = [
+  ["/","Головна"],["/start","Тест: вибір стану"],["/programs","Каталог програм"],["/programs/stress-course","Сторінка програми"],
+  ["/guides","Гайди"],["/meditations","Медитації"],["/cart","Кошик"],["/account","Вхід / кабінет"],["/contacts","Контакти"],
+  ["/crisis-help","Допомога в кризі"],["/terms","Умови використання"],["/privacy","Політика конфіденційності"],
+  ["/refunds","Правила повернення"],["/participant-agreement","Угода учасника"],["/author-agreement","Договір з автором"],
+];
+const MAX_W = 760; // великі екрани зменшуються, щоб картка не була ширшою
+
+const state = (() => { try { return JSON.parse(localStorage.getItem("devices-preview") || "{}"); } catch { return {}; } })();
+let group = state.group || "iphone", path = state.path || "/";
+const save = () => { try { localStorage.setItem("devices-preview", JSON.stringify({ group, path, zoom: zoom.value })); } catch {} };
+
+const $ = (id) => document.getElementById(id);
+const zoom = $("zoom"); if (state.zoom) zoom.value = state.zoom;
+const pageSel = $("page");
+PAGES.forEach(([p, n]) => pageSel.add(new Option(n, p)));
+if (PAGES.some(([p]) => p === path)) pageSel.value = path; else $("custom").value = path;
+
+function renderGroups() {
+  $("groups").innerHTML = "";
+  GROUPS.forEach(([id, n]) => {
+    const b = document.createElement("button");
+    b.className = "chip" + (id === group ? " on" : ""); b.textContent = n;
+    b.onclick = () => { group = id; save(); renderGroups(); render(); };
+    $("groups").append(b);
+  });
+}
+
+function render() {
+  const z = zoom.value / 100; $("zv").textContent = zoom.value + "%";
+  const rot = $("rotate").checked;
+  const grid = $("grid"); grid.innerHTML = "";
+  DEVICES.filter((d) => group === "all" || d.g === group).forEach((d) => {
+    const turn = rot && d.g !== "desktop";
+    const w = turn ? d.h : d.w, h = turn ? d.w : d.h;
+    const s = Math.min(z, MAX_W / w);
+    const card = document.createElement("div"); card.className = "card";
+    card.innerHTML = `<div class="meta"><div><div class="name"></div><div class="size">${d.a ? "~" : ""}${w} × ${h}${s < z ? ` · показано ${Math.round(s * 100)}%` : ""}</div></div><a target="_blank">окремо</a></div>`;
+    card.querySelector(".name").textContent = d.n;
+    card.querySelector("a").href = path;
+    const scr = document.createElement("div");
+    scr.className = "screen" + (d.g === "iphone" || d.g === "android" ? " phone" : "");
+    scr.style.width = w * s + "px"; scr.style.height = h * s + "px";
+    const f = document.createElement("iframe");
+    f.width = w; f.height = h; f.style.width = w + "px"; f.style.height = h + "px"; f.style.transform = `scale(${s})`;
+    f.src = path; f.loading = "lazy";
+    f.addEventListener("load", () => hookScroll(f));
+    scr.append(f); card.append(scr); grid.append(card);
+  });
+}
+
+// синхронна прокрутка: та сама частка сторінки в усіх рамках
+let syncing = false;
+function hookScroll(f) {
+  try {
+    const win = f.contentWindow;
+    win.addEventListener("scroll", () => {
+      if (!$("sync").checked || syncing) return;
+      const de = win.document.documentElement;
+      const k = win.scrollY / Math.max(1, de.scrollHeight - win.innerHeight);
+      syncing = true;
+      document.querySelectorAll("iframe").forEach((o) => {
+        if (o === f) return;
+        try { const w2 = o.contentWindow, d2 = w2.document.documentElement; w2.scrollTo(0, k * (d2.scrollHeight - w2.innerHeight)); } catch {}
+      });
+      requestAnimationFrame(() => { syncing = false; });
+    }, { passive: true });
+  } catch {}
+}
+
+pageSel.onchange = () => { path = pageSel.value; $("custom").value = ""; save(); render(); };
+$("custom").onchange = () => { const v = $("custom").value.trim(); if (v) { path = v.startsWith("/") ? v : "/" + v; save(); render(); } };
+zoom.oninput = () => { $("zv").textContent = zoom.value + "%"; };
+zoom.onchange = () => { save(); render(); };
+$("rotate").onchange = render;
+renderGroups(); render();
+</script>
+</body>
+</html>

@@ -318,7 +318,7 @@ export default function ProgramsCatalogPage({ programs, onOpen, initialCategorie
         </div>
       )}
 
-      <Footer onOpenTest={() => {}} />
+      <Footer />
     </>
   );
 }

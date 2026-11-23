@@ -126,11 +126,11 @@ function GridIcon() {
   );
 }
 
-const STEPS: { title: string; tint: string; icon: ReactNode }[] = [
-  { title: "Пройдіть тест", tint: "bg-[#ece8ff] text-[#5b3fd1]", icon: <TestIcon /> },
-  { title: "Отримайте рекомендації", tint: "bg-[#e0eaff] text-[#2557d6]", icon: <SparkIcon /> },
-  { title: "Оберіть свій формат", tint: "bg-[#d9f2ea] text-[#0f766e]", icon: <GridIcon /> },
-  { title: "Рухайтеся у своєму темпі", tint: "bg-[#ece8ff] text-[#5b3fd1]", icon: <Icon name="heart" size={20} /> },
+const STEPS: { title: string; text: string; tint: string; icon: ReactNode }[] = [
+  { title: "Пройдіть тест", text: "10–13 запитань про те, як ви почуваєтеся останні 2 тижні.", tint: "bg-[#ece8ff] text-[#5b3fd1]", icon: <TestIcon /> },
+  { title: "Отримайте рекомендації", text: "Програми, медитації й гайди, підібрані під ваш стан.", tint: "bg-[#e0eaff] text-[#2557d6]", icon: <SparkIcon /> },
+  { title: "Оберіть свій формат", text: "Курс, коротка практика чи гайд — як вам зручніше.", tint: "bg-[#d9f2ea] text-[#0f766e]", icon: <GridIcon /> },
+  { title: "Рухайтеся у своєму темпі", text: "Повертайтеся, коли потрібно: прогрес зберігається.", tint: "bg-[#ece8ff] text-[#5b3fd1]", icon: <Icon name="heart" size={20} /> },
 ];
 
 export default function AboutSection({ onOpenCatalog, onOpenGuides, onOpenMeditations }: Props) {
@@ -198,7 +198,7 @@ export default function AboutSection({ onOpenCatalog, onOpenGuides, onOpenMedita
               Як працює Sensoria
             </h2>
             <p className="mt-3 text-gray-700 fluid-lead">
-              Почніть із короткого тесту, отримайте персональні рекомендації та оберіть те, що підходить вам саме зараз.
+              Програми, медитації й гайди від авторів — в одному місці. Не знаєте, з чого почати? Короткий тест підбере матеріали під ваш стан.
             </p>
           </div>
 
@@ -213,7 +213,7 @@ export default function AboutSection({ onOpenCatalog, onOpenGuides, onOpenMedita
                 >
                   <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute right-3 top-4 w-[36%] sm:w-[26%] lg:right-1 lg:top-auto lg:bottom-1 lg:w-[46%] max-w-[190px] aspect-[180/170] opacity-95 transition-transform duration-700 ease-out group-hover:scale-[1.04] group-hover:-translate-y-1"
+                    className="pointer-events-none absolute right-3 top-4 w-[36%] sm:w-[26%] lg:w-[30%] xl:right-1 xl:top-auto xl:bottom-1 xl:w-[46%] max-w-[190px] aspect-[180/170] opacity-95 transition-transform duration-700 ease-out group-hover:scale-[1.04] group-hover:-translate-y-1"
                   >
                     {f.art}
                   </span>
@@ -234,26 +234,31 @@ export default function AboutSection({ onOpenCatalog, onOpenGuides, onOpenMedita
             ))}
           </ul>
 
-          {/* JOURNEY: one connected line, separated by a divider */}
-          <div className="mt-8 sm:mt-10 pt-6 border-t border-[#c7cdf5]/60">
-            <h3 className="sr-only">Ваш шлях із Sensoria</h3>
-            <ol className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center lg:justify-between gap-x-6 gap-y-4">
+          {/* JOURNEY: how to start — a connected path (vertical on phones, horizontal on desktop) */}
+          <div className="mt-6 sm:mt-8 rounded-3xl bg-white/75 border border-white px-4 py-6 sm:px-8 sm:py-8 shadow-[0_2px_16px_rgba(30,40,140,0.06)]">
+            <h3 className="t-h3 text-[#0f172a] text-center">З чого почати</h3>
+            <ol className="mt-6 grid gap-5 sm:grid-cols-2 sm:gap-x-8 sm:gap-y-7 lg:grid-cols-4 lg:gap-6">
               {STEPS.map((s, i) => (
-                <li key={s.title} className="flex items-center gap-3 lg:contents">
-                  <span className="flex items-center gap-3 min-w-0">
-                    <span className={`shrink-0 w-11 h-11 rounded-full flex items-center justify-center ${s.tint}`}>{s.icon}</span>
-                    <span className="min-w-0">
-                      <span className="block text-[12px] font-semibold text-[#4f46e5] tabular-nums">0{i + 1}</span>
-                      <span className="block t-body font-semibold text-[#0f172a] leading-snug">{s.title}</span>
+                <li key={s.title} className="relative flex gap-3.5 sm:gap-4 lg:flex-col lg:items-center lg:text-center">
+                  {i < STEPS.length - 1 && (
+                    <>
+                      {/* phones: line down to the next step */}
+                      <span aria-hidden="true" className="sm:hidden absolute left-6 top-14 -bottom-4 w-[2px] -translate-x-1/2 rounded-full bg-gradient-to-b from-[#c4bbff] to-[#bcd0ff]" />
+                      {/* desktop: line across to the next step */}
+                      <span aria-hidden="true" className="hidden lg:block absolute top-6 left-[calc(50%+34px)] w-[calc(100%-44px)] h-[2px] rounded-full bg-gradient-to-r from-[#c4bbff] to-[#bcd0ff]" />
+                    </>
+                  )}
+                  <span className={`relative shrink-0 w-12 h-12 rounded-full flex items-center justify-center ring-4 ring-white shadow-[0_6px_16px_rgba(60,50,180,0.14)] ${s.tint}`}>
+                    {s.icon}
+                    <span aria-hidden="true" className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-gradient-to-br from-[#3b6df0] to-[#7c5cf0] text-white text-[11px] font-bold flex items-center justify-center tabular-nums">
+                      {i + 1}
                     </span>
                   </span>
-                  {i < STEPS.length - 1 && (
-                    <span aria-hidden="true" className="hidden lg:flex flex-1 items-center justify-center text-[#8b97ea]">
-                      <svg viewBox="0 0 24 12" width="24" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M2 6h19M16 1.5L21 6l-5 4.5" />
-                      </svg>
-                    </span>
-                  )}
+                  <span className="min-w-0 pt-0.5 lg:pt-0">
+                    <span className="sr-only">Крок {i + 1}. </span>
+                    <span className="block t-body font-semibold text-[#0f172a] leading-snug">{s.title}</span>
+                    <span className="block text-[14px] leading-relaxed text-gray-600 mt-1">{s.text}</span>
+                  </span>
                 </li>
               ))}
             </ol>

@@ -15,7 +15,7 @@ const EXPERIENCE = ["До 1 року", "1–3 роки", "3–5 років", "П
 const READY = [["yes", "Так, є готові"], ["partly", "Частково"], ["no", "Ні, створю на платформі"]] as const;
 const STEPS = ["Про вас", "Ваші матеріали", "Акаунт і документи"];
 
-export default function AuthorApplyPage({ onLogin }: { onLogin: () => void }) {
+export default function AuthorApplyPage() {
   const [step, setStep] = useState(0);
   const [f, setF] = useState({ name: "", email: "", phone: "", profession: "", education: "", experience: "", plan: "", links: "", ready: "", password: "", trap: "" });
   const [topics, setTopics] = useState<string[]>([]);
@@ -80,7 +80,8 @@ export default function AuthorApplyPage({ onLogin }: { onLogin: () => void }) {
   const opt = "font-normal text-[#9aa1c0]";
 
   return (
-    <main className="wide-col mx-auto w-full max-w-[720px] px-4 pb-16 pt-24 sm:max-w-[640px] sm:px-6 sm:pt-28 md:max-w-[700px] lg:max-w-[720px]">
+    <main className="page-container pb-16 pt-24 sm:pt-28">
+      <div className="mx-auto w-full max-w-[720px] sm:max-w-[640px] md:max-w-[700px] lg:max-w-none">
       <div className="text-center text-white">
         <span className="inline-flex items-center gap-2 rounded-full bg-white/12 px-4 py-1.5 text-[13px] font-semibold text-white/90 ring-1 ring-white/20">
           <span aria-hidden="true" className="h-2 w-2 rounded-full bg-gradient-to-r from-[#a8e8ff] to-[#e4ddff]" />
@@ -99,10 +100,9 @@ export default function AuthorApplyPage({ onLogin }: { onLogin: () => void }) {
             <h2 className="mt-4 text-[24px] font-bold text-[#12172b]">Анкету надіслано</h2>
             <ol className="mx-auto mt-4 max-w-[30em] space-y-2 text-left text-[15px] leading-relaxed text-[#2d2a5c]">
               <li><b>1.</b> Підтвердьте пошту за посиланням у листі на {f.email.trim()} (перевірте й «Спам»).</li>
-              <li><b>2.</b> Увійдіть і підпишіть договір з автором кодом, який прийде на пошту.</li>
-              <li><b>3.</b> Ми розглянемо заявку й надішлемо лист, щойно кабінет відкриється.</li>
+              <li><b>2.</b> Підпишіть договір з автором кодом, який прийде на пошту.</li>
+              <li><b>3.</b> Ваш запит потрапить на модерацію — ми зв'яжемося з вами щодо подальшого доступу.</li>
             </ol>
-            <button type="button" onClick={onLogin} className="mt-6 inline-flex min-h-[52px] items-center rounded-2xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-7 text-[16px] font-bold text-white">Увійти</button>
           </div>
         ) : (
           <form noValidate onSubmit={submit}>
@@ -117,15 +117,15 @@ export default function AuthorApplyPage({ onLogin }: { onLogin: () => void }) {
             </ol>
 
             {step === 0 && (
-              <div className="grid gap-4">
-                <label className={label}>Ім'я та прізвище<input value={f.name} onChange={set("name")} autoComplete="name" className={`${input} mt-1.5`} /></label>
-                <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 lg:grid-cols-2 lg:gap-x-6">
+                <label className={`${label} lg:col-span-2`}>Ім'я та прізвище<input value={f.name} onChange={set("name")} autoComplete="name" className={`${input} mt-1.5`} /></label>
+                <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2 lg:gap-x-6">
                   <label className={label}>Email<input type="email" value={f.email} onChange={set("email")} autoComplete="email" placeholder="name@example.com" className={`${input} mt-1.5`} /></label>
                   <label className={label}>Телефон <span className={opt}>(необов'язково)</span><input type="tel" value={f.phone} onChange={set("phone")} autoComplete="tel" className={`${input} mt-1.5`} /></label>
                 </div>
                 <label className={label}>Хто ви за фахом<input value={f.profession} onChange={set("profession")} placeholder="Психолог, психотерапевт, коуч, викладач практик…" className={`${input} mt-1.5`} /></label>
                 <label className={label}>Освіта й кваліфікація<textarea value={f.education} onChange={set("education")} rows={3} placeholder="Заклад, спеціальність, курси, сертифікати" className={`${input} mt-1.5 resize-y`} /></label>
-                <fieldset>
+                <fieldset className="lg:col-span-2">
                   <legend className={label}>Досвід роботи</legend>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {EXPERIENCE.map((x) => <button key={x} type="button" aria-pressed={f.experience === x} onClick={() => setF({ ...f, experience: x })} className={chip(f.experience === x)}>{x}</button>)}
@@ -135,7 +135,7 @@ export default function AuthorApplyPage({ onLogin }: { onLogin: () => void }) {
             )}
 
             {step === 1 && (
-              <div className="grid gap-5">
+              <div className="grid gap-5 lg:grid-cols-2 lg:gap-x-6">
                 <fieldset>
                   <legend className={label}>Що плануєте створювати <span className={opt}>(можна кілька)</span></legend>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -148,7 +148,7 @@ export default function AuthorApplyPage({ onLogin }: { onLogin: () => void }) {
                     {TOPICS.map((x) => <button key={x} type="button" aria-pressed={topics.includes(x)} onClick={() => toggle(topics, x, setTopics)} className={chip(topics.includes(x))}>{x}</button>)}
                   </div>
                 </fieldset>
-                <label className={label}>Опишіть ваші плани<textarea value={f.plan} onChange={set("plan")} rows={4} placeholder="Наприклад: 4-тижнева програма про вигорання для освітян, кілька медитацій для сну" className={`${input} mt-1.5 resize-y`} /></label>
+                <label className={`${label} lg:col-span-2`}>Опишіть ваші плани<textarea value={f.plan} onChange={set("plan")} rows={4} placeholder="Наприклад: 4-тижнева програма про вигорання для освітян, кілька медитацій для сну" className={`${input} mt-1.5 resize-y`} /></label>
                 <fieldset>
                   <legend className={label}>Чи є готові матеріали?</legend>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -160,7 +160,7 @@ export default function AuthorApplyPage({ onLogin }: { onLogin: () => void }) {
             )}
 
             {step === 2 && (
-              <div className="grid gap-4">
+              <div className="mx-auto grid w-full max-w-[720px] gap-4">
                 <p className="rounded-2xl bg-[#f6f4ff] px-4 py-3 text-[14px] leading-relaxed text-[#2d2a5c]">
                   Створюємо ваш акаунт автора з поштою <b className="break-all">{f.email.trim()}</b>. Готувати матеріали можна одразу після відкриття кабінету, ФОП для цього не потрібен. Продавати — лише як ФОП з рахунком у monobank і касою ПРРО.
                 </p>
@@ -200,12 +200,10 @@ export default function AuthorApplyPage({ onLogin }: { onLogin: () => void }) {
                 </button>
               )}
             </div>
-            <p className="mt-5 text-center text-[14px] text-[#6b7190]">
-              Уже маєте акаунт автора? <button type="button" onClick={onLogin} className="font-semibold text-[#4338ca] underline-offset-2 hover:underline">Увійти</button>
-            </p>
           </form>
         )}
       </section>
+      </div>
     </main>
   );
 }

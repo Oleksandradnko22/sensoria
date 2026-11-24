@@ -94,6 +94,8 @@ function pageForPathBase(pathname: string): { page: Page; authorId: string | nul
   // the invitation e-mail for authors opens the author sign-up directly
   // the author application (a form with the account and the documents)
   if (path === "/author-signup") return { page: "author-apply", authorId: null };
+  // the author sign-in (the link in the «кабінет відкрито» e-mail)
+  if (path === "/author-login") return { page: "author-auth", authorId: null };
   if (path === "/payment-result") return { page: "payment-result", authorId: null };
   if (path === "/start") return { page: "state-selection", authorId: null };
   const m = /^\/authors\/([^/]+)$/.exec(path);

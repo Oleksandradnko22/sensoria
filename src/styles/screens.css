@@ -192,3 +192,7 @@
 @media (min-width: 1850px) { .funnel-page { --funnel-zoom: 1.45; } }
 @media (min-width: 2200px) { .funnel-page { --funnel-zoom: 1.6; } }
 @media (min-width: 2400px) { .funnel-page { --funnel-zoom: 1.9; } }
+
+/* The signing screen (the offer / terms, ConsentGate) is a fixed window, outside the zoomed columns: scaled the same way
+   on MacBook Pro 16, Full HD and 2K so it is not small there */
+@media (min-width: 1700px) { .gate-card { zoom: var(--page-zoom); } }

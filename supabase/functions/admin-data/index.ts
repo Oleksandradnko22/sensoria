@@ -725,7 +725,7 @@ Deno.serve(async (req) => {
         await logAction("author_approved", id);
         if (resendKey && p.email) {
           const site = Deno.env.get("SITE_URL") ?? "https://sensoria.courses";
-          const text = `Вітаємо, ${p.name}!\n\nВаш кабінет автора на Sensoria відкрито. Увійдіть: ${site}/author-signup\n\nГотувати програми, гайди й медитації можна одразу, ФОП для цього не потрібен. Продавати — лише як ФОП з рахунком у monobank і касою ПРРО: так вимагає банк. Покрокова інструкція — у кабінеті, розділ «Фінанси».\n\nПитання — відповідайте на цей лист або пишіть ${OPERATOR.email}.`;
+          const text = `Вітаємо, ${p.name}!\n\nВаш кабінет автора на Sensoria відкрито. Увійдіть: ${site}/author-login\n\nГотувати програми, гайди й медитації можна одразу, ФОП для цього не потрібен. Продавати — лише як ФОП з рахунком у monobank і касою ПРРО: так вимагає банк. Покрокова інструкція — у кабінеті, розділ «Фінанси».\n\nПитання — відповідайте на цей лист або пишіть ${OPERATOR.email}.`;
           await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },

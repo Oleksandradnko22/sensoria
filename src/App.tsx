@@ -39,7 +39,8 @@ import { setRecommendationPrograms } from "./utils/relevantContent";
 import { saveAssessmentResult } from "./lib/assessment";
 import funnelStore from "./store/funnelStore";
 import { devFunnelPage } from "./utils/devFunnelPreview";
-import { prelaunchClosed } from "./data/launch";
+import { LAUNCH_AT, prelaunchClosed } from "./data/launch";
+import PrelaunchHeader from "./components/PrelaunchHeader";
 import { programs as demoPrograms, type Program } from "./data/programs";
 import { meditations } from "./data/meditations";
 import { guides } from "./data/guides";
@@ -1160,7 +1161,8 @@ if (page === "for-authors") {
   return (
     <div key={page} className="page-transition">
       <div className="relative min-h-screen overflow-x-hidden bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6] text-white">
-        <Header
+        {Date.now() < LAUNCH_AT && !session ? <PrelaunchHeader /> : (
+          <Header
           onGoHome={goHome}
           onOpenTest={openTest}
           onOpenCatalog={openCatalog}
@@ -1174,7 +1176,8 @@ if (page === "for-authors") {
           programs={allPrograms}
           session={session}
         />
-        <ForAuthorsPage onRegister={() => setPage("author-auth")} onApply={() => { setPage("author-apply"); window.scrollTo(0, 0); }} />
+        )}
+        <ForAuthorsPage onApply={() => { setPage("author-apply"); window.scrollTo(0, 0); }} />
         <Footer
           onOpenTest={openTest}
           onGoHome={goHome}
@@ -1183,6 +1186,7 @@ if (page === "for-authors") {
           onOpenMeditations={openMeditations}
           onOpenContacts={openContacts} onOpenTerms={openTerms} onOpenPrivacy={openPrivacy} onOpenRefunds={openRefunds}
           compact
+          hidePlatform={Date.now() < LAUNCH_AT && !session}
         />
       </div>
     </div>
@@ -1193,7 +1197,8 @@ if (page === "author-apply") {
   return (
     <div key={page} className="page-transition">
       <div className="relative min-h-screen overflow-x-hidden bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6] text-white">
-        <Header
+        {Date.now() < LAUNCH_AT && !session ? <PrelaunchHeader /> : (
+          <Header
           onGoHome={goHome}
           onOpenTest={openTest}
           onOpenCatalog={openCatalog}
@@ -1207,7 +1212,8 @@ if (page === "author-apply") {
           programs={allPrograms}
           session={session}
         />
-        <AuthorApplyPage onLogin={() => setPage("author-auth")} />
+        )}
+        <AuthorApplyPage />
         <Footer
           onOpenTest={openTest}
           onGoHome={goHome}
@@ -1216,6 +1222,7 @@ if (page === "author-apply") {
           onOpenMeditations={openMeditations}
           onOpenContacts={openContacts} onOpenTerms={openTerms} onOpenPrivacy={openPrivacy} onOpenRefunds={openRefunds}
           compact
+          hidePlatform={Date.now() < LAUNCH_AT && !session}
         />
       </div>
     </div>
@@ -1644,8 +1651,8 @@ if (page === "author-dashboard") {
     return (
       <div key="author-pending" className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6] px-5 py-10 text-white">
         <div className="w-full max-w-[520px] rounded-[28px] border border-white/20 bg-white/10 p-7 text-center backdrop-blur-2xl sm:p-10">
-          <h1 className="text-[26px] font-bold leading-tight sm:text-[32px]">Ваш акаунт автора на розгляді</h1>
-          <p className="mt-4 leading-relaxed text-white/80">Дякуємо, документи підписано. Ми перевіримо заявку й надішлемо лист на {session.email}, щойно кабінет відкриється. Зазвичай це до одного робочого дня.</p>
+          <h1 className="text-[26px] font-bold leading-tight sm:text-[32px]">Ваш запит на модерації</h1>
+          <p className="mt-4 leading-relaxed text-white/80">Дякуємо, договір підписано. Ми розглянемо вашу анкету й зв'яжемося з вами на {session.email}, щоб повідомити про подальший доступ до кабінету.</p>
           <div className="mt-7 flex flex-wrap justify-center gap-3">
             <button type="button" onClick={() => window.location.reload()} className="min-h-[52px] rounded-2xl bg-white px-6 font-bold text-[#1e2a78]">Перевірити ще раз</button>
             <button type="button" onClick={logout} className="min-h-[52px] rounded-2xl px-5 font-semibold text-white/90 ring-1 ring-white/30">Вийти</button>

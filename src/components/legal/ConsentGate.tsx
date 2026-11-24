@@ -187,7 +187,7 @@ export function GateScreen({ kind, missing, onDone }: { kind: "participant" | "a
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="gate-title" className="fixed inset-0 z-[1000] overflow-y-auto sensoria-scroll bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6]">
       <div className="min-h-full flex items-center justify-center p-4 sm:p-8 lg:p-12">
-        <div className="w-full max-w-[1200px] rounded-[28px] bg-white text-[#0f172a] shadow-[0_24px_60px_-30px_rgba(15,23,100,0.6)] p-5 sm:p-7">
+        <div className="gate-card w-full max-w-[1200px] rounded-[28px] bg-white text-[#0f172a] shadow-[0_24px_60px_-30px_rgba(15,23,100,0.6)] p-5 sm:p-7">
           <div className="flex items-start gap-4">
             <span aria-hidden="true" className="hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#3b6df0] to-[#7c5cf0] text-white">
               <Icon name="shield" size={22} />

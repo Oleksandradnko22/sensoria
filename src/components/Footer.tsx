@@ -14,6 +14,8 @@ type Props = {
   // Less space above the footer (pages whose content already ends with air).
   compact?: boolean;
   onOpenMeditations?: () => void;
+  // before the platform opens: no «Платформа» links (catalogs, test) — they lead nowhere yet
+  hidePlatform?: boolean;
 };
 
 // Footer: brand · Платформа · Підтримка · Документи. Every legal document stays public and one click away
@@ -61,6 +63,7 @@ export default function Footer({
   onOpenRefunds,
   compact = false,
   onOpenMeditations,
+  hidePlatform = false,
 }: Props) {
   const platform: Item[] = [
     { label: "Програми", onClick: onOpenCatalog, path: "/programs" },
@@ -102,7 +105,7 @@ export default function Footer({
             </p>
           </div>
 
-          <Column title="Платформа" items={platform} />
+          {!hidePlatform && <Column title="Платформа" items={platform} />}
 
           {/* SUPPORT: contacts, mail, and crisis help set apart in colour so it is easy to find */}
           <nav aria-label="Підтримка">
@@ -131,10 +134,10 @@ export default function Footer({
           </nav>
 
           {/* DOCUMENTS */}
-          <nav aria-label="Документи" className="min-[360px]:col-span-2 md:col-span-1">
+          <nav aria-label="Документи" className={hidePlatform ? "min-[360px]:col-span-2 md:col-span-2 min-[2200px]:col-span-2" : "min-[360px]:col-span-2 md:col-span-1"}>
             <h4 className={headingClass}>Документи</h4>
             {/* two columns from 480 px up to tablets (fills the right side), one on narrow phones and in the one-row layout from 768 px */}
-            <ul className="space-y-0.5 min-[480px]:columns-2 min-[480px]:gap-x-6 md:columns-1 [&>li]:break-inside-avoid">
+            <ul className={`space-y-0.5 min-[480px]:columns-2 min-[480px]:gap-x-6 ${hidePlatform ? "md:columns-2 md:gap-x-10" : "md:columns-1"} [&>li]:break-inside-avoid`}>
               {documents.map((d) => (
                 <li key={d.label}>
                   <a href={d.href ?? d.path} onClick={go(d.onClick)} className={linkClass}>

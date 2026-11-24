@@ -267,7 +267,7 @@ function ParticipantDashboardPageInner({
     <div className="min-h-screen bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6] text-white">
       {/* TOP BAR */}
       <div className="border-b border-white/10">
-        <div className="max-w-[1400px] mx-auto px-3 py-3 sm:px-6 sm:py-5 flex items-center justify-between gap-2">
+        <div className="cab-wrap max-w-[1400px] mx-auto px-3 py-3 sm:px-6 sm:py-5 flex items-center justify-between gap-2">
           <button
             onClick={onBackToSite}
             className="flex shrink-0 items-center gap-2 whitespace-nowrap text-white/80 hover:text-white transition"
@@ -315,9 +315,15 @@ function ParticipantDashboardPageInner({
 
             <button
               onClick={onLogout}
-              className="shrink-0 whitespace-nowrap text-sm text-white/60 hover:text-white transition"
+              aria-label="Вийти"
+              title="Вийти"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/80 transition hover:bg-white/20 hover:text-white sm:h-auto sm:w-auto sm:bg-transparent sm:text-sm sm:text-white/60 sm:hover:bg-transparent"
             >
-              Вийти
+              {/* phones: an icon in a round button (the word was cut off at the screen edge); from 640 px — the word */}
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="sm:hidden">
+                <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h11" />
+              </svg>
+              <span className="hidden whitespace-nowrap sm:inline">Вийти</span>
             </button>
           </div>
         </div>
@@ -330,7 +336,7 @@ function ParticipantDashboardPageInner({
           content panel, wider than the viewport instead of wrapping
           inside it. minmax(0, 1fr) caps it at the available space, same
           fix as the "wide white block" report. */}
-      <div className="max-w-[1400px] mx-auto px-3 pt-4 pb-24 sm:px-6 sm:pt-8 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[260px_minmax(0,1fr)] gap-4 lg:gap-8 items-start">
+      <div className="cab-wrap max-w-[1400px] mx-auto px-3 pt-4 pb-10 sm:px-6 sm:pt-8 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[260px_minmax(0,1fr)] gap-4 lg:gap-8 items-start">
         {/* SIDEBAR */}
         <div className="min-w-0 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 p-2 lg:p-4">
           <nav ref={navRef} className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-col lg:overflow-visible">

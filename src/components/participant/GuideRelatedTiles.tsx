@@ -41,7 +41,7 @@ export default function GuideRelatedTiles({
               <Glyph />
             </span>
             <div className="flex-1 min-w-0">
-              <div className="text-[10.5px] font-semibold text-black/35 uppercase tracking-[0.12em] mb-1">
+              <div className="text-[12px] font-semibold text-black/35 uppercase tracking-[0.12em] mb-1">
                 {RELATED_KIND_LABEL[item.kind]}
               </div>
               <div className="text-[15px] font-semibold leading-snug text-black/85 line-clamp-2">{item.title}</div>

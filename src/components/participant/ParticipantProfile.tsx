@@ -845,7 +845,7 @@ export default function ParticipantProfile({ onOpenMaterial }: { onOpenMaterial?
                   <div key={s.id} className="rounded-2xl bg-[#faf9ff] px-4 py-3 text-[14px] ring-1 ring-[#f1eefb]">
                     <div className="font-semibold text-[#12172b]">
                       {s.label}
-                      {s.isCurrentDevice && <span className="ml-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700 text-[11px] font-semibold ring-1 ring-emerald-100">цей пристрій</span>}
+                      {s.isCurrentDevice && <span className="ml-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700 text-[12px] font-semibold ring-1 ring-emerald-100">цей пристрій</span>}
                     </div>
                     <div className="text-black/60 text-[12px]">{formatRelativeTime(s.lastSeenAt)}</div>
                   </div>

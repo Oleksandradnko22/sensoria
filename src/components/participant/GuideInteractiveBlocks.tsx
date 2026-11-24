@@ -212,7 +212,7 @@ export function Scale({
                 aria-checked={active}
                 aria-label={String(n)}
                 onClick={() => onChange(n)}
-                className={`w-[26px] h-[26px] sm:w-[34px] sm:h-[34px] rounded-full text-[11.5px] sm:text-[13px] font-medium inline-flex items-center justify-center transition ${
+                className={`w-[26px] h-[26px] sm:w-[34px] sm:h-[34px] rounded-full text-[12px] sm:text-[13px] font-medium inline-flex items-center justify-center transition ${
                   active
                     ? "bg-gradient-to-br from-[#2f6bff] to-[#8b5cf6] text-white scale-110 shadow-[0_6px_16px_rgba(79,70,229,0.35)]"
                     : "bg-[#f8f9fe] border border-black/15 text-black/55 hover:border-indigo-300 hover:text-indigo-600"

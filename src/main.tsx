@@ -3,7 +3,8 @@ import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import ConsentGate from './components/legal/ConsentGate.tsx'
 import HealthConsentPrompt from './components/legal/HealthConsentPrompt.tsx'
-import './index.css' 
+import './index.css'
+import './styles/screens.css' 
 import { startRangeFill } from './utils/rangeFill.ts'
 
 startRangeFill()

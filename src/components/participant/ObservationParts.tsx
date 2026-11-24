@@ -18,7 +18,7 @@ export function DateBlock({ iso }: { iso: string }) {
       {/* a date tile, like the icon squares on «Огляд» */}
       <span className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-[#eef0fd] to-[#f3eeff] ring-1 ring-[#e4def9]">
         <span className="text-[20px] font-bold leading-none tabular-nums text-[#4338ca]">{ok ? d.getDate() : "—"}</span>
-        <span className="mt-1 text-[11px] font-bold uppercase leading-none tracking-[0.06em] text-[#6d5bd0]">{ok ? SHORT_MONTHS[d.getMonth()] : ""}</span>
+        <span className="mt-1 text-[12px] font-bold uppercase leading-none tracking-[0.06em] text-[#6d5bd0]">{ok ? SHORT_MONTHS[d.getMonth()] : ""}</span>
       </span>
       {time && <span className="text-[12px] font-medium tabular-nums text-black/50">{time}</span>}
     </time>
@@ -42,14 +42,14 @@ export function ChangeFigure({ c }: { c: StateChange }) {
     <div className="min-w-0">
       <div className="flex items-end gap-3">
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-black/45">Було</div>
+          <div className="text-[12px] font-bold uppercase tracking-[0.1em] text-black/45">Було</div>
           <div className="mt-1 text-[28px] font-bold leading-none tabular-nums text-black/40">{c.beforeValue ?? "—"}</div>
         </div>
         <span aria-hidden="true" className="mb-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-[#f1eeff] text-[14px] text-[#6d5bd0]">
           →
         </span>
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#6d5bd0]">Стало</div>
+          <div className="text-[12px] font-bold uppercase tracking-[0.1em] text-[#6d5bd0]">Стало</div>
           <div className="mt-1 text-[28px] font-bold leading-none tabular-nums text-[#12172b]">{c.afterValue ?? "—"}</div>
         </div>
         {c.scale !== null && <span className="pb-0.5 text-[13px] font-medium text-black/45">з {c.scale}</span>}

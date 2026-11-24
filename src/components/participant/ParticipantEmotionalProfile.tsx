@@ -165,7 +165,7 @@ function HistorySparkline({ points: newestFirst, accent }: { points: HistoryPoin
           <g key={i}>
             <circle cx={x} cy={y} r={last ? 6.5 : 5} fill={accent.hex} stroke="#fff" strokeWidth={2.5} />
             <text x={x} y={y - 14} textAnchor="middle" fontSize={13} fontWeight={700} fill={last ? accent.hex : "#12172b"}>{getIntensityLabel(p.intensity)}</text>
-            <text x={x} y={height - 6} textAnchor="middle" fontSize={11} fill="rgba(0,0,0,0.45)">{p.dateLabel}</text>
+            <text x={x} y={height - 6} textAnchor="middle" fontSize={12} fill="rgba(0,0,0,0.45)">{p.dateLabel}</text>
           </g>
         );
       })}
@@ -595,7 +595,7 @@ export default function ParticipantEmotionalProfile({
                             disabled={!open}
                             className="flex flex-col gap-1.5 rounded-2xl bg-white p-4 text-left ring-1 ring-[#ebe8ff] transition hover:ring-[#c9bff7] hover:shadow-[0_10px_24px_-14px_rgba(60,60,140,0.35)] disabled:cursor-default disabled:hover:shadow-none"
                           >
-                            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#f1eeff] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.06em] text-[#6d5bd0]">
+                            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#f1eeff] px-2.5 py-1 text-[12px] font-bold uppercase tracking-[0.06em] text-[#6d5bd0]">
                               <Icon name={section.icon} size={12} /> {section.itemTypeLabel}
                             </span>
                             <span className="mt-1 text-[16px] font-bold leading-snug text-[#12172b] line-clamp-2">{item.title}</span>

@@ -438,7 +438,7 @@ export default function ResultPage({ onContinue, onMissingData, onRetake }: Prop
             <p className="mt-2">
               Якщо вам зараз дуже важко або небезпечно —{" "}
               <a href="/crisis-help" className="rounded underline underline-offset-2 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white">Допомога в кризі</a>{" "}
-              або <a href="tel:112" className="rounded underline underline-offset-2 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white">112</a>.
+              або <a href="tel:112" className="-my-2 inline-block rounded px-1 py-2 underline underline-offset-2 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white">112</a>.
             </p>
           </div>
         </div>

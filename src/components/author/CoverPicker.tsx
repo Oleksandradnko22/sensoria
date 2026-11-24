@@ -272,7 +272,7 @@ function TypeChip({ on, onClick, label, hint }: { on: boolean; onClick: () => vo
       }`}
     >
       <div className={`text-[13px] font-medium ${on ? "text-[#4338ca]" : "text-black/75"}`}>{label}</div>
-      <div className="text-[11.5px] text-black/40">{hint}</div>
+      <div className="text-[12px] text-black/40">{hint}</div>
     </button>
   );
 }

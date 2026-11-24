@@ -51,7 +51,7 @@ export default function MeditationMiniPlayer({ onOpen }: Props) {
           </button>
           <button onClick={onOpen} className="flex-1 min-w-0 text-left">
             <div className="text-[13px] font-semibold truncate">{player.meditation.title}</div>
-            <div className="text-[11px] text-black/40">
+            <div className="text-[12px] text-black/40">
               {formatClock(player.currentTime)} / {player.duration ? formatClock(player.duration) : "—:—"}
             </div>
           </button>

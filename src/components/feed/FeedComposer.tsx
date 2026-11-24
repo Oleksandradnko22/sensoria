@@ -263,7 +263,7 @@ export default function FeedComposer({
                 ? <p className="px-3 py-2 text-[13px] text-black/45">{suggest.q ? "Автора не знайдено" : "Почніть вводити ім’я автора"}</p>
                 : suggest.list.map((a) => (
                   <button key={a.id} type="button" onMouseDown={(e) => { e.preventDefault(); pickMention(a); }} className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left hover:bg-[#f6f4ff]">
-                    <Avatar avatarUrl={a.avatarUrl} initials={getInitials(a.name)} className="h-8 w-8 text-[11px] text-white" />
+                    <Avatar avatarUrl={a.avatarUrl} initials={getInitials(a.name)} className="h-8 w-8 text-[12px] text-white" />
                     <span className="truncate text-[14px] font-medium text-[#12172b]">{a.name}</span>
                   </button>
                 ))}

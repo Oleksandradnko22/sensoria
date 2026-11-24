@@ -1,3 +1,4 @@
+import { EMAIL_HINT, isValidEmail } from "../utils/emailFormat";
 import { useState } from "react";
 import {
   loginAccount,
@@ -51,8 +52,7 @@ export default function LoginPage({ onAuthenticated, onBackToRegister }: Props) 
   };
 
   // Same rule as RegisterPage: Latin characters only, must end in ".com".
-  const EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.com$/;
-  const isEmailValid = EMAIL_PATTERN.test(email.trim());
+  const isEmailValid = isValidEmail(email);
   const isPasswordValid = isPasswordRuleValid(password);
 
   const canContinue = !submitting && isEmailValid && isPasswordValid;
@@ -201,8 +201,8 @@ export default function LoginPage({ onAuthenticated, onBackToRegister }: Props) 
                 `}
               />
               {emailTouched && !isEmailValid && (
-                <p className="mt-2 px-1 text-sm text-red-300/90 whitespace-nowrap">
-                  Email латиницею і на .com, наприклад name@example.com
+                <p className="mt-2 px-1 text-sm text-red-300/90">
+                  {EMAIL_HINT}
                 </p>
               )}
             </div>

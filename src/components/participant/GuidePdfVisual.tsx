@@ -78,7 +78,7 @@ export default function GuidePdfVisual({ title, author, category, tag, pdf, stru
                 {title}
               </div>
               <div className="mt-auto flex items-end justify-between gap-2">
-                <div className="text-[8.5px] sm:text-[10px] text-black/45 leading-tight line-clamp-2">{author}</div>
+                <div className="text-[8.5px] sm:text-[12px] text-black/45 leading-tight line-clamp-2">{author}</div>
                 <div className="text-[7px] sm:text-[8px] font-semibold tracking-[0.2em] text-black/25 shrink-0">
                   SENSORIA
                 </div>

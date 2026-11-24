@@ -16,6 +16,7 @@
 // `durationMinutes`, never stored twice.
 import type { MeditationFormat } from "./meditationFormats.ts";
 import type { MeditationTranscript } from "../utils/meditationTranscript.ts";
+import { DEMO_CONTENT } from "./demoSwitch.ts";
 
 type MeditationEntry = {
   id: string;
@@ -153,6 +154,6 @@ const entries: MeditationEntry[] = [
 ];
 
 // "4 хв" — derived, so it can never disagree with durationMinutes.
-export const meditations = entries.map((entry) => ({ ...entry, duration: `${entry.durationMinutes} хв` }));
+export const meditations = (DEMO_CONTENT ? entries : []).map((entry) => ({ ...entry, duration: `${entry.durationMinutes} хв` }));
 
 export type Meditation = (typeof meditations)[number];

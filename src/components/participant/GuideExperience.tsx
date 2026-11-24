@@ -530,7 +530,7 @@ export default function GuideExperience({
                   className="w-14 h-14 text-[18px] text-white"
                 />
                 <div className="flex-1 min-w-[220px]">
-                  <div className="text-[11px] font-semibold text-black/35 uppercase tracking-[0.14em] mb-0.5">
+                  <div className="text-[12px] font-semibold text-black/35 uppercase tracking-[0.14em] mb-0.5">
                     Автор
                   </div>
                   <div className="text-[19px] md:text-[20px] font-semibold tracking-tight text-black/90 flex items-center gap-2">

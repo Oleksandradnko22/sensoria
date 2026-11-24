@@ -282,7 +282,7 @@ export default function PostComments({ postId, postAuthorId, viewer, onRequireLo
             <p className="text-[14px] leading-relaxed text-black/70 mt-1 whitespace-pre-line break-words">{c.body}</p>
           )}
 
-          {c.isPinned && <span className="mr-2 mt-1.5 inline-flex items-center gap-1 rounded-full bg-[#eef0fd] px-2 py-0.5 text-[11px] font-semibold text-[#4338ca]">Закріплено автором</span>}
+          {c.isPinned && <span className="mr-2 mt-1.5 inline-flex items-center gap-1 rounded-full bg-[#eef0fd] px-2 py-0.5 text-[12px] font-semibold text-[#4338ca]">Закріплено автором</span>}
           {isPostAuthor && !c.parentId && !c.id.startsWith("local-") && (
             <button type="button" onClick={() => void togglePin(c)} className="mr-3 mt-1.5 text-[12px] font-medium text-black/50 hover:text-[#4338ca]">
               {c.isPinned ? "Відкріпити" : "Закріпити зверху"}

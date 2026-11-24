@@ -17,7 +17,7 @@ function Block({ block }: { block: StaticBlock }) {
     case "heading":
       return (
         <div className="mt-9 mb-3 break-after-avoid">
-          <div className="text-[11px] font-semibold tracking-[0.18em] text-black/40">{block.number}</div>
+          <div className="text-[12px] font-semibold tracking-[0.18em] text-black/40">{block.number}</div>
           <h2 className="text-[22px] font-bold leading-tight text-black">{block.text}</h2>
           {block.summary && <p className="text-[13px] text-black/55 mt-1">{block.summary}</p>}
         </div>
@@ -88,7 +88,7 @@ function Block({ block }: { block: StaticBlock }) {
             ))}
           </div>
           {(block.lowLabel || block.highLabel) && (
-            <div className="flex justify-between text-[11.5px] text-black/45 mt-1.5">
+            <div className="flex justify-between text-[12px] text-black/45 mt-1.5">
               <span>{block.lowLabel}</span>
               <span>{block.highLabel}</span>
             </div>
@@ -158,7 +158,7 @@ export default function GuideStaticRenderer({
   return (
     <article className="text-black">
       <header className="pb-4 border-b border-black/20">
-        <div className="text-[10.5px] font-semibold tracking-[0.2em] text-black/40">SENSORIA</div>
+        <div className="text-[12px] font-semibold tracking-[0.2em] text-black/40">SENSORIA</div>
         <h1 className="text-[30px] font-bold leading-tight mt-1">{title}</h1>
         {subtitle && <p className="text-[13.5px] text-black/55 mt-1.5">{subtitle}</p>}
       </header>

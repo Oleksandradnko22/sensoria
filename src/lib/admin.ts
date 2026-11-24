@@ -296,6 +296,26 @@ export function setUserBanned(profileId: string, banned: boolean, reason?: strin
   return callAdmin("setBanned", { profileId, banned, reason }).then(() => undefined);
 }
 
+export type AuthorApplication = {
+  id: string; name: string; email: string; phone: string | null; profession: string; topics: string[];
+  plan: string; links: string | null; status: "new" | "invited" | "declined"; invited_at: string | null; created_at: string;
+};
+export type PendingAuthor = { id: string; name: string; email: string; member_since: string; signed: boolean };
+export async function fetchPendingAuthors(): Promise<PendingAuthor[]> {
+  const { authors } = await callAdmin<{ authors: PendingAuthor[] }>("pendingAuthors");
+  return authors;
+}
+export function approveAuthor(profileId: string): Promise<void> {
+  return callAdmin("approveAuthor", { profileId }).then(() => undefined);
+}
+export async function fetchAuthorApplications(): Promise<AuthorApplication[]> {
+  const { applications } = await callAdmin<{ applications: AuthorApplication[] }>("authorApplications");
+  return applications;
+}
+export function decideAuthorApplication(applicationId: string, decision: "invited" | "declined"): Promise<void> {
+  return callAdmin("inviteAuthorApplication", { applicationId, decision }).then(() => undefined);
+}
+
 export async function fetchRefundRequests(): Promise<RefundRequest[]> {
   const { requests } = await callAdmin<{ requests: RefundRequest[] }>("refundRequests");
   return requests;

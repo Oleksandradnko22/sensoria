@@ -290,7 +290,7 @@ export default function AuthorOverview({
             <span className="text-[#6d5bd0]"><Icon name="mail" size={19} /></span>
             Відповісти учасникам
             {unreadMessages > 0 && (
-              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#7c5cf0] px-1.5 text-[11px] font-semibold text-white">{unreadMessages}</span>
+              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#7c5cf0] px-1.5 text-[12px] font-semibold text-white">{unreadMessages}</span>
             )}
           </button>
           <button type="button" onClick={() => onNavigate("finance")} className={secondaryBtn}>

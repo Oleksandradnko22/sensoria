@@ -287,7 +287,7 @@ export default function LibraryHomePage({
   return (
     <div className="min-h-screen px-4 py-20 text-white sm:px-6">
       {/* the content is exactly as wide as the page title (owner, 22.11.2026) */}
-      <div className="mx-auto max-w-[1040px]">
+      <div className="rec-wrap mx-auto max-w-[1040px]">
         <header className="mb-14 text-center">
           <p className="mb-4 text-xs uppercase tracking-[0.3em] text-white/55">Ваша персональна добірка</p>
           <h1 className="text-[30px] font-bold leading-tight sm:text-4xl md:text-5xl">Матеріали, підібрані за вашими відповідями</h1>

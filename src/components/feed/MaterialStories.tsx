@@ -20,7 +20,7 @@ export default function MaterialStories({ contentId, slug }: { contentId: string
           <figure key={s.id} className="rounded-2xl bg-gradient-to-br from-emerald-50/70 to-white p-4 ring-1 ring-emerald-100">
             <blockquote className="line-clamp-6 whitespace-pre-line text-[14px] leading-relaxed text-[#2d2a5c]">{s.body.replace(MENTION_RE, "@$1")}</blockquote>
             <figcaption className="mt-3 flex items-center gap-2.5 text-[13px] text-black/55">
-              <Avatar avatarUrl={s.avatarUrl} initials={getInitials(s.name)} className="h-8 w-8 text-[11px] text-white" />
+              <Avatar avatarUrl={s.avatarUrl} initials={getInitials(s.name)} className="h-8 w-8 text-[12px] text-white" />
               <span className="font-semibold text-[#12172b]">{s.name}</span> · {formatPostDate(s.createdAt)}
             </figcaption>
           </figure>

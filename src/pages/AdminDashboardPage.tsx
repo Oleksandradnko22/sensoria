@@ -5,6 +5,7 @@ import { NO_CHAT_BAN } from "../utils/moderationView";
 import { chatBanState } from "../utils/chatBan";
 import ConfirmDialog from "../components/author/public/ConfirmDialog";
 import AdminActionsLog from "../components/admin/AdminActionsLog";
+import AdminAuthorApplications from "../components/admin/AdminAuthorApplications";
 import AdminModeration from "../components/admin/AdminModeration";
 import { useEffect, useState } from "react";
 import { addWorkingDays, kyivDay } from "../utils/taxRegister";
@@ -54,11 +55,11 @@ type Props = {
   onLogout: () => void;
 };
 
-type Tab = "stats" | "moderation" | "users" | "materials" | "announcements" | "finance" | "refunds" | "tickets" | "contentReports" | "verification" | "actions";
+type Tab = "stats" | "moderation" | "users" | "materials" | "announcements" | "finance" | "refunds" | "tickets" | "contentReports" | "verification" | "actions" | "authorApps";
 
 // Refunds, support tickets and content reports are one kind of work — an
 // inbox of open items — so they share a single "Черга" tab with sub-pills.
-const QUEUE_TABS: Tab[] = ["verification", "tickets", "contentReports", "refunds"];
+const QUEUE_TABS: Tab[] = ["verification", "tickets", "contentReports", "refunds", "authorApps"];
 
 type UserFilter = "all" | "author" | "participant" | "banned" | "chatBanned";
 
@@ -401,6 +402,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
                   { key: "tickets", label: "Звернення" },
                   { key: "contentReports", label: "Скарги" },
                   { key: "refunds", label: "Повернення" },
+                  { key: "authorApps", label: "Заявки авторів" },
                 ] as { key: Tab; label: string }[]
               ).map((p) => (
                 <button
@@ -424,6 +426,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
           )}
 
           {tab === "actions" && <AdminActionsLog />}
+          {tab === "authorApps" && <AdminAuthorApplications />}
           {tab === "announcements" && <AdminCommunity />}
 
           {tab === "moderation" && (

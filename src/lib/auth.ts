@@ -31,6 +31,8 @@ export type Profile = {
   // schema.sql's comment on the column for the full 14-day-window
   // design.
   deletionRequestedAt: string | null;
+  // authors only: false while the owner has not approved the account yet (author-applications.sql); undefined = approved
+  authorApproved?: boolean;
 };
 
 // Consistent "initials from a name" logic wherever an avatar circle
@@ -210,7 +212,15 @@ export async function fetchCurrentProfile(): Promise<Profile | null> {
   // gating (showing that screen instead of the normal dashboard)
   // happens at the call sites: App.tsx's boot effect, LoginPage.tsx,
   // DashboardAuthPage.tsx.
+  // an author's account waits for the owner's approval; before the migration the column is missing — treat as approved
+  let authorApproved: boolean | undefined;
+  if (data.role === "author") {
+    const { data: ap, error: apErr } = await supabase.from("profiles").select("author_approved_at").eq("id", user.id).maybeSingle();
+    authorApproved = apErr ? true : !!(ap as { author_approved_at?: string | null } | null)?.author_approved_at;
+  }
+
   return {
+    authorApproved,
     id: data.id,
     role: data.role,
     name: data.name,

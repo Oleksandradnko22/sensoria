@@ -149,11 +149,11 @@ export default function FeedCard({
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 {onOpenAuthor ? <button type="button" onClick={onOpenAuthor} className="min-w-0 truncate text-left">{name}</button> : name}
-                {post.official && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-2.5 py-0.5 text-[11px] font-semibold text-white"><Icon name="check" size={11} /> Офіційно</span>}
-                {post.officialPinned && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#eef0fd] px-2 py-0.5 text-[11px] font-semibold text-[#4338ca]"><Icon name="bookmark" size={11} filled /> Закріплено</span>}
-                {post.authorIsAuthor && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#eef0fd] px-2 py-0.5 text-[11px] font-semibold text-[#4338ca]"><Icon name="check" size={11} /> Автор</span>}
-                {story && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800"><Icon name="leaf" size={11} /> Досвід учасника</span>}
-                {amaOpen && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#f5f0ff] px-2 py-0.5 text-[11px] font-semibold text-[#7c3aed]"><Icon name="comment" size={11} /> Питання до автора</span>}
+                {post.official && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-2.5 py-0.5 text-[12px] font-semibold text-white"><Icon name="check" size={11} /> Офіційно</span>}
+                {post.officialPinned && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#eef0fd] px-2 py-0.5 text-[12px] font-semibold text-[#4338ca]"><Icon name="bookmark" size={11} filled /> Закріплено</span>}
+                {post.authorIsAuthor && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#eef0fd] px-2 py-0.5 text-[12px] font-semibold text-[#4338ca]"><Icon name="check" size={11} /> Автор</span>}
+                {story && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[12px] font-semibold text-emerald-800"><Icon name="leaf" size={11} /> Досвід учасника</span>}
+                {amaOpen && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#f5f0ff] px-2 py-0.5 text-[12px] font-semibold text-[#7c3aed]"><Icon name="comment" size={11} /> Питання до автора</span>}
               </div>
               <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-black/45">
                 <time dateTime={post.createdAt} title={formatReviewDate(post.createdAt)}>{formatPostDate(post.createdAt)}</time>
@@ -242,7 +242,7 @@ export default function FeedCard({
             <div className="mt-4 flex items-center gap-3.5 rounded-2xl bg-gradient-to-r from-[#f6f4ff] to-[#eef0fd] p-3.5 ring-1 ring-[#e4def9]">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-[#5b3df5] shadow-[0_6px_14px_-8px_rgba(91,61,245,0.5)]"><Icon name={att.kind} size={22} /></span>
               <div className="min-w-0 flex-1">
-                <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6d5bd0]">{story ? "Про матеріал" : post.isShare ? "Ділиться матеріалом" : "Матеріал автора"}</div>
+                <div className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#6d5bd0]">{story ? "Про матеріал" : post.isShare ? "Ділиться матеріалом" : "Матеріал автора"}</div>
                 {att.unavailable
                   ? <div className="mt-0.5 text-[14px] text-black/55">Матеріал більше недоступний</div>
                   : <><div className="mt-0.5 truncate text-[15px] font-semibold text-[#12172b]">{att.title}</div><div className="text-[12px] text-black/55">{att.meta}</div></>}
@@ -321,7 +321,7 @@ export default function FeedCard({
                       style={{ background: r.color, animationDelay: `${i * 30}ms` }}
                     >
                       <Icon name={r.icon} size={20} filled={r.icon === "heart"} />
-                      <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#12172b] px-2.5 py-1 text-[11px] font-semibold text-white opacity-0 transition group-hover/r:opacity-100 group-focus/r:opacity-100">{r.label}</span>
+                      <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#12172b] px-2.5 py-1 text-[12px] font-semibold text-white opacity-0 transition group-hover/r:opacity-100 group-focus/r:opacity-100">{r.label}</span>
                     </button>
                   ))}
                 </div>

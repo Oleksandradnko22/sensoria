@@ -1,3 +1,5 @@
+import { EMAIL_HINT, isValidEmail } from "../utils/emailFormat";
+import { Icon } from "../components/ui/Icon";
 import { useState } from "react";
 import {
   registerAccount,
@@ -16,7 +18,7 @@ type Props = {
 };
 
 export default function RegisterPage({
-  stateTitle: _stateTitle,
+  stateTitle,
   recommendationTitle: _recommendationTitle,
   onAuthenticated,
   onGoToLogin,
@@ -51,8 +53,7 @@ const [password, setPassword] =
 
   // Latin characters only, and must end in ".com" specifically (Sasha's
   // spec) — not a general RFC 5322 shape check anymore.
-  const EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.com$/;
-  const isEmailValid = EMAIL_PATTERN.test(email.trim());
+  const isEmailValid = isValidEmail(email);
   // 8+ chars, Latin only, at least one special character (utils/passwordRules).
   const isPasswordValid = isPasswordRuleValid(password);
 
@@ -89,282 +90,132 @@ const [password, setPassword] =
     }
   };
 
+  const field = "w-full rounded-2xl border bg-white/10 px-5 py-4 text-white placeholder:text-white/45 transition-colors focus:outline-none reg-input";
   return (
-    <div
-      className="
-        min-h-screen
-        px-6
-        py-20
-
-        flex
-        items-center
-        justify-center
-      "
-    >
-      <div className="max-w-2xl w-full">
-
-        {/* SAVE PLAN */}
-
-        <div
-          className="
-            rounded-[32px]
-
-            bg-white/10
-            backdrop-blur-2xl
-
-            border border-white/20
-
-            p-10
-
-            text-white
-          "
-        >
-          <h1
-            className="
-              text-4xl
-              font-bold
-              mb-5
-            "
-          >
-            Збережіть свій персональний план
-          </h1>
-
-          <p
-            className="
-              text-white/75
-              leading-relaxed
-              mb-8
-            "
-          >
-            Ваш результат буде збережено.
-            Ви зможете повернутися до
-            рекомендацій та відстежувати
-            свій прогрес у будь-який час.
-          </p>
-
-          {infoMessage && (
-            <div className="mb-6 rounded-2xl bg-emerald-500/15 border border-emerald-400/30 px-5 py-4 text-emerald-100 text-sm">
-              {infoMessage}
+    // one column on phones and portrait tablets; on landscape screens (laptops, tablets sideways, Duo) the card runs
+    // wide in two columns — the title on the left, the form on the right — so it fits one screen (index.css, .reg-*)
+    <div className="funnel-page reg-page flex items-center justify-center px-7 py-8 sm:px-8 sm:py-10">
+      <div className="reg-card w-full max-w-[520px] rounded-[28px] border border-white/20 bg-white/10 p-5 text-white backdrop-blur-2xl sm:p-10">
+        <div className="reg-grid">
+          <div className="reg-intro relative">
+            <div className="relative">
+              <span className="reg-chip mb-5 hidden items-center gap-2 rounded-full bg-white/12 px-3.5 py-1.5 text-[13px] font-semibold text-white/90 ring-1 ring-white/20">
+                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-gradient-to-r from-[#a8e8ff] to-[#e4ddff]" />
+                Ваш результат: {stateTitle}
+              </span>
+              <h1 className="mb-4 text-[28px] font-bold leading-tight sm:text-4xl">Збережіть свій персональний план</h1>
+              <p className="leading-relaxed text-white/75">
+                Ваш результат буде збережено. Ви зможете повернутися до рекомендацій та відстежувати свій прогрес у будь-який час.
+              </p>
+              <p className="reg-note mt-4 text-sm leading-relaxed text-white/60">
+                Після збереження ви отримаєте персональну рекомендацію та зможете почати роботу над своїм станом.
+              </p>
+              {/* wide screens: what the person gets, in the brand's style */}
+              <ul className="reg-perks mt-7 hidden flex-col gap-3">
+                {[
+                  { icon: "chart" as const, text: "Результат тесту збережеться у вашому кабінеті" },
+                  { icon: "compass" as const, text: "Персональна добірка програм, гайдів і медитацій" },
+                  { icon: "heart" as const, text: "Реєстрація безкоштовна" },
+                ].map((p) => (
+                  <li key={p.text} className="flex items-center gap-3 text-[15px] text-white/85">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#3b6df0] to-[#7c5cf0] shadow-[0_8px_20px_-8px_rgba(76,80,230,0.8)]">
+                      <Icon name={p.icon} size={17} />
+                    </span>
+                    {p.text}
+                  </li>
+                ))}
+              </ul>
             </div>
-          )}
+          </div>
 
-          {formError && (
-            <div className="mb-6 rounded-2xl bg-red-500/15 border border-red-400/30 px-5 py-4 text-red-100 text-sm">
-              {formError}
-            </div>
-          )}
+          {/* a real form: Enter submits it, and password managers offer to save the new password */}
+          <form
+            className="reg-form mt-7"
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (canContinue) void submit();
+            }}
+          >
+            {infoMessage && (
+              <div className="mb-5 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-5 py-4 text-sm text-emerald-100">{infoMessage}</div>
+            )}
+            {formError && (
+              <div className="mb-5 rounded-2xl border border-red-400/30 bg-red-500/15 px-5 py-4 text-sm text-red-100">{formError}</div>
+            )}
 
-          <div className="space-y-5">
-
-            <input
-  type="text"
-  placeholder="Ім'я"
-
-  value={name}
-
-  onChange={(e) =>
-    setName(
-      e.target.value
-    )
-  }
-
-  className="
-    w-full
-
-    px-5
-    py-4
-
-    rounded-2xl
-
-    bg-white/5
-    border border-white/15
-
-    placeholder-white/40
-
-    focus:outline-none
-    focus:border-white/40
-  "
-/>
-
-<div>
-  <input
-    type="email"
-    value={email}
-    onChange={(e) =>
-      setEmail(e.target.value)
-    }
-    onBlur={() => setEmailTouched(true)}
-    placeholder="Email"
-    aria-invalid={emailTouched && !isEmailValid}
-    className={`
-      w-full
-      px-6
-      py-5
-      rounded-2xl
-      bg-white/10
-      border
-      text-white
-      placeholder:text-white/40
-      focus:outline-none
-      transition-colors
-      ${
-        emailTouched && !isEmailValid
-          ? "border-red-400/60 focus:border-red-400/60"
-          : "border-white/20 focus:border-white/40"
-      }
-    `}
-  />
-  {emailTouched && !isEmailValid && (
-    <p className="mt-2 px-1 text-sm text-red-300/90 whitespace-nowrap">
-      Email латиницею і на .com, наприклад name@example.com
-    </p>
-  )}
-</div>
-
-            <div>
-              <div className="relative">
+            <div className="space-y-4">
+              <input type="text" placeholder="Ім'я" value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" aria-label="Ім'я" className={`${field} border-white/20 focus:border-white/45`} />
+              <div>
                 <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Пароль"
-
-                  value={password}
-
-                  onChange={(e) =>
-                    setPassword(
-                      e.target.value
-                    )
-                  }
-                  onBlur={() => setPasswordTouched(true)}
-                  aria-invalid={passwordTouched && !isPasswordValid}
-
-                  className={`
-                    w-full
-
-                    px-5
-                    py-4
-                    pr-14
-
-                    rounded-2xl
-
-                    bg-white/5
-                    border
-
-                    placeholder-white/40
-
-                    focus:outline-none
-                    transition-colors
-
-                    ${
-                      passwordTouched && !isPasswordValid
-                        ? "border-red-400/60 focus:border-red-400/60"
-                        : "border-white/15 focus:border-white/40"
-                    }
-                  `}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => setEmailTouched(true)}
+                  placeholder="Email"
+                  autoComplete="email"
+                  aria-label="Email"
+                  aria-invalid={emailTouched && !isEmailValid}
+                  className={`${field} ${emailTouched && !isEmailValid ? "border-red-400/60 focus:border-red-400/60" : "border-white/20 focus:border-white/45"}`}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? "Приховати пароль" : "Показати пароль"}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/80 transition"
-                >
-                  {showPassword ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 8 11 8a20.32 20.32 0 0 1-3.22 4.6M14.12 14.12a3 3 0 1 1-4.24-4.24" />
-                      <line x1="1" y1="1" x2="23" y2="23" />
-                    </svg>
-                  ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
-                </button>
+                {emailTouched && !isEmailValid && <p className="mt-2 px-1 text-sm text-red-300/90">{EMAIL_HINT}</p>}
               </div>
-              {passwordTouched && !isPasswordValid && (
-                <p className="mt-2 px-1 text-sm text-red-300/90 whitespace-nowrap">
-                  {PASSWORD_HINT}
-                </p>
-              )}
+              <div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Пароль"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onBlur={() => setPasswordTouched(true)}
+                    autoComplete="new-password"
+                    aria-label="Пароль"
+                    aria-invalid={passwordTouched && !isPasswordValid}
+                    className={`${field} pr-14 ${passwordTouched && !isPasswordValid ? "border-red-400/60 focus:border-red-400/60" : "border-white/20 focus:border-white/45"}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Приховати пароль" : "Показати пароль"}
+                    className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-white/55 transition hover:text-white/85 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  >
+                    {showPassword ? (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 8 11 8a20.32 20.32 0 0 1-3.22 4.6M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                {passwordTouched && !isPasswordValid && <p className="mt-2 px-1 text-sm text-red-300/90">{PASSWORD_HINT}</p>}
+              </div>
             </div>
 
-          </div>
+            <p className="mt-5 text-[13px] leading-relaxed text-white/70">Після реєстрації ви ознайомитеся з умовами користування та приймете їх перед входом у кабінет.</p>
 
-          <div className="mt-6">
-            <p className="text-[13px] leading-relaxed text-white/75">Після реєстрації ви ознайомитеся з умовами користування та приймете їх перед входом у кабінет.</p>
-          </div>
-
-          <div
-            className="
-              mt-6
-              mb-8
-
-              text-sm
-              text-white/60
-            "
-          >
-            Після збереження ви отримаєте
-            персональну рекомендацію та
-            зможете почати роботу над своїм
-            станом.
-          </div>
-
-          <button
-            disabled={!canContinue}
-
-            onClick={submit}
-
-            className={`
-              w-full
-
-              py-4
-
-              rounded-2xl
-
-              font-semibold
-              text-lg
-
-              transition
-
-              ${
-                canContinue
-                  ? `
-                    bg-white
-                    text-black
-                    hover:scale-[1.02]
-                  `
-                  : `
-                  bg-white/10
-                    text-white/40
-                    cursor-not-allowed
-                  `
-              }
-            `}
-          >
-            {submitting ? "Зберігаємо…" : "Зберегти результат"}
-          </button>
-
-          <div
-            className="
-              mt-6
-              text-center
-              text-sm
-              text-white/60
-            "
-          >
-            Вже є акаунт?{" "}
             <button
-              onClick={onGoToLogin}
-              className="
-                text-white
-                hover:underline
-              "
+              type="submit"
+              disabled={!canContinue}
+              className={`mt-6 inline-flex min-h-[56px] w-full items-center justify-center rounded-2xl text-[17px] font-bold transition ${
+                canContinue ? "bg-white text-[#1e2a78] shadow-[0_14px_40px_rgba(10,20,90,0.35)] hover:-translate-y-0.5" : "cursor-not-allowed bg-white/15 text-white/50"
+              }`}
             >
-              Увійти
+              {submitting ? "Зберігаємо…" : "Зберегти результат"}
             </button>
-          </div>
 
+            <div className="mt-5 text-center text-sm text-white/65">
+              Вже є акаунт?{" "}
+              <button type="button" onClick={onGoToLogin} className="font-semibold text-white underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-white rounded">
+                Увійти
+              </button>
+            </div>
+          </form>
         </div>
-
       </div>
     </div>
   );

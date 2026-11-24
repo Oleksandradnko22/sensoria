@@ -68,7 +68,7 @@ export default function ProtectedPdfActions({ title, url, contentId, variant, sh
           {busy ? "Готуємо…" : "Завантажити"}
         </button>
       )}
-      {error && <span className="basis-full text-[11.5px] text-red-500">{error}</span>}
+      {error && <span className="basis-full text-[12px] text-red-500">{error}</span>}
       {viewing && (
         <ProtectedPdfViewer
           title={title}

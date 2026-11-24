@@ -165,7 +165,7 @@ function RecommendationTile({
       disabled={!onClick}
       className="text-left rounded-2xl bg-white ring-1 ring-[#ebe8ff] p-4 transition hover:ring-[#c9bff7] hover:shadow-[0_10px_24px_-14px_rgba(60,60,140,0.35)] disabled:cursor-default disabled:hover:border-black/5 disabled:hover:shadow-none"
     >
-      <span className="inline-block px-2 py-0.5 rounded-full bg-[#f1eeff] text-[#6d5bd0] text-[11px] font-bold tracking-[0.08em] mb-2">
+      <span className="inline-block px-2 py-0.5 rounded-full bg-[#f1eeff] text-[#6d5bd0] text-[12px] font-bold tracking-[0.08em] mb-2">
         РЕКОМЕНДОВАНО
       </span>
       <div className="mb-2 text-[#6d5bd0]">

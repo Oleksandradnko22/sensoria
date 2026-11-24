@@ -433,7 +433,7 @@ function NotificationsBell() {
     <div ref={ref} className="relative shrink-0">
       <button type="button" onClick={toggle} aria-expanded={open} aria-label={`Сповіщення${data?.unread ? `: нових ${data.unread}` : ""}`} className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#4338ca] shadow-[0_14px_30px_-24px_rgba(60,50,140,0.6)] ring-1 ring-[#ece8fb] transition hover:bg-[#f6f4ff]">
         <Icon name="megaphone" size={21} />
-        {!!data?.unread && <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-1.5 text-[11px] font-bold text-white">{data.unread > 9 ? "9+" : data.unread}</span>}
+        {!!data?.unread && <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-1.5 text-[12px] font-bold text-white">{data.unread > 9 ? "9+" : data.unread}</span>}
       </button>
       {open && (
         <div className="sensoria-scroll absolute right-0 z-40 mt-2 max-h-[460px] w-[min(92vw,380px)] overflow-y-auto rounded-2xl bg-white p-2 shadow-[0_24px_60px_-24px_rgba(60,40,160,0.45)] ring-1 ring-[#e7e3fb]">
@@ -488,7 +488,7 @@ function WeekCard() {
           {week.top.map((p, i) => (
             <li key={p.id} className="flex items-center gap-3 rounded-2xl bg-white px-3.5 py-2.5 ring-1 ring-[#ece8fb]">
               <span className="w-5 shrink-0 text-center text-[15px] font-bold text-[#7c5cf0]">{i + 1}</span>
-              <Avatar avatarUrl={p.authorAvatarUrl} initials={getInitials(p.authorName)} className="h-8 w-8 shrink-0 text-[11px] text-white" />
+              <Avatar avatarUrl={p.authorAvatarUrl} initials={getInitials(p.authorName)} className="h-8 w-8 shrink-0 text-[12px] text-white" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[14px] font-semibold text-[#12172b]">{(p.body.split("\n")[0] || "").replace(MENTION_RE, "@$1")}</span>
                 <span className="block text-[12px] text-black/45">{p.authorName} · {(p.stats.likeCount || 0)} реакцій · {p.stats.commentCount} коментарів</span>
@@ -502,7 +502,7 @@ function WeekCard() {
           <span className="text-[13px] font-semibold text-black/55">Нові автори:</span>
           {week.newAuthors.map((a) => (
             <button key={a.id} type="button" onClick={() => openAuthorProfile(a.id)} className="inline-flex items-center gap-2 rounded-full bg-white py-1 pl-1 pr-3 text-[13px] font-semibold text-[#12172b] ring-1 ring-[#ece8fb] hover:ring-[#d9d4f5]">
-              <Avatar avatarUrl={a.avatarUrl} initials={getInitials(a.name)} className="h-7 w-7 text-[10px] text-white" /> {a.name}
+              <Avatar avatarUrl={a.avatarUrl} initials={getInitials(a.name)} className="h-7 w-7 text-[12px] text-white" /> {a.name}
             </button>
           ))}
         </div>

@@ -1353,7 +1353,7 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
                     </button>
                   ))}
                 </div>
-                <div className="flex justify-between text-[11px] text-black/30 mt-1.5 max-w-[320px]">
+                <div className="flex justify-between text-[12px] text-black/30 mt-1.5 max-w-[320px]">
                   <span>Напружено</span>
                   <span>Спокійно</span>
                 </div>
@@ -1381,7 +1381,7 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
                   either way. Deliberately the quietest thing on the
                   screen (2026-09-24 redesign) — a preference, not an
                   action competing with the two above it. */}
-              <label className="flex items-center justify-center gap-2 mt-6 text-[11px] text-black/35 cursor-pointer select-none">
+              <label className="flex items-center justify-center gap-2 mt-6 text-[12px] text-black/35 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={checkinNeverShow}
@@ -1502,7 +1502,7 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
                         <button
                           key={rate}
                           onClick={() => player.setPlaybackRate(rate)}
-                          className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition ${
+                          className={`px-2.5 py-1 rounded-full text-[12px] font-medium transition ${
                             player.playbackRate === rate
                               ? "bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] text-black/80"
                               : "text-black/40 hover:text-black/60"
@@ -1614,7 +1614,7 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
                     Текст практики
                   </button>
                 )}
-                <div className="text-[11px] text-black/30">
+                <div className="text-[12px] text-black/30">
                   Можна заблокувати екран або вийти з цього екрана — практика продовжить відтворюватися.
                 </div>
               </div>
@@ -1756,7 +1756,7 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
                     </button>
                   ))}
                 </div>
-                <div className="flex justify-between text-[11px] text-black/30 mt-1.5 max-w-[240px] mx-auto">
+                <div className="flex justify-between text-[12px] text-black/30 mt-1.5 max-w-[240px] mx-auto">
                   <span>Напружено</span>
                   <span>Спокійно</span>
                 </div>
@@ -1773,7 +1773,7 @@ export default function MeditationExperience({ meditationId, onClose }: Props) {
                       return result.kind === "none" ? null : (
                         <div className="text-center mt-4" aria-live="polite">
                           <div className="text-[13px] text-black/65">{result.text}</div>
-                          <div className="text-[11.5px] text-black/35 mt-1">{result.caveat}</div>
+                          <div className="text-[12px] text-black/35 mt-1">{result.caveat}</div>
                         </div>
                       );
                     })()}

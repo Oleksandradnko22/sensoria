@@ -537,7 +537,7 @@ export default function AuthorSettings() {
                     alt="QR-код для 2FA"
                     className="w-36 h-36 self-center"
                   />
-                  <div className="text-[11px] text-black/40 text-center break-all font-mono">
+                  <div className="text-[12px] text-black/40 text-center break-all font-mono">
                     {mfaEnrollment.secret}
                   </div>
                   <input
@@ -616,7 +616,7 @@ export default function AuthorSettings() {
                       <div className="font-medium">
                         {s.label}
                         {s.isCurrentDevice && (
-                          <span className="ml-1.5 text-emerald-600 text-[11px] font-medium">
+                          <span className="ml-1.5 text-emerald-600 text-[12px] font-medium">
                             · цей пристрій
                           </span>
                         )}

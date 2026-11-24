@@ -5,6 +5,7 @@
 // catalog page's own copy.)
 import { programModules } from "./programModules.ts";
 import { moduleCountLabel } from "../utils/moduleLabel.ts";
+import { DEMO_CONTENT } from "./demoSwitch.ts";
 
 export type Program = {
   id: string;
@@ -41,7 +42,7 @@ export type Program = {
   rating?: number;
 };
 
-export const programs: Program[] = [
+const ALL_PROGRAMS: Program[] = [
 
   {
   id: "healthy-balance",
@@ -176,3 +177,5 @@ benefits: [
     ],
   },
 ];
+
+export const programs: Program[] = DEMO_CONTENT ? ALL_PROGRAMS : [];

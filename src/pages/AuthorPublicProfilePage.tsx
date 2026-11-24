@@ -395,7 +395,7 @@ export default function AuthorPublicProfilePage({
             stuck ? "translate-y-0" : "-translate-y-full"
           }`}
         >
-          <div className="max-w-[1160px] mx-auto px-4 sm:px-6 h-12 flex items-center gap-3">
+          <div className="wide-col max-w-[1160px] mx-auto px-4 sm:px-6 h-12 flex items-center gap-3">
             <Avatar avatarUrl={data.avatarUrl} initials={getInitials(data.name)} className="w-7 h-7 text-[12px] text-white" />
             <div className="min-w-0 flex-1 text-[14px] truncate">
               <span className="font-semibold">{data.name}</span>
@@ -414,7 +414,7 @@ export default function AuthorPublicProfilePage({
         </div>
       )}
 
-      <div className={`max-w-[1160px] mx-auto px-4 sm:px-6 lg:px-8 pb-20 pt-4`}>
+      <div className="wide-col max-w-[1160px] mx-auto px-4 sm:px-6 lg:px-8 pb-20 pt-4">
         <button
           onClick={openPost ? closePage : onBack}
           className="inline-flex items-center gap-1.5 min-h-[44px] -mt-2 text-[14px] text-black/60 hover:text-black transition mb-1"

@@ -305,7 +305,7 @@ function ReviewCard({ item, viewerId, onSave }: { item: Item; viewerId: string |
             <span className="min-w-0 text-[16px] font-semibold text-[#12172b] [overflow-wrap:anywhere]">{item.name}</span>
             <span className="flex gap-0.5 text-amber-500" aria-label={`Оцінка ${item.rating} з 5`}>{[1, 2, 3, 4, 5].map((s) => <Icon key={s} name="star" size={14} filled={s <= item.rating} />)}</span>
             <span className="text-[12px] text-black/50">{formatRelativeTime(item.date)}</span>
-            {!item.real && <span className="rounded-full bg-[#f6f4ff] px-2 py-0.5 text-[11px] font-semibold text-[#6d5bd0]">демо</span>}
+            {!item.real && <span className="rounded-full bg-[#f6f4ff] px-2 py-0.5 text-[12px] font-semibold text-[#6d5bd0]">демо</span>}
           </div>
           {item.contentTitle ? (
             <span className="mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#f6f4ff] px-2.5 py-0.5 text-[12px] font-medium text-[#4d5278]">
@@ -407,7 +407,7 @@ function FeedbackCard({ f, title }: { f: MeditationFeedbackEntry; title: string 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 text-[12px] font-semibold text-[#6d5bd0]"><Icon name="meditation" size={13} /> <span className="truncate">{title}</span></div>
-          <div className="mt-1 text-[15px] font-semibold text-[#12172b]">{f.participantName}{demo && <span className="ml-2 rounded-full bg-[#f6f4ff] px-2 py-0.5 text-[11px] font-semibold text-[#6d5bd0]">демо</span>}</div>
+          <div className="mt-1 text-[15px] font-semibold text-[#12172b]">{f.participantName}{demo && <span className="ml-2 rounded-full bg-[#f6f4ff] px-2 py-0.5 text-[12px] font-semibold text-[#6d5bd0]">демо</span>}</div>
         </div>
         <span className={`shrink-0 rounded-full px-3 py-1 text-[12px] font-semibold ${helpful ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{helpful ? "Корисно" : "Не зовсім"}</span>
       </div>

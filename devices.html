@@ -89,13 +89,15 @@ const DEVICES = [
 ];
 const GROUPS = [["iphone","iPhone"],["android","Android і складні"],["tablet","Планшети"],["desktop","Ноутбуки, монітори, ТВ"],["all","Усі"]];
 const PAGES = [
-  ["/","Головна"],["/start","Тест: вибір стану"],["/start?devPage=result","Тест: персональний розбір"],["/programs","Каталог програм"],["/programs/stress-course","Сторінка програми"],
-  ["/guides","Гайди"],["/meditations","Медитації"],["/cart","Кошик"],["/account","Вхід / кабінет"],["/contacts","Контакти"],
+  ["/","Головна"],["/start","Тест: вибір стану"],["/start?devPage=result","Тест: персональний розбір"],["/start?devPage=registration","Тест: реєстрація після розбору"],["/start?devPage=recommendation","Тест: рекомендації"],["/programs","Каталог програм"],["/programs/stress-course","Сторінка програми"],
+  ["/guides","Гайди"],["/meditations","Медитації"],["/cart","Кошик"],["/account","Вхід / кабінет"],["/?devSession=participant","Кабінет учасника (демо)"],["/?devSession=author","Кабінет автора (демо)"],["/contacts","Контакти"],
   ["/crisis-help","Допомога в кризі"],["/terms","Умови використання"],["/privacy","Політика конфіденційності"],
   ["/refunds","Правила повернення"],["/participant-agreement","Угода учасника"],["/author-agreement","Договір з автором"],
 ];
 const MAX_W = 760; // великі екрани зменшуються, щоб картка не була ширшою
 
+// the site is closed before the launch: the preview opens it for this tab (dev only, see src/data/launch.ts)
+try { sessionStorage.setItem("sensoria:prelaunch-open", "1"); } catch {}
 const state = (() => { try { return JSON.parse(localStorage.getItem("devices-preview") || "{}"); } catch { return {}; } })();
 let group = state.group || "iphone", path = state.path || "/";
 const save = () => { try { localStorage.setItem("devices-preview", JSON.stringify({ group, path, zoom: zoom.value })); } catch {} };

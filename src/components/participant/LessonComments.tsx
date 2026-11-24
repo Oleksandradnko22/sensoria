@@ -209,12 +209,12 @@ export default function LessonComments({ itemId, session, notifyWriteFailed }: P
               const isEditing = editingCommentId === c.id;
               return (
                 <div key={c.id} className="flex gap-3">
-                  <Avatar avatarUrl={c.avatarUrl} initials={getInitials(c.authorName)} className="w-8 h-8 text-[11px] shrink-0" />
+                  <Avatar avatarUrl={c.avatarUrl} initials={getInitials(c.authorName)} className="w-8 h-8 text-[12px] shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="text-[13px] font-medium text-black/75">{c.authorName}</span>
                       {c.isAuthorReply && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#eef2ff] text-[#4338ca] text-[11px] font-medium">Автор</span>
+                        <span className="px-2 py-0.5 rounded-full bg-[#eef2ff] text-[#4338ca] text-[12px] font-medium">Автор</span>
                       )}
                       <span className="text-[12px] text-black/35">
                         {formatRelativeTime(c.createdAt)}

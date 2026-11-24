@@ -551,7 +551,7 @@ export default function ParticipantMessages({
           {body}
         </div>
       )}
-      <div className="mt-1 flex items-center gap-3 px-1 text-[11px] text-black/45">
+      <div className="mt-1 flex items-center gap-3 px-1 text-[12px] text-black/45">
         {at && <span>{formatClock(at)}</span>}
         {mine && opts.id && !opts.deleted && (
           <button
@@ -601,7 +601,7 @@ export default function ParticipantMessages({
           <summary className="flex min-h-[40px] cursor-pointer list-none items-center gap-2 rounded-2xl bg-[#eef0fd] px-3.5 text-[13px] font-semibold text-[#4338ca] ring-1 ring-[#4338ca]/20">
             <Icon name="shield" size={15} /> Правила спілкування
           </summary>
-          <div className="absolute right-0 z-20 mt-2 w-[min(90vw,380px)] rounded-2xl bg-white p-4 text-[13px] leading-relaxed text-[#2d2a5c] shadow-[0_18px_40px_-16px_rgba(70,40,170,0.45)] ring-1 ring-[#ebe8ff]">
+          <div className="absolute right-0 z-20 mt-2 w-[min(90vw,380px)] max-sm:fixed max-sm:left-4 max-sm:right-4 max-sm:w-auto rounded-2xl bg-white p-4 text-[13px] leading-relaxed text-[#2d2a5c] shadow-[0_18px_40px_-16px_rgba(70,40,170,0.45)] ring-1 ring-[#ebe8ff]">
             Sensoria лишається посередником у спілкуванні. Обмінюватися телефоном, месенджерами, e-mail чи посиланнями, а також пропонувати оплату чи записи в обхід платформи заборонено для обох сторін: такі повідомлення не надсилаються. Не передавайте особисті чи платіжні дані.
           </div>
         </details>
@@ -634,8 +634,8 @@ export default function ParticipantMessages({
                   className={`inline-flex min-h-[34px] items-center rounded-full px-3.5 text-[13px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cf0] ${listFilter === f ? "bg-[#eef0fd] text-[#4338ca] ring-1 ring-[#4338ca]/35" : "bg-white text-[#1d2240] ring-1 ring-[#ebe8ff] hover:bg-[#faf9ff]"}`}
                 >
                   {f === "all" ? "Усі" : f === "unread" ? "Непрочитані" : "Архів"}
-                  {f === "unread" && unreadTotal > 0 && <span className="ml-1.5 rounded-full bg-[#4338ca] px-1.5 text-[11px] text-white">{unreadTotal}</span>}
-                  {f === "archive" && archivedTotal > 0 && <span className="ml-1.5 text-[11px] text-black/45">{archivedTotal}</span>}
+                  {f === "unread" && unreadTotal > 0 && <span className="ml-1.5 rounded-full bg-[#4338ca] px-1.5 text-[12px] text-white">{unreadTotal}</span>}
+                  {f === "archive" && archivedTotal > 0 && <span className="ml-1.5 text-[12px] text-black/45">{archivedTotal}</span>}
                 </button>
               ))}
             </div>
@@ -691,9 +691,9 @@ export default function ParticipantMessages({
                       <span className="flex items-center justify-between gap-2">
                         <span className={`flex min-w-0 items-center gap-1.5 truncate text-[14px] ${unread ? "font-bold text-[#12172b]" : "font-semibold text-[#1d2240]"}`}>
                           <span className="truncate">{c.authorName}</span>
-                          {!c.real && <span className="shrink-0 rounded-full bg-[#f6f4ff] px-1.5 text-[10px] font-semibold text-[#6d5bd0]">демо</span>}
+                          {!c.real && <span className="shrink-0 rounded-full bg-[#f6f4ff] px-1.5 text-[12px] font-semibold text-[#6d5bd0]">демо</span>}
                         </span>
-                        <span className="shrink-0 text-[11px] text-black/45">{formatListDate(c.date)}</span>
+                        <span className="shrink-0 text-[12px] text-black/45">{formatListDate(c.date)}</span>
                       </span>
                       {(c.contentTitle || c.contentUnavailable) && (
                         <span className="mt-0.5 block truncate text-[12px] font-medium text-[#6d5bd0]">{c.contentTitle ?? "Матеріал більше недоступний"}</span>
@@ -751,7 +751,7 @@ export default function ParticipantMessages({
                     {selected.real && authorDetails?.verified && (
                       <span title="Верифікований автор" className="shrink-0 text-[12px] text-[#4338ca]">✓</span>
                     )}
-                    <span className="shrink-0 rounded-full bg-[#f1eeff] px-2 py-0.5 text-[11px] font-semibold text-[#6d5bd0]">Автор</span>
+                    <span className="shrink-0 rounded-full bg-[#f1eeff] px-2 py-0.5 text-[12px] font-semibold text-[#6d5bd0]">Автор</span>
                   </div>
                   <div className="flex min-w-0 items-center gap-1.5 text-[12px]">
                     {selected.contentTitle && <span className="truncate font-medium text-[#6d5bd0]">{selected.contentTitle}</span>}
@@ -913,7 +913,7 @@ export default function ParticipantMessages({
                     return (
                       <div key={m.id} className="flex flex-col gap-2">
                         {showDay && m.at && (
-                          <div className="mx-auto my-1 w-fit rounded-full bg-white px-3 py-1 text-[11px] font-medium text-black/50 ring-1 ring-[#efeafd]">{formatDayLabel(m.at)}</div>
+                          <div className="mx-auto my-1 w-fit rounded-full bg-white px-3 py-1 text-[12px] font-medium text-black/50 ring-1 ring-[#efeafd]">{formatDayLabel(m.at)}</div>
                         )}
                         {renderBubble(m.body, m.mine, m.at, { id: m.real && isUuid(m.id) ? m.id : undefined, deleted: m.deleted })}
                       </div>
@@ -993,7 +993,7 @@ export default function ParticipantMessages({
                     {sending ? "Надсилаємо…" : "Надіслати"}
                   </button>
                 </div>
-                <div className="mt-1.5 px-1 text-[11px] text-black/45 leading-snug">
+                <div className="mt-1.5 px-1 text-[12px] text-black/45 leading-snug">
                   Спілкування залишається в Sensoria. Не передавайте особисті або платіжні дані.{" "}
                   <button
                     onClick={() => setNoticeExpanded((v) => !v)}

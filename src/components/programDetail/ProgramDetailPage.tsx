@@ -165,7 +165,7 @@ function Detail({ program: loadedProgram, session, onBackToCatalog, onRequireLog
     <>
       {/* HERO — full-bleed, atmosphere chosen by category (utils/heroVisual.ts) */}
       <section className="relative isolate overflow-hidden text-white" style={{ background: visual.background }}>
-        <div className="relative mx-auto w-full max-w-[1200px] px-4 pb-24 pt-28 sm:px-6 sm:pb-28 lg:px-8 lg:pb-32">
+        <div className="wide-col relative mx-auto w-full max-w-[1200px] px-4 pb-24 pt-28 sm:px-6 sm:pb-28 lg:px-8 lg:pb-32">
           {/* category emblem: a whole square beside the text, never cropped; hidden on small screens */}
           <div aria-hidden="true" className="pointer-events-none absolute right-8 top-[136px] hidden aspect-square w-[300px] lg:block xl:right-12 xl:w-[340px]">
             <HeroArt visual={visual} />
@@ -247,7 +247,7 @@ function Detail({ program: loadedProgram, session, onBackToCatalog, onRequireLog
         </div>
       </section>
 
-      <main className="mx-auto w-full max-w-[1200px] px-4 pb-16 sm:px-6 lg:px-8">
+      <main className="wide-col mx-auto w-full max-w-[1200px] px-4 pb-16 sm:px-6 lg:px-8">
         {/* BENEFITS + ACCESS — one panel, overlapping the hero's lower edge */}
         <div className="relative z-10 -mt-16 sm:-mt-20">
           <ProgramAccessPanel program={program} cta={cta} onStart={() => onStart(program.id)} session={session} onRequireLogin={requireLogin} authorLeft={authorLeft} loading={!sample && data.progressLoading} inCart={cartApi.has(programRef)} onAddToCart={() => cartApi.add(programRef)} onRemoveFromCart={() => cartApi.remove(programRef)} onOpenCart={requestOpenCart} />

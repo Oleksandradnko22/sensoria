@@ -97,7 +97,7 @@ export default function ProgramModulesPath({
                     />
                   </div>
                   {modDuration > 0 && (
-                    <span className="text-[11px] text-black/40 shrink-0">{formatDuration(modDuration)}</span>
+                    <span className="text-[12px] text-black/40 shrink-0">{formatDuration(modDuration)}</span>
                   )}
                 </div>
               </div>

@@ -2078,7 +2078,7 @@ export default function AuthorCourseEditor({
                 onClick={() => goPartByUser(n)}
                 className={`inline-flex min-h-[44px] items-center gap-2 rounded-full px-3.5 text-[13px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5b3df5]/50 ${on ? "bg-[#5b3df5] text-white shadow-[0_8px_18px_-10px_rgba(91,61,245,0.9)]" : locked ? "cursor-default bg-[#f4f2fe] text-[#6b5fc7]" : "bg-[#ece9fe] text-[#4a2fd0] hover:bg-[#e2ddfc]"}`}
               >
-                <span aria-hidden="true" className={`grid h-5 w-5 place-items-center rounded-full text-[11px] ${on ? "bg-white/25" : n < part ? "bg-[#5b3df5] text-white" : "bg-white/70"}`}>{n < part ? "✓" : n}</span>
+                <span aria-hidden="true" className={`grid h-5 w-5 place-items-center rounded-full text-[12px] ${on ? "bg-white/25" : n < part ? "bg-[#5b3df5] text-white" : "bg-white/70"}`}>{n < part ? "✓" : n}</span>
                 <span className={on ? "" : "sr-only sm:not-sr-only"}>{name}</span>
               </button>
             </span>
@@ -2404,7 +2404,7 @@ export default function AuthorCourseEditor({
           <div aria-hidden="true" className="relative h-[60px] w-[104px] shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-[#b8abf7] to-[#6d4df5]">
             <span className="absolute bottom-2 left-2 h-1.5 w-12 rounded-full bg-white/60" />
             <span className="absolute bottom-5 left-2 h-1.5 w-8 rounded-full bg-white/40" />
-            {aiDeclaration(tags) === "used" && <span className="absolute right-1.5 top-1.5 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-bold tracking-wide text-violet-700">AI</span>}
+            {aiDeclaration(tags) === "used" && <span className="absolute right-1.5 top-1.5 rounded-full bg-white/90 px-2 py-0.5 text-[12px] font-bold tracking-wide text-violet-700">AI</span>}
           </div>
           <p className="min-w-0 text-[14px] leading-snug text-[#2d2a5c]" aria-live="polite">
             <span className="font-semibold">Так це побачать покупці. </span>
@@ -3813,7 +3813,7 @@ function PracticePreview({ practice }: { practice: NonNullable<AuthoredItem["pra
               return (
                 <li key={`${k}-${o}`}>
                   <button type="button" role={practice.type === "choice" ? "radio" : "checkbox"} aria-checked={on} onClick={() => toggle(k)} className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl border-2 px-3 text-left text-[14px] transition ${on ? "border-[#5b3df5] bg-[#f6f4ff]" : "border-[#e3def9] hover:border-[#b9aef5]"}`}>
-                    <span aria-hidden="true" className={`flex h-5 w-5 shrink-0 items-center justify-center border-2 text-[11px] text-white ${practice.type === "choice" ? "rounded-full" : "rounded-md"} ${on ? "border-[#5b3df5] bg-[#5b3df5]" : "border-[#b9aef5] bg-white"}`}>{on && practice.type === "checkboxes" ? "✓" : ""}</span>
+                    <span aria-hidden="true" className={`flex h-5 w-5 shrink-0 items-center justify-center border-2 text-[12px] text-white ${practice.type === "choice" ? "rounded-full" : "rounded-md"} ${on ? "border-[#5b3df5] bg-[#5b3df5]" : "border-[#b9aef5] bg-white"}`}>{on && practice.type === "checkboxes" ? "✓" : ""}</span>
                     {o}
                   </button>
                 </li>

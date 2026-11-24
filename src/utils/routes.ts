@@ -32,6 +32,7 @@ export type Page =
   | "author-agreement"
   | "participant-agreement"
   | "crisis-help"
+  | "for-authors"
   | "payment-result";
 
 const FUNNEL: Page[] = ["state-selection", "test", "result", "registration", "login", "preparing", "recommendation", "program"];
@@ -53,6 +54,7 @@ export function pathForPage(page: Page, entityId?: string | null): string {
   if (page === "author-agreement") return "/author-agreement";
   if (page === "participant-agreement") return "/participant-agreement";
   if (page === "crisis-help") return "/crisis-help";
+  if (page === "for-authors") return "/for-authors";
   if (page === "payment-result") return "/payment-result";
   if (page === "author-profile") return authorId ? `/authors/${encodeURIComponent(authorId)}` : "/";
   if (FUNNEL.includes(page)) return "/start";
@@ -86,6 +88,9 @@ function pageForPathBase(pathname: string): { page: Page; authorId: string | nul
   if (path === "/author-agreement") return { page: "author-agreement", authorId: null };
   if (path === "/participant-agreement") return { page: "participant-agreement", authorId: null };
   if (path === "/crisis-help") return { page: "crisis-help", authorId: null };
+  if (path === "/for-authors") return { page: "for-authors", authorId: null };
+  // the invitation e-mail for authors opens the author sign-up directly
+  if (path === "/author-signup") return { page: "author-auth", authorId: null };
   if (path === "/payment-result") return { page: "payment-result", authorId: null };
   if (path === "/start") return { page: "state-selection", authorId: null };
   const m = /^\/authors\/([^/]+)$/.exec(path);

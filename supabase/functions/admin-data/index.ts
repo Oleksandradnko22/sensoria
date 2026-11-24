@@ -683,6 +683,73 @@ Deno.serve(async (req) => {
         return json({ ok: true, moved });
       }
 
+      // «Для авторів» (/for-authors): the applications, newest first; the invitation goes by e-mail (owner only)
+      case "authorApplications": {
+        const { data: rows, error } = await admin.from("author_applications")
+          .select("id, name, email, phone, profession, topics, plan, links, status, invited_at, created_at")
+          .order("created_at", { ascending: false }).limit(300);
+        if (error) return json({ error: error.message }, 500);
+        return json({ applications: rows ?? [] });
+      }
+
+      // authors who registered by the link and signed the documents, waiting for the owner's approval
+      case "pendingAuthors": {
+        const { data: rows, error } = await admin.from("profiles")
+          .select("id, name, email, member_since").eq("role", "author").is("author_approved_at", null)
+          .order("member_since", { ascending: false }).limit(200);
+        if (error) return json({ error: error.message }, 500);
+        const ids = (rows ?? []).map((r) => r.id);
+        const { data: signed } = ids.length
+          ? await admin.from("legal_consents").select("user_id, document").in("user_id", ids).eq("document", "author_agreement").is("withdrawn_at", null)
+          : { data: [] };
+        return json({ authors: (rows ?? []).map((r) => ({ ...r, signed: (signed ?? []).some((c) => c.user_id === r.id) })) });
+      }
+
+      case "approveAuthor": {
+        const id = String(payload?.profileId ?? "");
+        const { data: p, error } = await admin.from("profiles").update({ author_approved_at: new Date().toISOString() })
+          .eq("id", id).eq("role", "author").select("name, email").maybeSingle();
+        if (error || !p) return json({ error: error?.message ?? "Автора не знайдено." }, 400);
+        await logAction("author_approved", id);
+        if (resendKey && p.email) {
+          const site = Deno.env.get("SITE_URL") ?? "https://sensoria.courses";
+          const text = `Вітаємо, ${p.name}!\n\nВаш кабінет автора на Sensoria відкрито. Увійдіть: ${site}/author-signup\n\nГотувати програми, гайди й медитації можна одразу, ФОП для цього не потрібен. Продавати — лише як ФОП з рахунком у monobank і касою ПРРО: так вимагає банк. Покрокова інструкція — у кабінеті, розділ «Фінанси».\n\nПитання — відповідайте на цей лист або пишіть ${OPERATOR.email}.`;
+          await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ from: fromAddress, to: p.email, subject: "Ваш кабінет автора на Sensoria відкрито", ...brandFromText("Кабінет автора відкрито", text, "Ви отримали цей лист, бо зареєструвалися як автор на Sensoria.") }),
+          }).catch(() => {});
+        }
+        return json({ ok: true });
+      }
+
+      case "inviteAuthorApplication": {
+        const id = String(payload?.applicationId ?? "");
+        const decline = payload?.decision === "declined";
+        const { data: app, error } = await admin.from("author_applications")
+          .update(decline ? { status: "declined" } : { status: "invited", invited_at: new Date().toISOString() })
+          .eq("id", id).select("name, email").maybeSingle();
+        if (error || !app) return json({ error: error?.message ?? "Заявку не знайдено." }, 400);
+        await logAction(decline ? "author_application_declined" : "author_application_invited", id);
+        if (!decline) {
+          if (!resendKey) return json({ error: "Пошта не налаштована (RESEND_API_KEY)." }, 500);
+          const site = Deno.env.get("SITE_URL") ?? "https://sensoria.courses";
+          const text = `Вітаємо, ${app.name}!\n\nДякуємо за заявку — запрошуємо вас стати автором Sensoria. Зареєструйтеся як автор за посиланням: ${site}/author-signup\n\nГотувати програми, гайди й медитації в кабінеті можна одразу, ФОП для цього не потрібен. Продавати — лише як ФОП з рахунком у monobank і касою ПРРО: так вимагає банк. Покрокова інструкція є в кабінеті, розділ «Фінанси».\n\nПитання — відповідайте на цей лист або пишіть ${OPERATOR.email}.`;
+          const r = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              from: fromAddress,
+              to: app.email,
+              subject: "Запрошення стати автором Sensoria",
+              ...brandFromText("Запрошуємо вас стати автором", text, "Ви отримали цей лист, бо подали заявку автора на Sensoria."),
+            }),
+          });
+          if (!r.ok) return json({ error: "Лист не надіслано. Спробуйте ще раз." }, 502);
+        }
+        return json({ ok: true });
+      }
+
       case "refundRequests": {
         const { data: rows, error } = await admin
           .from("refund_requests")

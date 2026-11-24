@@ -312,7 +312,7 @@ function MaterialRow({ m, known }: { m: AnalyticsMaterial; known: boolean }) {
       <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
         {facts.map(([l, v]) => (
           <div key={l} className="rounded-xl bg-[#faf9ff] px-3 py-2 ring-1 ring-[#efeafd]">
-            <dt className="text-[11px] text-black/50">{l}</dt>
+            <dt className="text-[12px] text-black/50">{l}</dt>
             <dd className="truncate text-[15px] font-bold text-[#12172b]">{v}</dd>
           </div>
         ))}
@@ -335,7 +335,7 @@ function Tile({ label, value, hint }: { label: string; value: string; hint?: str
 function Mini({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-xl bg-white px-2 py-2 ring-1 ring-[#efeafd]">
-      <div className="text-[11px] text-black/50">{label}</div>
+      <div className="text-[12px] text-black/50">{label}</div>
       <div className="text-[15px] font-bold text-[#12172b]">{value}</div>
     </div>
   );

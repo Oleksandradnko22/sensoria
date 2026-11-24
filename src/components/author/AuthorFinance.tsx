@@ -283,7 +283,7 @@ export default function AuthorFinance() {
                   const total = m.catalogKop + m.referralKop;
                   return (
                     <div key={m.key} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
-                      <span className="text-[11px] font-semibold text-[#2d2a5c]">{total ? uahFromKop(total).replace(/\s?₴/, "") : ""}</span>
+                      <span className="text-[12px] font-semibold text-[#2d2a5c]">{total ? uahFromKop(total).replace(/\s?₴/, "") : ""}</span>
                       <div className="flex w-full max-w-[56px] flex-col justify-end overflow-hidden rounded-xl bg-[#f3f1fd]" style={{ height: `${Math.max(4, (total / maxMonth) * 150)}px` }}>
                         <div className="bg-[#22a35a]" style={{ height: `${total ? (m.referralKop / total) * 100 : 0}%` }} />
                         <div className="bg-gradient-to-b from-[#8a6cf3] to-[#6d4cf6]" style={{ height: `${total ? (m.catalogKop / total) * 100 : 0}%` }} />
@@ -362,7 +362,7 @@ export default function AuthorFinance() {
                       </div>
                       <div className="shrink-0 text-right">
                         <div className={`text-[16px] font-bold ${refunded ? "text-black/35 line-through" : "text-[#1d7a45]"}`}>+{uahFromKop(refunded ? s.authorKop - fee : toAccountKop(s))}</div>
-                        <div className="text-[11px] text-black/45">частка {uahFromKop(s.authorKop)} · банк −{uahFromKop(fee)}</div>
+                        <div className="text-[12px] text-black/45">частка {uahFromKop(s.authorKop)} · банк −{uahFromKop(fee)}</div>
                       </div>
                     </li>
                   );
@@ -914,7 +914,7 @@ function Mini({ label, value, hint, danger }: { label: string; value: string; hi
     <div className="rounded-xl bg-white px-3 py-2 ring-1 ring-[#efeafd]">
       <div className="text-[12px] text-black/55">{label}</div>
       <div className={`font-bold ${danger ? "text-rose-700" : "text-[#12172b]"}`}>{value}</div>
-      {hint && <div className="text-[11px] text-black/45">{hint}</div>}
+      {hint && <div className="text-[12px] text-black/45">{hint}</div>}
     </div>
   );
 }
@@ -1050,7 +1050,7 @@ function HistoryPanel({ rows }: { rows: HistoryRow[] }) {
           <div className="text-[14px] font-semibold text-[#12172b] first-letter:uppercase">{monthTitle}</div>
           <button type="button" aria-label="Наступний місяць" onClick={() => setView(new Date(y, mo + 1, 1))} className="flex h-9 w-9 items-center justify-center rounded-xl text-[#6d5bd0] hover:bg-white"><span className="-rotate-90"><Icon name="chevron" size={16} /></span></button>
         </div>
-        <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-black/40">
+        <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[12px] font-medium text-black/40">
           {WEEKDAYS.map((w) => <div key={w}>{w}</div>)}
         </div>
         <div className="mt-1 grid grid-cols-7 gap-1">
@@ -1080,7 +1080,7 @@ function HistoryPanel({ rows }: { rows: HistoryRow[] }) {
             );
           })}
         </div>
-        <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-black/50">
+        <div className="mt-3 flex flex-wrap gap-3 text-[12px] text-black/50">
           <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-[#22a35a]" /> надходження</span>
           <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-rose-500" /> виплати й списання</span>
         </div>

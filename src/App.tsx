@@ -39,6 +39,7 @@ import { setRecommendationPrograms } from "./utils/relevantContent";
 import { saveAssessmentResult } from "./lib/assessment";
 import funnelStore from "./store/funnelStore";
 import { devFunnelPage } from "./utils/devFunnelPreview";
+import { prelaunchClosed } from "./data/launch";
 import { programs as demoPrograms, type Program } from "./data/programs";
 import { meditations } from "./data/meditations";
 import { guides } from "./data/guides";
@@ -96,6 +97,7 @@ function ProgramPagePlaceholder({
 // were all in the initial bundle before).
 const ResultPage = lazy(() => import("./pages/ResultPage"));
 const StateSelectionPage = lazy(() => import("./pages/StateSelectionPage"));
+const ForAuthorsPage = lazy(() => import("./pages/ForAuthorsPage"));
 const TestPage = lazy(() => import("./components/test/TestPage"));
 const AuthorPublicProfilePage = lazy(() => import("./pages/AuthorPublicProfilePage"));
 const ProgramExperience = lazy(() => import("./components/participant/ProgramExperience"));
@@ -269,6 +271,25 @@ function AppInner() {
       const oauthRole = params.get("oauth_role") as UserRole | null;
       if (oauthRole) {
         window.history.replaceState({}, "", window.location.pathname);
+      }
+
+      // dev only (device preview): /?devSession=participant|author opens a cabinet with a sample profile and no sign-in;
+      // kept for the browser tab (React's dev double-run of effects and the URL rewrite to /account drop the query),
+      // ?devSession=0 switches it off. Server data stays empty (no real session): the cabinet shows its empty states.
+      if (import.meta.env.DEV) {
+        const q = params.get("devSession");
+        try {
+          if (q === "participant" || q === "author") sessionStorage.setItem("sensoria:dev-session", q);
+          if (q === "0") sessionStorage.removeItem("sensoria:dev-session");
+        } catch { /* private mode */ }
+        let devRole: string | null = null;
+        try { devRole = sessionStorage.getItem("sensoria:dev-session"); } catch { /* private mode */ }
+        // only on the cabinet address: other pages in the same tab (device-preview frames share it) open normally
+        if ((devRole === "participant" || devRole === "author") && (q === devRole || window.location.pathname === "/account")) {
+          setSession({ id: "00000000-0000-0000-0000-000000000000", role: devRole, name: devRole === "author" ? "Олена Демо" : "Марія Демо", email: "demo@example.com", avatarUrl: null, isAdmin: false, memberSince: "2026-11-01T00:00:00Z", deletionRequestedAt: null });
+          setPage(devRole === "author" ? "author-dashboard" : "participant-dashboard");
+          return;
+        }
       }
 
       const shouldEvict = checkAndMarkTabOpen();
@@ -592,6 +613,12 @@ if (session === undefined) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6]" />
   );
+}
+
+// Before the launch the site is closed to visitors: every closed page shows «Для авторів» (src/data/launch.ts)
+if (prelaunchClosed(page, !!session)) {
+  setPage("for-authors");
+  return null;
 }
 
 // A session was found on boot (refresh, or return from an OAuth
@@ -1128,6 +1155,39 @@ if (page === "crisis-help") {
   );
 }
 
+if (page === "for-authors") {
+  return (
+    <div key={page} className="page-transition">
+      <div className="relative min-h-screen overflow-x-hidden bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6] text-white">
+        <Header
+          onGoHome={goHome}
+          onOpenTest={openTest}
+          onOpenCatalog={openCatalog}
+          onOpenGuides={openGuides}
+          onOpenMeditations={openMeditations}
+          onSelectProgram={selectProgramById}
+          onSelectGuide={selectGuideById}
+          onSelectMeditation={selectMeditationById}
+          onOpenAuthorDashboard={openAuthorDashboard}
+          onOpenParticipantDashboard={openParticipantDashboard}
+          programs={allPrograms}
+          session={session}
+        />
+        <ForAuthorsPage onRegister={() => setPage("author-auth")} />
+        <Footer
+          onOpenTest={openTest}
+          onGoHome={goHome}
+          onOpenCatalog={openCatalog}
+          onOpenGuides={openGuides}
+          onOpenMeditations={openMeditations}
+          onOpenContacts={openContacts} onOpenTerms={openTerms} onOpenPrivacy={openPrivacy} onOpenRefunds={openRefunds}
+          compact
+        />
+      </div>
+    </div>
+  );
+}
+
 if (page === "meditations") {
   return (
     <div key={page} className="page-transition">
@@ -1545,6 +1605,21 @@ if (page === "author-dashboard") {
     setPage("author-auth");
     return null;
   }
+  // registered and signed, but the owner has not approved the account yet
+  if (session.authorApproved === false && !session.isAdmin) {
+    return (
+      <div key="author-pending" className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6] px-5 py-10 text-white">
+        <div className="w-full max-w-[520px] rounded-[28px] border border-white/20 bg-white/10 p-7 text-center backdrop-blur-2xl sm:p-10">
+          <h1 className="text-[26px] font-bold leading-tight sm:text-[32px]">Ваш акаунт автора на розгляді</h1>
+          <p className="mt-4 leading-relaxed text-white/80">Дякуємо, документи підписано. Ми перевіримо заявку й надішлемо лист на {session.email}, щойно кабінет відкриється. Зазвичай це до одного робочого дня.</p>
+          <div className="mt-7 flex flex-wrap justify-center gap-3">
+            <button type="button" onClick={() => window.location.reload()} className="min-h-[52px] rounded-2xl bg-white px-6 font-bold text-[#1e2a78]">Перевірити ще раз</button>
+            <button type="button" onClick={logout} className="min-h-[52px] rounded-2xl px-5 font-semibold text-white/90 ring-1 ring-white/30">Вийти</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div key={page} className="page-transition">
       <AuthorDashboardPage
@@ -1652,6 +1727,7 @@ if (page === "admin-dashboard") {
 
 const DEFAULT_TITLE = "Sensoria — психологічні програми, гайди та медитації";
 const PAGE_TITLES: Partial<Record<Page, string>> = {
+  "for-authors": "Для авторів",
   home: DEFAULT_TITLE,
   "state-selection": "Психологічний тест",
   test: "Психологічний тест",

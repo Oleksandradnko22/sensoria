@@ -1311,7 +1311,7 @@ export default function ProgramExperience({
           <div className="pt-5 pb-1">
             <div>
               {program.tags && program.tags.length > 0 && (
-                <div className="inline-flex px-3 py-1 rounded-full bg-black/[0.04] text-black/45 text-[11px] font-medium mb-3">
+                <div className="inline-flex px-3 py-1 rounded-full bg-black/[0.04] text-black/45 text-[12px] font-medium mb-3">
                   {program.tags
                     .map((tag) => categoryLabels[tag as keyof typeof categoryLabels] ?? tag)
                     .join(" • ")}
@@ -1328,7 +1328,7 @@ export default function ProgramExperience({
                     same as before), never a separate hand-maintained
                     flag. */}
                 <span
-                  className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                  className={`shrink-0 px-2.5 py-1 rounded-full text-[12px] font-semibold ${
                     summary.isCompleted
                       ? "bg-emerald-50 text-emerald-700"
                       : summary.state !== "not_started"
@@ -1416,7 +1416,7 @@ export default function ProgramExperience({
                 />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <div className="text-[20px] font-bold text-black leading-none">{summary.percent}%</div>
-                  <div className="text-[10px] text-black/40 font-medium mt-1 text-center leading-tight">
+                  <div className="text-[12px] text-black/40 font-medium mt-1 text-center leading-tight">
                     {summary.isCompleted ? "Завершено" : `${summary.totalModules} модулів`}
                   </div>
                 </div>
@@ -1426,10 +1426,10 @@ export default function ProgramExperience({
                 {!summary.isCompleted && nextRef ? (
                   <>
                     {/* state, not percent (2026-09-21) — see ctaLabel's own comment. */}
-                    <div className="text-[11px] font-medium text-[#4338ca] uppercase tracking-wide mb-1.5">
+                    <div className="text-[12px] font-medium text-[#4338ca] uppercase tracking-wide mb-1.5">
                       {summary.state === "not_started" ? "Почати програму" : "Продовжити навчання"}
                     </div>
-                    <div className="text-[11px] text-black/40 mb-0.5">Модуль {nextRef.moduleIndex + 1}</div>
+                    <div className="text-[12px] text-black/40 mb-0.5">Модуль {nextRef.moduleIndex + 1}</div>
                     <div className="text-[16px] font-semibold text-black/85 truncate">
                       {modules[nextRef.moduleIndex].items[nextRef.itemIndex].title}
                     </div>
@@ -1547,7 +1547,7 @@ export default function ProgramExperience({
                       <Icon name="refresh" size={16} />
                     </span>
                     <span className="min-w-0">
-                      <span className="block text-[11px] text-white/70">Ваш стан</span>
+                      <span className="block text-[12px] text-white/70">Ваш стан</span>
                       <span className="block text-[13px] font-semibold">Пройти тест ще раз</span>
                     </span>
                   </button>
@@ -1560,7 +1560,7 @@ export default function ProgramExperience({
                         <Icon name="guide" size={16} />
                       </span>
                       <span className="min-w-0">
-                        <span className="block text-[11px] text-teal-700/70">Підібрано для вас</span>
+                        <span className="block text-[12px] text-teal-700/70">Підібрано для вас</span>
                         <span className="block text-[13px] font-semibold text-black/80 truncate">{recommendedGuide.title}</span>
                       </span>
                     </button>
@@ -1573,7 +1573,7 @@ export default function ProgramExperience({
                         <Icon name="search" size={16} />
                       </span>
                       <span className="min-w-0">
-                        <span className="block text-[11px] text-blue-500/70">Каталог</span>
+                        <span className="block text-[12px] text-blue-500/70">Каталог</span>
                         <span className="block text-[13px] font-semibold text-blue-700">Знайти наступний крок</span>
                       </span>
                     </button>
@@ -1759,10 +1759,10 @@ export default function ProgramExperience({
                   ‹
                 </button>
                 <div className="text-center">
-                  <div className="text-[11px] font-bold tracking-[0.16em] text-blue-600/80 uppercase">
+                  <div className="text-[12px] font-bold tracking-[0.16em] text-blue-600/80 uppercase">
                     Модуль {String(openItem!.moduleIndex + 1).padStart(2, "0")}
                   </div>
-                  <div className="text-[11px] font-medium tracking-[0.16em] text-black/35 uppercase">
+                  <div className="text-[12px] font-medium tracking-[0.16em] text-black/35 uppercase">
                     Урок {String(openItem!.itemIndex + 1).padStart(2, "0")} / {String(currentModule.items.length).padStart(2, "0")}
                   </div>
                 </div>
@@ -1835,7 +1835,7 @@ export default function ProgramExperience({
                   author as a plain name (no per-lesson instructor bio in
                   the demo data), so the caption says exactly that. */}
               <div className="flex items-center gap-2.5 text-[14px] text-black/55 mb-7">
-                <Avatar avatarUrl={null} initials={getInitials(program.author)} className="w-7 h-7 text-[11px]" />
+                <Avatar avatarUrl={null} initials={getInitials(program.author)} className="w-7 h-7 text-[12px]" />
                 <span className="font-medium text-black/65">{program.author}</span>
                 {currentItem.durationMinutes ? (
                   <>
@@ -1922,7 +1922,7 @@ export default function ProgramExperience({
                           }
                         >
                           {isDone && (
-                            <span className="absolute top-4 right-4 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur text-[11px]">
+                            <span className="absolute top-4 right-4 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur text-[12px]">
                               Переглянуто
                             </span>
                           )}
@@ -2051,7 +2051,7 @@ export default function ProgramExperience({
                   <div className="rounded-2xl bg-black/[0.02] divide-y divide-black/[0.06]">
                     {currentItem.fileUrl && (
                       <div className="flex items-center gap-4 p-4 flex-wrap">
-                        <div className="w-10 h-10 rounded-xl bg-[#fee2e2] text-[#dc2626] flex items-center justify-center text-[11px] font-bold shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-[#fee2e2] text-[#dc2626] flex items-center justify-center text-[12px] font-bold shrink-0">
                           PDF
                         </div>
                         <div className="flex-1 min-w-0">
@@ -2175,7 +2175,7 @@ export default function ProgramExperience({
                 ) : (
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center gap-2 text-[14px] text-emerald-600 font-semibold">
-                      <span className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[11px]">✓</span>
+                      <span className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[12px]">✓</span>
                       Урок завершено
                     </div>
                     {nextFlatItem ? (
@@ -2188,7 +2188,7 @@ export default function ProgramExperience({
                             )}
                             <div className="flex items-center justify-between gap-4 flex-wrap">
                               <div className="min-w-0">
-                                <div className="text-[11px] font-bold tracking-[0.14em] text-blue-600/70 uppercase mb-1">Наступний урок</div>
+                                <div className="text-[12px] font-bold tracking-[0.14em] text-blue-600/70 uppercase mb-1">Наступний урок</div>
                                 <div className="text-[18px] font-semibold text-black/85 truncate">{nextItemData?.title ?? ""}</div>
                                 {nextItemData && (
                                   <div className="text-[12px] text-black/40 mt-0.5">
@@ -2272,7 +2272,7 @@ export default function ProgramExperience({
                 />
                 <h2 className="text-[17px] font-semibold text-violet-950/80 mb-1.5">Ваше спостереження</h2>
                 <p className="text-[13px] text-black/55 mb-1">Що ви помітили в собі після цього уроку?</p>
-                <p className="text-[11px] text-black/35 mb-5">Приватна нотатка — її бачите тільки ви, вона не публікується.</p>
+                <p className="text-[12px] text-black/35 mb-5">Приватна нотатка — її бачите тільки ви, вона не публікується.</p>
                 <textarea
                   value={reflectionDraft}
                   onChange={(e) => setReflectionDraft(e.target.value)}
@@ -2292,7 +2292,7 @@ export default function ProgramExperience({
                   <div className="mt-5 pt-5 border-t border-violet-200/40 flex flex-col gap-3">
                     {itemReflections.map((r) => (
                       <div key={r.id} data-lesson-anchor={`note:${r.id}`} className="text-[13px] scroll-mt-24 rounded-lg -mx-2 px-2 py-1">
-                        <div className="text-black/40 text-[11px] mb-0.5">{formatRelativeTime(r.createdAt)}</div>
+                        <div className="text-black/40 text-[12px] mb-0.5">{formatRelativeTime(r.createdAt)}</div>
                         <p className="text-black/70 leading-relaxed">{r.note}</p>
                       </div>
                     ))}
@@ -2456,14 +2456,14 @@ export default function ProgramExperience({
                   {completionSnapshot ? completionSnapshot.modulesDone : doneModulesCount}/
                   {completionSnapshot ? completionSnapshot.modulesTotal : summary.totalModules}
                 </div>
-                <div className="text-[11px] text-black/45 mt-0.5">модулів</div>
+                <div className="text-[12px] text-black/45 mt-0.5">модулів</div>
               </div>
               <div className="rounded-2xl bg-[#f6f8ff] p-4 text-center">
                 <div className="text-[20px] font-bold text-black">
                   {completionSnapshot ? completionSnapshot.itemsDone : doneItemsCount}/
                   {completionSnapshot ? completionSnapshot.itemsTotal : totalItemsCount}
                 </div>
-                <div className="text-[11px] text-black/45 mt-0.5">елементів</div>
+                <div className="text-[12px] text-black/45 mt-0.5">елементів</div>
               </div>
               <div className="rounded-2xl border border-[#dbe3ff] bg-[#f8faff] p-4 text-center">
                 {(() => {
@@ -2471,7 +2471,7 @@ export default function ProgramExperience({
                   return (
                     <>
                       <div className="text-[20px] font-bold text-black">{n}</div>
-                      <div className="text-[11px] text-black/45 mt-0.5">
+                      <div className="text-[12px] text-black/45 mt-0.5">
                         {n === 0 ? "практик виконано" : practiceCountLabel(n)}
                       </div>
                     </>
@@ -2484,7 +2484,7 @@ export default function ProgramExperience({
                   return (
                     <>
                       <div className="text-[20px] font-bold text-black">{n}</div>
-                      <div className="text-[11px] text-black/45 mt-0.5">
+                      <div className="text-[12px] text-black/45 mt-0.5">
                         {n === 0 ? "рефлексій залишено" : reflectionCountLabel(n)}
                       </div>
                     </>
@@ -2548,7 +2548,7 @@ export default function ProgramExperience({
                             <span className={it.status === "skipped" ? "text-black/40" : "text-black/65"}>
                               {it.title}
                             </span>
-                            {!it.isRequired && <span className="text-[11px] text-black/30">(додатково)</span>}
+                            {!it.isRequired && <span className="text-[12px] text-black/30">(додатково)</span>}
                           </li>
                         );
                       })}
@@ -2672,12 +2672,12 @@ export default function ProgramExperience({
                         key={it.id}
                         className="flex items-center gap-3 rounded-xl border border-black/5 bg-white p-3.5 flex-wrap"
                       >
-                        <div className="w-9 h-9 rounded-lg bg-[#fee2e2] text-[#dc2626] flex items-center justify-center text-[11px] font-bold shrink-0">
+                        <div className="w-9 h-9 rounded-lg bg-[#fee2e2] text-[#dc2626] flex items-center justify-center text-[12px] font-bold shrink-0">
                           PDF
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-[13px] font-medium truncate">{it.fileName ?? it.title}</div>
-                          {it.fileSizeLabel && <div className="text-[11px] text-black/40">{it.fileSizeLabel}</div>}
+                          {it.fileSizeLabel && <div className="text-[12px] text-black/40">{it.fileSizeLabel}</div>}
                         </div>
                         <ProtectedPdfActions
                           variant="button"
@@ -2740,7 +2740,7 @@ export default function ProgramExperience({
                     <Icon name="refresh" size={16} />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[11px] text-white/70">Ваш стан</span>
+                    <span className="block text-[12px] text-white/70">Ваш стан</span>
                     <span className="block text-[13px] font-semibold leading-tight">Пройти тест ще раз</span>
                   </span>
                 </button>
@@ -2752,7 +2752,7 @@ export default function ProgramExperience({
                     <Icon name="search" size={16} />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[11px] text-blue-500/70">Каталог</span>
+                    <span className="block text-[12px] text-blue-500/70">Каталог</span>
                     <span className="block text-[13px] font-semibold leading-tight text-blue-700">Пошукати схожі курси</span>
                   </span>
                 </button>
@@ -2764,7 +2764,7 @@ export default function ProgramExperience({
                     <Icon name="toolbox" size={16} />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[11px] text-black/40">Практика</span>
+                    <span className="block text-[12px] text-black/40">Практика</span>
                     <span className="block text-[13px] font-medium leading-tight">Ваші збережені практики</span>
                   </span>
                 </button>
@@ -2776,7 +2776,7 @@ export default function ProgramExperience({
                     <Icon name="note" size={16} />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[11px] text-black/40">Спостереження</span>
+                    <span className="block text-[12px] text-black/40">Спостереження</span>
                     <span className="block text-[13px] font-medium leading-tight">Ваші спостереження</span>
                   </span>
                 </button>

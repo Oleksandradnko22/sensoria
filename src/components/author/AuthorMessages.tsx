@@ -364,7 +364,7 @@ export default function AuthorMessages({ content = [], onUnreadCountChange, read
           <summary className="flex min-h-[40px] cursor-pointer list-none items-center gap-2 rounded-2xl bg-[#eef0fd] px-3.5 text-[13px] font-semibold text-[#4338ca] ring-1 ring-[#4338ca]/20">
             <Icon name="shield" size={15} /> Правила спілкування
           </summary>
-          <div className="absolute right-0 z-20 mt-2 w-[min(90vw,380px)] rounded-2xl bg-white p-4 text-[13px] leading-relaxed text-[#2d2a5c] shadow-[0_18px_40px_-16px_rgba(70,40,170,0.45)] ring-1 ring-[#ebe8ff]">
+          <div className="absolute right-0 z-20 mt-2 w-[min(90vw,380px)] max-sm:fixed max-sm:left-4 max-sm:right-4 max-sm:w-auto rounded-2xl bg-white p-4 text-[13px] leading-relaxed text-[#2d2a5c] shadow-[0_18px_40px_-16px_rgba(70,40,170,0.45)] ring-1 ring-[#ebe8ff]">
             Sensoria лишається посередником у спілкуванні. Обмінюватися телефоном, месенджерами, e-mail чи посиланнями, а також пропонувати оплату чи записи в обхід платформи заборонено для обох сторін: такі повідомлення не надсилаються.
           </div>
         </details>
@@ -388,8 +388,8 @@ export default function AuthorMessages({ content = [], onUnreadCountChange, read
             </label>
             <div className="flex gap-2" role="group" aria-label="Які діалоги показати">
               <Pill active={filter === "all"} onClick={() => setFilter("all")}>Усі</Pill>
-              <Pill active={filter === "unread"} onClick={() => setFilter("unread")}>Непрочитані{unreadCount > 0 && <span className="ml-1.5 rounded-full bg-[#4338ca] px-1.5 text-[11px] text-white">{unreadCount}</span>}</Pill>
-              <Pill active={filter === "archive"} onClick={() => setFilter("archive")}>Архів{totals.archived > 0 && <span className="ml-1.5 text-[11px] text-black/45">{totals.archived}</span>}</Pill>
+              <Pill active={filter === "unread"} onClick={() => setFilter("unread")}>Непрочитані{unreadCount > 0 && <span className="ml-1.5 rounded-full bg-[#4338ca] px-1.5 text-[12px] text-white">{unreadCount}</span>}</Pill>
+              <Pill active={filter === "archive"} onClick={() => setFilter("archive")}>Архів{totals.archived > 0 && <span className="ml-1.5 text-[12px] text-black/45">{totals.archived}</span>}</Pill>
             </div>
           </div>
           <div className="sensoria-scroll flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -411,8 +411,8 @@ export default function AuthorMessages({ content = [], onUnreadCountChange, read
                     <Avatar name={m.from} url={m.avatarUrl} />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">
-                        <span className={`flex min-w-0 items-center gap-1.5 truncate text-[14px] ${unread ? "font-bold text-[#12172b]" : "font-semibold text-[#1d2240]"}`}><span className="truncate">{m.from}</span>{!m.real && <span className="shrink-0 rounded-full bg-[#f6f4ff] px-1.5 text-[10px] font-semibold text-[#6d5bd0]">демо</span>}</span>
-                        <span className="shrink-0 text-[11px] text-black/45">{formatRelativeTime(m.date)}</span>
+                        <span className={`flex min-w-0 items-center gap-1.5 truncate text-[14px] ${unread ? "font-bold text-[#12172b]" : "font-semibold text-[#1d2240]"}`}><span className="truncate">{m.from}</span>{!m.real && <span className="shrink-0 rounded-full bg-[#f6f4ff] px-1.5 text-[12px] font-semibold text-[#6d5bd0]">демо</span>}</span>
+                        <span className="shrink-0 text-[12px] text-black/45">{formatRelativeTime(m.date)}</span>
                       </span>
                       {m.contentTitle && <span className="mt-0.5 block truncate text-[12px] font-medium text-[#6d5bd0]">{m.contentTitle}</span>}
                       <span className="mt-0.5 flex items-center gap-2">
@@ -471,7 +471,7 @@ export default function AuthorMessages({ content = [], onUnreadCountChange, read
                       const showDay = needsDaySeparator(i > 0 ? realThread[i - 1].createdAt : null, msg.createdAt);
                       return (
                         <div key={msg.id} className="flex flex-col gap-2.5">
-                          {showDay && <div className="mx-auto rounded-full bg-white px-3 py-1 text-[11px] font-medium text-black/50 ring-1 ring-[#efeafd]">{formatDayLabel(msg.createdAt)}</div>}
+                          {showDay && <div className="mx-auto rounded-full bg-white px-3 py-1 text-[12px] font-medium text-black/50 ring-1 ring-[#efeafd]">{formatDayLabel(msg.createdAt)}</div>}
                           <Bubble mine={mine} deleted={msg.deleted} time={formatClock(msg.createdAt)} onDelete={mine && !msg.deleted && isUuid(msg.id) ? () => setConfirm({ kind: "message", id: msg.id }) : undefined}>{msg.body}</Bubble>
                         </div>
                       );
@@ -524,7 +524,7 @@ export default function AuthorMessages({ content = [], onUnreadCountChange, read
                     {sending ? "…" : <><span className="hidden sm:inline">Надіслати</span><Icon name="chevron" size={16} className="-rotate-90" /></>}
                   </button>
                 </div>
-                <div className="mt-1.5 flex justify-between px-1 text-[11px] text-black/40">
+                <div className="mt-1.5 flex justify-between px-1 text-[12px] text-black/40">
                   <span>{coarsePointer ? "" : "Enter — надіслати, Shift + Enter — новий рядок"}</span>
                   {draft.length > MAX_MESSAGE_LENGTH * 0.8 && <span>{draft.length}/{MAX_MESSAGE_LENGTH}</span>}
                 </div>
@@ -639,10 +639,10 @@ function BroadcastCard({ content }: { content: AuthoredContent[] }) {
                 {shownHistory.slice(0, histShown).map((h) => (
                   <li key={h.id} className="rounded-2xl bg-[#faf9ff] p-3 ring-1 ring-[#efeafd]">
                     <div className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-black/50">
-                      <span className="flex items-center gap-2">{formatRelativeTime(h.createdAt)}{h.id.startsWith("demo-") && <span className="rounded-full bg-[#f1eeff] px-2 py-0.5 text-[10px] font-semibold text-[#6d5bd0]">демо</span>}</span>
+                      <span className="flex items-center gap-2">{formatRelativeTime(h.createdAt)}{h.id.startsWith("demo-") && <span className="rounded-full bg-[#f1eeff] px-2 py-0.5 text-[12px] font-semibold text-[#6d5bd0]">демо</span>}</span>
                       <span>{h.recipients} {pluralUk(h.recipients, "отримувач", "отримувачі", "отримувачів")}</span>
                     </div>
-                    <div className="mt-1 text-[11px] font-semibold text-[#6d5bd0]">{h.contentId ? `Учасники «${content.find((c) => c.id === h.contentId)?.title ?? "матеріалу"}»` : "Усі учасники"}</div>
+                    <div className="mt-1 text-[12px] font-semibold text-[#6d5bd0]">{h.contentId ? `Учасники «${content.find((c) => c.id === h.contentId)?.title ?? "матеріалу"}»` : "Усі учасники"}</div>
                     <p className="mt-1 line-clamp-4 text-[13px] text-[#2d2a5c]">{h.body}</p>
                   </li>
                 ))}
@@ -676,7 +676,7 @@ function Bubble({ mine, deleted, time, onDelete, children }: { mine: boolean; de
       ) : (
         <div className={`whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed ${mine ? "rounded-br-md bg-gradient-to-br from-[#5b6ff2] to-[#7c5cf0] text-white" : "rounded-bl-md bg-white text-[#1d2240] ring-1 ring-[#ebe8ff]"}`}>{children}</div>
       )}
-      <div className="mt-1 flex items-center gap-3 px-1 text-[11px] text-black/45">
+      <div className="mt-1 flex items-center gap-3 px-1 text-[12px] text-black/45">
         <span>{time}</span>
         {onDelete && <button type="button" onClick={onDelete} aria-label="Видалити повідомлення" className="hover:text-rose-700">Видалити</button>}
       </div>

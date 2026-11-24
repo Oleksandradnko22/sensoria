@@ -463,7 +463,7 @@ export default function AuthorPosts({ embedded = false, initialAudience = "all" 
                           <span>{formatReviewDate(p.createdAt)}</span>
                           {p.updatedAt && <span>· відредаговано</span>}
                           {p.isPinned && (
-                            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#4338ca]">Закріплено автором</span>
+                            <span className="text-[12px] font-semibold uppercase tracking-wide text-[#4338ca]">Закріплено автором</span>
                           )}
                         </div>
                         {headline && <div className="text-[16px] font-semibold mb-1">{headline}</div>}

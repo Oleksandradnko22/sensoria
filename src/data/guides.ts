@@ -5,6 +5,7 @@ import type { GuideContent, GuideSource } from "./guideContent.ts";
 import { getGuideSectionCount } from "./guideContent.ts";
 import { pagesLabel, resolveGuidePdf, sectionsLabel } from "./guidePdf.ts";
 import { anxietyHitsContent } from "./guideContents/anxietyHitsContent.ts";
+import { DEMO_CONTENT } from "./demoSwitch.ts";
 
 // Single source of truth for guide content. Extracted from
 // GuidesCatalogPage.tsx (which used to define this array inline) so the
@@ -170,7 +171,7 @@ export function guideCardMeta(guide: Guide): string[] {
 // demo of the same topic (2026-10-06) because the block model superseded
 // its hand-rolled content. Real guides get added the same way real
 // meditations do: authored content first, catalog entry second.
-export const guides: Guide[] = [
+const ALL_GUIDES: Guide[] = [
   {
     id: "what-to-do-when-anxiety-hits",
     title: "Що робити, коли накриває тривога",
@@ -208,3 +209,5 @@ export const guides: Guide[] = [
     guideContent: anxietyHitsContent,
   },
 ];
+
+export const guides: Guide[] = DEMO_CONTENT ? ALL_GUIDES : [];

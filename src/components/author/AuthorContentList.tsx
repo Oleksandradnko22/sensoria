@@ -333,8 +333,8 @@ export default function AuthorContentList({ content, onCreate, onEdit, onChangeS
               const status = (
                 <span>
                   <span className={`inline-block whitespace-nowrap rounded-full px-3 py-1 text-[12px] font-semibold ring-1 ${wasLive(item) ? WAS_LIVE_STYLE : statusStyle[item.status]}`}>{wasLive(item) ? WAS_LIVE_LABEL : statusLabel[item.status]}</span>
-                  {item.saleStatus === "complaint_pending" && <span className="mt-1 block text-[11px] text-amber-700">Знято з продажу після скарги</span>}
-                  {item.saleStatus === "unlisted" && <span className="mt-1 block text-[11px] text-rose-700">Знято з продажу</span>}
+                  {item.saleStatus === "complaint_pending" && <span className="mt-1 block text-[12px] text-amber-700">Знято з продажу після скарги</span>}
+                  {item.saleStatus === "unlisted" && <span className="mt-1 block text-[12px] text-rose-700">Знято з продажу</span>}
                 </span>
               );
               return (

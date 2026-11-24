@@ -719,7 +719,7 @@ export default function CoverMaker({ title: initialTitle, categoryId, categoryId
                       <span className="min-w-0 leading-tight">
                         <span className="block truncate text-[13px] font-semibold">{f.label}</span>
                         <span className="sr-only">{confirmed[i] ? "підтверджено" : "не підтверджено"}</span>
-                        <span aria-hidden="true" className="hidden truncate text-[11px] text-black/70 xl:block">{f.where}</span>
+                        <span aria-hidden="true" className="hidden truncate text-[12px] text-black/70 xl:block">{f.where}</span>
                       </span>
                     </button>
                   ))}

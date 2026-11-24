@@ -253,8 +253,8 @@ export default function AuthorParticipants({ content, onWrite }: Props) {
                   <div className="relative mx-4 h-12" aria-label={`Стан до ${r.before.toFixed(1)}, після ${r.after.toFixed(1)}`}>
                     <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-[#ece9fe]" />
                     <div className="absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-gradient-to-r from-[#c9bff7] to-[#22a35a]" style={{ left: `${r.before * 10}%`, width: `${Math.max(0, diff) * 10}%` }} />
-                    <span className="absolute top-1/2 grid h-8 w-8 -translate-x-1/2 place-items-center rounded-full bg-white text-[11px] font-bold text-[#4d5278] ring-2 ring-[#c9bff7]" style={{ left: `${r.before * 10}%`, transform: `translate(-50%, ${close ? "-100%" : "-50%"})` }}>{r.before.toFixed(1)}</span>
-                    <span className="absolute top-1/2 grid h-8 w-8 -translate-x-1/2 place-items-center rounded-full bg-[#22a35a] text-[11px] font-bold text-white" style={{ left: `${r.after * 10}%`, transform: `translate(-50%, ${close ? "0%" : "-50%"})` }}>{r.after.toFixed(1)}</span>
+                    <span className="absolute top-1/2 grid h-8 w-8 -translate-x-1/2 place-items-center rounded-full bg-white text-[12px] font-bold text-[#4d5278] ring-2 ring-[#c9bff7]" style={{ left: `${r.before * 10}%`, transform: `translate(-50%, ${close ? "-100%" : "-50%"})` }}>{r.before.toFixed(1)}</span>
+                    <span className="absolute top-1/2 grid h-8 w-8 -translate-x-1/2 place-items-center rounded-full bg-[#22a35a] text-[12px] font-bold text-white" style={{ left: `${r.after * 10}%`, transform: `translate(-50%, ${close ? "0%" : "-50%"})` }}>{r.after.toFixed(1)}</span>
                   </div>
                   <div className="text-[13px] md:text-right">
                     <b className={diff >= 1 ? "text-[#1d7a45]" : "text-[#4d5278]"}>{diff >= 0 ? "+" : ""}{diff.toFixed(1)}</b>

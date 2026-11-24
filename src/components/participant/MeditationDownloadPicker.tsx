@@ -184,7 +184,7 @@ export default function MeditationDownloadPicker({ meditation, pc1, pc3, onConfi
                   ✕
                 </button>
               </div>
-            <div className="text-[11.5px] text-black/40 mb-3 leading-relaxed">
+            <div className="text-[12px] text-black/40 mb-3 leading-relaxed">
               Необов'язково — можна обрати кілька, вони збережуться разом із голосом в один файл.
             </div>
             <div className="flex flex-wrap gap-1.5 mb-3.5">
@@ -195,7 +195,7 @@ export default function MeditationDownloadPicker({ meditation, pc1, pc3, onConfi
                     key={track.id}
                     type="button"
                     onClick={() => toggleBackground(track.id)}
-                    className={`px-2.5 py-1 rounded-full text-[11.5px] font-medium transition ${
+                    className={`px-2.5 py-1 rounded-full text-[12px] font-medium transition ${
                       active
                         ? "bg-gradient-to-r from-cyan-400 to-cyan-500 text-white shadow-[0_2px_8px_rgba(6,182,212,0.35)]"
                         : "bg-white border border-black/[0.08] text-black/50 hover:bg-slate-100"
@@ -215,7 +215,7 @@ export default function MeditationDownloadPicker({ meditation, pc1, pc3, onConfi
             </button>
             <div className="flex flex-col gap-2 mb-3.5">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] text-black/40 w-9 shrink-0">Голос</span>
+                <span className="text-[12px] text-black/40 w-9 shrink-0">Голос</span>
                 <input
                   type="range"
                   min={0}
@@ -229,7 +229,7 @@ export default function MeditationDownloadPicker({ meditation, pc1, pc3, onConfi
               </div>
               {backgroundIds.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-black/40 w-9 shrink-0">Фон</span>
+                  <span className="text-[12px] text-black/40 w-9 shrink-0">Фон</span>
                   <input
                     type="range"
                     min={0}

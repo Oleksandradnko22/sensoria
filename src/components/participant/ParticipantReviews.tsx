@@ -441,7 +441,7 @@ export default function ParticipantReviews({
                           <div className="text-[12px] font-medium text-black/45 mt-2">{formatAbsoluteDate(r.date)}</div>
                           {r.authorReply && (
                             <div className="mt-3 rounded-2xl bg-[#faf9ff] px-4 py-3 ring-1 ring-[#f1eefb]">
-                              <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#6d5bd0]">Відповідь автора</div>
+                              <div className="text-[12px] font-bold uppercase tracking-[0.1em] text-[#6d5bd0]">Відповідь автора</div>
                               <p className="mt-1 text-[14px] text-[#2d2a5c] leading-relaxed whitespace-pre-wrap break-words">{r.authorReply}</p>
                             </div>
                           )}

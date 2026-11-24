@@ -1,3 +1,4 @@
+import { EMAIL_HINT, isValidEmail } from "../utils/emailFormat";
 import { useState } from "react";
 import {
   registerAccount,
@@ -54,7 +55,6 @@ const ROLE_COPY: Record<
 // Same rules as the existing test-funnel Login/RegisterPage — Latin
 // characters only, ".com" email, 8+ char password with a special
 // character — kept identical for consistency across the app.
-const EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.com$/;
 
 export default function DashboardAuthPage({ role, onAuthenticated, onBackToSite }: Props) {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -94,7 +94,7 @@ export default function DashboardAuthPage({ role, onAuthenticated, onBackToSite 
 
   // Authors appear publicly under their real name: first name + surname.
   const isNameValid = role === "author" ? isFullName(name) : name.trim().length > 1;
-  const isEmailValid = EMAIL_PATTERN.test(email.trim());
+  const isEmailValid = isValidEmail(email);
   const isPasswordValid = isPasswordRuleValid(password);
 
   const canSubmit =
@@ -317,8 +317,8 @@ export default function DashboardAuthPage({ role, onAuthenticated, onBackToSite 
                 `}
               />
               {emailTouched && !isEmailValid && (
-                <p className="mt-2 px-1 text-sm text-red-300/90 whitespace-nowrap">
-                  Email латиницею і на .com, наприклад name@example.com
+                <p className="mt-2 px-1 text-sm text-red-300/90">
+                  {EMAIL_HINT}
                 </p>
               )}
             </div>

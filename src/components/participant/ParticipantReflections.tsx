@@ -614,7 +614,7 @@ export default function ParticipantReflections({ onNavigate, onOpenProgramAtItem
                                   <DateBlock iso={c.at} />
                                 </div>
                                 <div className="min-w-0">
-                                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f1eeff] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#6d5bd0]">
+                                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f1eeff] px-2.5 py-1 text-[12px] font-bold uppercase tracking-[0.08em] text-[#6d5bd0]">
                                     <Icon name={c.source === "practice" ? "toolbox" : "meditation"} size={13} />
                                     {STATE_SOURCE_LABEL[c.source]} · {c.measure}
                                   </span>

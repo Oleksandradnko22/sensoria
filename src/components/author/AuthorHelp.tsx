@@ -157,7 +157,7 @@ export default function AuthorHelp() {
           <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-3 rounded-[22px] bg-white p-4 ring-1 ring-[#ece8fb] transition hover:ring-[#c9bff7]">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#3b6df0] to-[#7c5cf0] text-white"><Icon name="play" size={18} /></span>
             <span className="min-w-0">
-              <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-[#6d5bd0]">Відеоінструкція</span>
+              <span className="block text-[12px] font-bold uppercase tracking-[0.12em] text-[#6d5bd0]">Відеоінструкція</span>
               <span className="block text-[14px] font-semibold leading-snug text-[#12172b] group-hover:text-[#4338ca]">{title}</span>
             </span>
           </a>

@@ -58,6 +58,7 @@ const ROLE_COPY: Record<
 
 export default function DashboardAuthPage({ role, onAuthenticated, onBackToSite }: Props) {
   const [mode, setMode] = useState<"login" | "register">("login");
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

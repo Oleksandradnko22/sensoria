@@ -62,6 +62,24 @@ export default function AdminAuthorApplications() {
             <div className="min-w-0 flex-1">
               <div className="font-semibold">{a.name}</div>
               <div className="break-words text-[13px] text-black/55">{a.email} · {new Date(a.member_since).toLocaleDateString("uk-UA")} · {a.signed ? "оферту підписано" : "оферту ще не підписано"}</div>
+              {a.application ? (
+                <details className="mt-2 text-[14px]">
+                  <summary className="cursor-pointer font-semibold text-[#4338ca]">Анкета</summary>
+                  <div className="mt-2 space-y-1 text-black/75">
+                    {a.application.phone && <p><b className="text-black">Телефон:</b> {a.application.phone}</p>}
+                    <p><b className="text-black">Фах:</b> {a.application.profession}</p>
+                    {a.application.education && <p className="whitespace-pre-line"><b className="text-black">Освіта:</b> {a.application.education}</p>}
+                    {a.application.experience && <p><b className="text-black">Досвід:</b> {a.application.experience}</p>}
+                    {a.application.formats && a.application.formats.length > 0 && <p><b className="text-black">Формати:</b> {a.application.formats.map((x) => ({ program: "програма", guide: "гайд", meditation: "медитація" } as Record<string, string>)[x] ?? x).join(", ")}</p>}
+                    {a.application.topics.length > 0 && <p><b className="text-black">Напрями:</b> {a.application.topics.join(", ")}</p>}
+                    <p className="whitespace-pre-line"><b className="text-black">Планує:</b> {a.application.plan}</p>
+                    {a.application.ready && <p><b className="text-black">Готові матеріали:</b> {({ yes: "так", partly: "частково", no: "ні" } as Record<string, string>)[a.application.ready] ?? a.application.ready}</p>}
+                    {a.application.links && <p className="break-words"><b className="text-black">Посилання:</b> {a.application.links}</p>}
+                  </div>
+                </details>
+              ) : (
+                <p className="mt-1 text-[13px] text-black/45">Анкети немає (зареєструвався без неї).</p>
+              )}
             </div>
             <button type="button" disabled={busy === a.id || !a.signed} onClick={() => void approve(a)} title={a.signed ? undefined : "Спершу автор має підписати оферту"} className="min-h-[44px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[14px] font-semibold text-white disabled:opacity-40">Схвалити</button>
           </div>

@@ -687,6 +687,7 @@ Deno.serve(async (req) => {
       case "authorApplications": {
         const { data: rows, error } = await admin.from("author_applications")
           .select("id, name, email, phone, profession, topics, plan, links, status, invited_at, created_at")
+          .eq("with_account", false) // the ones with an account are in «Чекають схвалення»
           .order("created_at", { ascending: false }).limit(300);
         if (error) return json({ error: error.message }, 500);
         return json({ applications: rows ?? [] });
@@ -702,7 +703,18 @@ Deno.serve(async (req) => {
         const { data: signed } = ids.length
           ? await admin.from("legal_consents").select("user_id, document").in("user_id", ids).eq("document", "author_agreement").is("withdrawn_at", null)
           : { data: [] };
-        return json({ authors: (rows ?? []).map((r) => ({ ...r, signed: (signed ?? []).some((c) => c.user_id === r.id) })) });
+        // the application filled in on /author-signup (same e-mail)
+        const emails = (rows ?? []).map((r) => String(r.email ?? "").toLowerCase()).filter(Boolean);
+        const { data: apps } = emails.length
+          ? await admin.from("author_applications").select("*").in("email", emails)
+          : { data: [] };
+        return json({
+          authors: (rows ?? []).map((r) => ({
+            ...r,
+            signed: (signed ?? []).some((c) => c.user_id === r.id),
+            application: (apps ?? []).find((a) => String(a.email).toLowerCase() === String(r.email ?? "").toLowerCase()) ?? null,
+          })),
+        });
       }
 
       case "approveAuthor": {

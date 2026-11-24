@@ -300,7 +300,10 @@ export type AuthorApplication = {
   id: string; name: string; email: string; phone: string | null; profession: string; topics: string[];
   plan: string; links: string | null; status: "new" | "invited" | "declined"; invited_at: string | null; created_at: string;
 };
-export type PendingAuthor = { id: string; name: string; email: string; member_since: string; signed: boolean };
+export type PendingAuthor = {
+  id: string; name: string; email: string; member_since: string; signed: boolean;
+  application: (AuthorApplication & { education?: string | null; experience?: string | null; formats?: string[]; ready?: string | null }) | null;
+};
 export async function fetchPendingAuthors(): Promise<PendingAuthor[]> {
   const { authors } = await callAdmin<{ authors: PendingAuthor[] }>("pendingAuthors");
   return authors;

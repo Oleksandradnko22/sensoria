@@ -98,6 +98,7 @@ function ProgramPagePlaceholder({
 const ResultPage = lazy(() => import("./pages/ResultPage"));
 const StateSelectionPage = lazy(() => import("./pages/StateSelectionPage"));
 const ForAuthorsPage = lazy(() => import("./pages/ForAuthorsPage"));
+const AuthorApplyPage = lazy(() => import("./pages/AuthorApplyPage"));
 const TestPage = lazy(() => import("./components/test/TestPage"));
 const AuthorPublicProfilePage = lazy(() => import("./pages/AuthorPublicProfilePage"));
 const ProgramExperience = lazy(() => import("./components/participant/ProgramExperience"));
@@ -1173,7 +1174,40 @@ if (page === "for-authors") {
           programs={allPrograms}
           session={session}
         />
-        <ForAuthorsPage onRegister={() => setPage("author-auth")} />
+        <ForAuthorsPage onRegister={() => setPage("author-auth")} onApply={() => { setPage("author-apply"); window.scrollTo(0, 0); }} />
+        <Footer
+          onOpenTest={openTest}
+          onGoHome={goHome}
+          onOpenCatalog={openCatalog}
+          onOpenGuides={openGuides}
+          onOpenMeditations={openMeditations}
+          onOpenContacts={openContacts} onOpenTerms={openTerms} onOpenPrivacy={openPrivacy} onOpenRefunds={openRefunds}
+          compact
+        />
+      </div>
+    </div>
+  );
+}
+
+if (page === "author-apply") {
+  return (
+    <div key={page} className="page-transition">
+      <div className="relative min-h-screen overflow-x-hidden bg-gradient-to-br from-[#1e3a8a] via-[#2563eb] to-[#8b5cf6] text-white">
+        <Header
+          onGoHome={goHome}
+          onOpenTest={openTest}
+          onOpenCatalog={openCatalog}
+          onOpenGuides={openGuides}
+          onOpenMeditations={openMeditations}
+          onSelectProgram={selectProgramById}
+          onSelectGuide={selectGuideById}
+          onSelectMeditation={selectMeditationById}
+          onOpenAuthorDashboard={openAuthorDashboard}
+          onOpenParticipantDashboard={openParticipantDashboard}
+          programs={allPrograms}
+          session={session}
+        />
+        <AuthorApplyPage onLogin={() => setPage("author-auth")} />
         <Footer
           onOpenTest={openTest}
           onGoHome={goHome}
@@ -1728,6 +1762,7 @@ if (page === "admin-dashboard") {
 const DEFAULT_TITLE = "Sensoria — психологічні програми, гайди та медитації";
 const PAGE_TITLES: Partial<Record<Page, string>> = {
   "for-authors": "Для авторів",
+  "author-apply": "Анкета автора",
   home: DEFAULT_TITLE,
   "state-selection": "Психологічний тест",
   test: "Психологічний тест",

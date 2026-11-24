@@ -5,7 +5,7 @@ export const LAUNCH_AT = Date.parse("2026-12-01T10:00:00Z");
 
 import type { Page } from "../utils/routes";
 export const PRELAUNCH_OPEN: Page[] = [
-  "for-authors", "author-auth", "participant-auth", "author-dashboard", "participant-dashboard", "admin-dashboard",
+  "for-authors", "author-apply", "author-auth", "participant-auth", "author-dashboard", "participant-dashboard", "admin-dashboard",
   "privacy", "terms", "refunds", "author-agreement", "participant-agreement", "contacts", "crisis-help",
 ];
 

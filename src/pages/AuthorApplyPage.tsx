@@ -15,6 +15,20 @@ const EXPERIENCE = ["До 1 року", "1–3 роки", "3–5 років", "П
 const READY = [["yes", "Так, є готові"], ["partly", "Частково"], ["no", "Ні, створю на платформі"]] as const;
 const STEPS = ["Про вас", "Ваші матеріали", "Акаунт і документи"];
 
+// One row of the form: on laptops the label (and its hint) sits in a left column and the control on the right, so the
+// wide card reads as a tidy table; on phones and tablets they stack.
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="grid gap-2 py-4 first:pt-0 last:pb-0 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-8 lg:py-5">
+      <div className="lg:pt-3">
+        <div className="text-[14px] font-semibold text-[#2d2a5c] lg:text-[15px]">{label}</div>
+        {hint && <div className="mt-0.5 text-[13px] text-[#9aa1c0]">{hint}</div>}
+      </div>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
 export default function AuthorApplyPage() {
   const [step, setStep] = useState(0);
   const [f, setF] = useState({ name: "", email: "", phone: "", profession: "", education: "", experience: "", plan: "", links: "", ready: "", password: "", trap: "" });
@@ -77,7 +91,6 @@ export default function AuthorApplyPage() {
   const input = "w-full rounded-2xl border border-[#d9d4f5] bg-[#faf9ff] px-4 py-3.5 text-[15px] text-[#12172b] placeholder:text-[#9aa1c0] focus:border-[#5b3df5] focus:bg-white focus:outline-none";
   const label = "block text-[14px] font-semibold text-[#2d2a5c]";
   const chip = (on: boolean) => `min-h-[42px] rounded-full px-4 text-[14px] font-semibold transition ${on ? "bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white" : "bg-[#f1eeff] text-[#4338ca] hover:bg-[#e7e1ff]"}`;
-  const opt = "font-normal text-[#9aa1c0]";
 
   return (
     <main className="page-container pb-16 pt-24 sm:pt-28">
@@ -117,45 +130,39 @@ export default function AuthorApplyPage() {
             </ol>
 
             {step === 0 && (
-              <div className="grid gap-4 lg:grid-cols-2 lg:gap-x-6">
-                <label className={`${label} lg:col-span-2`}>Ім'я та прізвище<input value={f.name} onChange={set("name")} autoComplete="name" className={`${input} mt-1.5`} /></label>
-                <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2 lg:gap-x-6">
-                  <label className={label}>Email<input type="email" value={f.email} onChange={set("email")} autoComplete="email" placeholder="name@example.com" className={`${input} mt-1.5`} /></label>
-                  <label className={label}>Телефон <span className={opt}>(необов'язково)</span><input type="tel" value={f.phone} onChange={set("phone")} autoComplete="tel" className={`${input} mt-1.5`} /></label>
-                </div>
-                <label className={label}>Хто ви за фахом<input value={f.profession} onChange={set("profession")} placeholder="Психолог, психотерапевт, коуч, викладач практик…" className={`${input} mt-1.5`} /></label>
-                <label className={label}>Освіта й кваліфікація<textarea value={f.education} onChange={set("education")} rows={3} placeholder="Заклад, спеціальність, курси, сертифікати" className={`${input} mt-1.5 resize-y`} /></label>
-                <fieldset className="lg:col-span-2">
-                  <legend className={label}>Досвід роботи</legend>
-                  <div className="mt-2 flex flex-wrap gap-2">
+              <div className="divide-y divide-[#eeecfb]">
+                <Field label="Ім'я та прізвище"><input value={f.name} onChange={set("name")} autoComplete="name" aria-label="Ім'я та прізвище" className={input} /></Field>
+                <Field label="Email"><input type="email" value={f.email} onChange={set("email")} autoComplete="email" aria-label="Email" placeholder="name@example.com" className={input} /></Field>
+                <Field label="Телефон" hint="Необов'язково"><input type="tel" value={f.phone} onChange={set("phone")} autoComplete="tel" aria-label="Телефон" className={input} /></Field>
+                <Field label="Хто ви за фахом"><input value={f.profession} onChange={set("profession")} aria-label="Хто ви за фахом" placeholder="Психолог, психотерапевт, коуч, викладач практик…" className={input} /></Field>
+                <Field label="Освіта й кваліфікація" hint="Заклад, спеціальність, курси, сертифікати"><textarea value={f.education} onChange={set("education")} rows={3} aria-label="Освіта й кваліфікація" className={`${input} resize-y`} /></Field>
+                <Field label="Досвід роботи">
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Досвід роботи">
                     {EXPERIENCE.map((x) => <button key={x} type="button" aria-pressed={f.experience === x} onClick={() => setF({ ...f, experience: x })} className={chip(f.experience === x)}>{x}</button>)}
                   </div>
-                </fieldset>
+                </Field>
               </div>
             )}
 
             {step === 1 && (
-              <div className="grid gap-5 lg:grid-cols-2 lg:gap-x-6">
-                <fieldset>
-                  <legend className={label}>Що плануєте створювати <span className={opt}>(можна кілька)</span></legend>
-                  <div className="mt-2 flex flex-wrap gap-2">
+              <div className="divide-y divide-[#eeecfb]">
+                <Field label="Що плануєте створювати" hint="Можна кілька">
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Формати">
                     {FORMATS.map(([v, l]) => <button key={v} type="button" aria-pressed={formats.includes(v)} onClick={() => toggle(formats, v, setFormats)} className={chip(formats.includes(v))}>{l}</button>)}
                   </div>
-                </fieldset>
-                <fieldset>
-                  <legend className={label}>Напрями <span className={opt}>(можна кілька)</span></legend>
-                  <div className="mt-2 flex flex-wrap gap-2">
+                </Field>
+                <Field label="Напрями" hint="Можна кілька">
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Напрями">
                     {TOPICS.map((x) => <button key={x} type="button" aria-pressed={topics.includes(x)} onClick={() => toggle(topics, x, setTopics)} className={chip(topics.includes(x))}>{x}</button>)}
                   </div>
-                </fieldset>
-                <label className={`${label} lg:col-span-2`}>Опишіть ваші плани<textarea value={f.plan} onChange={set("plan")} rows={4} placeholder="Наприклад: 4-тижнева програма про вигорання для освітян, кілька медитацій для сну" className={`${input} mt-1.5 resize-y`} /></label>
-                <fieldset>
-                  <legend className={label}>Чи є готові матеріали?</legend>
-                  <div className="mt-2 flex flex-wrap gap-2">
+                </Field>
+                <Field label="Опишіть ваші плани" hint="Теми, для кого, формат"><textarea value={f.plan} onChange={set("plan")} rows={4} aria-label="Опишіть ваші плани" placeholder="Наприклад: 4-тижнева програма про вигорання для освітян, кілька медитацій для сну" className={`${input} resize-y`} /></Field>
+                <Field label="Чи є готові матеріали?">
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Готові матеріали">
                     {READY.map(([v, l]) => <button key={v} type="button" aria-pressed={f.ready === v} onClick={() => setF({ ...f, ready: v })} className={chip(f.ready === v)}>{l}</button>)}
                   </div>
-                </fieldset>
-                <label className={label}>Соцмережі чи сайт <span className={opt}>(необов'язково)</span><input value={f.links} onChange={set("links")} placeholder="Instagram, Threads, сайт" className={`${input} mt-1.5`} /></label>
+                </Field>
+                <Field label="Соцмережі чи сайт" hint="Необов'язково"><input value={f.links} onChange={set("links")} aria-label="Соцмережі чи сайт" placeholder="Instagram, Threads, сайт" className={input} /></Field>
               </div>
             )}
 

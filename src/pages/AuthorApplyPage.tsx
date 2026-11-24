@@ -89,13 +89,12 @@ export default function AuthorApplyPage() {
   };
 
   const input = "w-full rounded-2xl border border-[#d9d4f5] bg-[#faf9ff] px-4 py-3.5 text-[15px] text-[#12172b] placeholder:text-[#9aa1c0] focus:border-[#5b3df5] focus:bg-white focus:outline-none";
-  const label = "block text-[14px] font-semibold text-[#2d2a5c]";
   const chip = (on: boolean) => `min-h-[42px] rounded-full px-4 text-[14px] font-semibold transition ${on ? "bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] text-white" : "bg-[#f1eeff] text-[#4338ca] hover:bg-[#e7e1ff]"}`;
 
   return (
-    <main className="page-container pb-16 pt-24 sm:pt-28">
+    <main className="page-container min-h-[100dvh] pb-16 pt-24 sm:pt-28">
       <div className="mx-auto w-full max-w-[720px] sm:max-w-[640px] md:max-w-[700px] lg:max-w-none">
-      <div className="text-center text-white">
+      {state !== "sent" && <div className="text-center text-white">
         <span className="inline-flex items-center gap-2 rounded-full bg-white/12 px-4 py-1.5 text-[13px] font-semibold text-white/90 ring-1 ring-white/20">
           <span aria-hidden="true" className="h-2 w-2 rounded-full bg-gradient-to-r from-[#a8e8ff] to-[#e4ddff]" />
           Набір перших авторів
@@ -104,17 +103,27 @@ export default function AuthorApplyPage() {
         <p className="mx-auto mt-3 max-w-[34em] text-[15px] leading-relaxed text-white/80 sm:text-[17px]">
           Займе 3–4 хвилини. Після анкети підтвердьте пошту й підпишіть договір кодом з листа — ми розглянемо заявку й відкриємо ваш кабінет.
         </p>
-      </div>
+      </div>}
 
-      <section className="mt-8 rounded-[28px] bg-white p-5 shadow-[0_24px_60px_-24px_rgba(10,20,90,0.55)] sm:p-8">
+      <section className={`${state === "sent" ? "" : "mt-8 "} rounded-[28px] bg-white p-5 shadow-[0_24px_60px_-24px_rgba(10,20,90,0.55)] sm:p-8`}>
         {state === "sent" ? (
-          <div className="py-4 text-center">
-            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#3b6df0] to-[#7c5cf0] text-white"><Icon name="mail" size={24} /></span>
-            <h2 className="mt-4 text-[24px] font-bold text-[#12172b]">Анкету надіслано</h2>
-            <ol className="mx-auto mt-4 max-w-[30em] space-y-2 text-left text-[15px] leading-relaxed text-[#2d2a5c]">
-              <li><b>1.</b> Підтвердьте пошту за посиланням у листі на {f.email.trim()} (перевірте й «Спам»).</li>
-              <li><b>2.</b> Підпишіть договір з автором кодом, який прийде на пошту.</li>
-              <li><b>3.</b> Ваш запит потрапить на модерацію — ми зв'яжемося з вами щодо подальшого доступу.</li>
+          <div className="mx-auto max-w-[860px] py-6 text-center sm:py-10">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#3b6df0] to-[#7c5cf0] text-white shadow-[0_12px_30px_-10px_rgba(91,92,240,0.7)]"><Icon name="check" size={28} /></span>
+            <p className="mt-5 text-[13px] font-semibold uppercase tracking-[0.14em] text-[#5b5cf0]">Анкету й договір отримано</p>
+            <h2 className="mt-2 text-[26px] font-bold leading-tight text-[#12172b] sm:text-[32px]">Дякуємо, що обрали Sensoria</h2>
+            <p className="mx-auto mt-3 max-w-[34em] text-[16px] leading-relaxed text-[#4a5070]">Ми уважно розглянемо вашу анкету. Договір підписано — далі все залежить від нас. Ось що відбуватиметься.</p>
+            <ol className="mt-8 grid gap-3 text-left sm:grid-cols-3">
+              {[
+                ["Розгляд анкети", "Ми ознайомимося з вашою освітою, досвідом і планами щодо матеріалів."],
+                ["Лист із рішенням", `Відповідь надійде на ${f.email.trim()}. Перевіряйте також «Спам».`],
+                ["Доступ до кабінету", "Після схвалення ви зможете увійти в кабінет автора й почати створювати матеріали."],
+              ].map(([t, d], i) => (
+                <li key={t} className="rounded-2xl bg-[#f5f4ff] p-5 ring-1 ring-[#e6e3fb]">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[14px] font-bold text-[#4338ca] ring-1 ring-[#dcd8fa]">{i + 1}</span>
+                  <div className="mt-3 text-[16px] font-semibold text-[#12172b]">{t}</div>
+                  <div className="mt-1 break-words text-[14px] leading-relaxed text-[#5a6080]">{d}</div>
+                </li>
+              ))}
             </ol>
           </div>
         ) : (
@@ -167,30 +176,32 @@ export default function AuthorApplyPage() {
             )}
 
             {step === 2 && (
-              <div className="mx-auto grid w-full max-w-[720px] gap-4">
-                <p className="rounded-2xl bg-[#f6f4ff] px-4 py-3 text-[14px] leading-relaxed text-[#2d2a5c]">
-                  Створюємо ваш акаунт автора з поштою <b className="break-all">{f.email.trim()}</b>. Готувати матеріали можна одразу після відкриття кабінету, ФОП для цього не потрібен. Продавати — лише як ФОП з рахунком у monobank і касою ПРРО.
-                </p>
-                <label className={label}>
-                  Пароль
-                  <span className="relative mt-1.5 block">
-                    <input type={showPass ? "text" : "password"} value={f.password} onChange={set("password")} autoComplete="new-password" className={`${input} pr-14`} />
+              <div className="divide-y divide-[#eeecfb]">
+                <Field label="Ваш акаунт">
+                  <p className="rounded-2xl bg-[#f6f4ff] px-4 py-3 text-[14px] leading-relaxed text-[#2d2a5c] lg:text-[15px]">
+                    Створюємо акаунт автора з поштою <b className="break-all">{f.email.trim()}</b>. Готувати матеріали можна одразу після відкриття кабінету, ФОП для цього не потрібен. Продавати — лише як ФОП з рахунком у monobank і касою ПРРО.
+                  </p>
+                </Field>
+                <Field label="Пароль" hint={PASSWORD_HINT}>
+                  <span className="relative block">
+                    <input type={showPass ? "text" : "password"} value={f.password} onChange={set("password")} autoComplete="new-password" aria-label="Пароль" className={`${input} pr-14`} />
                     <button type="button" onClick={() => setShowPass((v) => !v)} aria-label={showPass ? "Приховати пароль" : "Показати пароль"} className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-[#6b7190] hover:text-[#12172b]">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" /><circle cx="12" cy="12" r="3" /></svg>
                     </button>
                   </span>
-                  <span className="mt-1.5 block text-[13px] font-normal text-[#6b7190]">{PASSWORD_HINT}</span>
-                </label>
+                </Field>
                 <input tabIndex={-1} aria-hidden="true" autoComplete="off" value={f.trap} onChange={set("trap")} className="absolute left-[-9999px] h-0 w-0 opacity-0" />
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl p-1">
-                  <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-[3px] h-[18px] w-[18px] shrink-0 accent-[#4338ca]" />
-                  <span className="text-[14px] leading-relaxed text-[#2d2a5c]">
-                    Я ознайомився(-лася) з{" "}
-                    <a href="/author-agreement" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Договором з автором (офертою)</a>,{" "}
-                    <a href="/terms" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Умовами використання</a> і{" "}
-                    <a href="/privacy" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Політикою конфіденційності</a> та погоджуюся, що Sensoria обробляє дані анкети, щоб розглянути заявку. Договір підпишу кодом з листа після підтвердження пошти.
-                  </span>
-                </label>
+                <Field label="Документи" hint="Договір підпишете кодом з листа">
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl p-1">
+                    <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-[3px] h-[18px] w-[18px] shrink-0 accent-[#4338ca]" />
+                    <span className="text-[14px] leading-relaxed text-[#2d2a5c] lg:text-[15px]">
+                      Я ознайомився(-лася) з{" "}
+                      <a href="/author-agreement" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Договором з автором (офертою)</a>,{" "}
+                      <a href="/terms" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Умовами використання</a> і{" "}
+                      <a href="/privacy" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Політикою конфіденційності</a> та погоджуюся, що Sensoria обробляє дані анкети, щоб розглянути заявку. Договір підпишу кодом з листа після підтвердження пошти.
+                    </span>
+                  </label>
+                </Field>
               </div>
             )}
 

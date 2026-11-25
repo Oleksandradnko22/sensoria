@@ -24,13 +24,14 @@ export const LEGAL = {
 export type LegalKey = keyof typeof LEGAL;
 
 /**
- * Each document's own edition. 1.2 (23.11.2026) — monobank's rules (lawyer, Ю-Б): the offer, the refund rules and the
- * privacy policy; the participant agreement and the terms stay 1.1. A new edition here = new hashes in legal_documents.
+ * Each document's own edition. 1.3 (25.11.2026) — monobank's edits О1–О13 (lawyer and accountant agreed): the tariff is
+ * a debit transfer from the author's account, the bank fee is out of the offer. All five documents. No real authors or
+ * participants yet — in force from publication. A new edition here = new hashes in legal_documents.
  */
 export const DOC_EDITIONS = {
-  participant_agreement: { edition: "1.1", effectiveDate: "22.11.2026" },
-  terms: { edition: "1.1", effectiveDate: "22.11.2026" },
-  author_agreement: { edition: "1.2", effectiveDate: "23.11.2026" },
-  refunds: { edition: "1.2", effectiveDate: "23.11.2026" },
-  privacy: { edition: "1.2", effectiveDate: "23.11.2026" },
+  participant_agreement: { edition: "1.3", effectiveDate: "25.11.2026" },
+  terms: { edition: "1.3", effectiveDate: "25.11.2026" },
+  author_agreement: { edition: "1.3", effectiveDate: "25.11.2026" },
+  refunds: { edition: "1.3", effectiveDate: "25.11.2026" },
+  privacy: { edition: "1.3", effectiveDate: "25.11.2026" },
 } as const;

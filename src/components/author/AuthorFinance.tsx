@@ -219,7 +219,7 @@ export default function AuthorFinance() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
                 <h2 id="fin-income" className="text-[20px] font-bold text-[#12172b]">Надходження</h2>
-                <p className="mt-1 text-[14px] text-black/55">monobank зараховує вашу частку на рахунок наступного дня. Sensoria ваші гроші не тримає.</p>
+                <p className="mt-1 text-[14px] text-black/55">monobank зараховує оплату на ваш рахунок наступного дня. Sensoria ваші гроші не тримає.</p>
               </div>
               <div className="text-right">
                 <div className={`text-[34px] font-bold leading-none sm:text-[40px] ${monthToAccountKop < 0 ? "text-rose-600" : "text-[#12172b]"}`}>{monthToAccountKop < 0 ? "−" : ""}{uahFromKop(Math.abs(monthToAccountKop))}</div>
@@ -228,7 +228,7 @@ export default function AuthorFinance() {
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
               <Mini label="Ваша частка" value={uahFromKop(monthShareKop)} hint={`${monthCount} ${monthCount === 1 ? "продаж" : monthCount > 1 && monthCount < 5 ? "продажі" : "продажів"}, ${monthRef} за посиланням`} />
-              <Mini label="Комісія банку" value={monthFeeKop ? `−${uahFromKop(monthFeeKop)}` : uahFromKop(0)} hint="1,3 % або 2 % від усієї оплати" />
+              <Mini label="Комісія банку" value={monthFeeKop ? `−${uahFromKop(monthFeeKop)}` : uahFromKop(0)} hint="1,3 % або 2 % — за тарифами банку, можуть змінюватися" />
               <Mini label="Повернено покупцям" value={monthRefundKop ? `−${uahFromKop(monthRefundKop)}` : uahFromKop(0)} hint="ваша частка" />
               <Mini label="Надійде завтра" value={uahFromKop(comingKop)} hint="оплати за останню добу" />
             </div>
@@ -429,7 +429,7 @@ export default function AuthorFinance() {
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-[12px] leading-relaxed text-black/50">Комісію банку (1,3 % або 2 % від усієї оплати) банк утримує з вашої частки до зарахування; тариф Sensoria надходить без вирахувань. Знижка банку «0 % на 30 днів» на цю схему не поширюється.</p>
+            <p className="mt-3 text-[12px] leading-relaxed text-black/50">Комісія банку — 1,3 % або 2 % від усієї оплати, за тарифами банку, можуть змінюватися; точні суми — у виписці банку. Знижка банку «0 % на 30 днів» на цю схему не поширюється.</p>
           </section>
 
           {/* HOW THE MONEY ARRIVES */}
@@ -438,15 +438,15 @@ export default function AuthorFinance() {
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f1eeff] text-[#7a68e0]"><Icon name="card" size={20} /></span>
               <div>
                 <h2 id="fin-payouts" className="text-[20px] font-bold text-[#12172b]">Як надходять кошти</h2>
-                <p className="text-[13px] text-black/55">Розподіл робить банк у момент оплати.</p>
+                <p className="text-[13px] text-black/55">Оплата надходить на ваш рахунок; тариф Sensoria банк перераховує з вашого рахунку за вашим дорученням у день зарахування.</p>
               </div>
             </div>
             <dl className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              <Row label="Хто переказує" value="monobank, напряму" note={`Банк ділить кожну оплату: ${catalogPct} % (або ${referralPct} % за вашим посиланням) — на ваш рахунок, тариф Sensoria — на рахунок Sensoria.`} />
+              <Row label="Хто переказує" value="monobank, напряму" note={`Оплата надходить на ваш рахунок; тариф Sensoria (${100 - catalogPct} % або ${100 - referralPct} % за вашим посиланням) банк перераховує з вашого рахунку за вашим дорученням.`} />
               <Row label="Куди" value="Основний гривневий рахунок" note="Рахунок вашого ФОП або ТОВ у monobank. Інший рахунок указати не можна." />
               <Row label="Коли" value="Наступного дня" note="І вам, і Sensoria банк зараховує кошти наступного дня після оплати." />
               <Row label="Мінімальна сума" value="Немає" note="Запитувати виплату не потрібно: кожна оплата надходить окремо." />
-              <Row label="Комісія банку" value="1,3 % або 2 %" note="Від усієї суми оплати, з вашої частки до зарахування: 1,3 % — українські картки, 2 % — іноземні." />
+              <Row label="Комісія банку" value="1,3 % або 2 %" note="Від усієї суми оплати: 1,3 % — українські картки, 2 % — іноземні; за тарифами банку, можуть змінюватися; точні суми — у виписці банку." />
               <Row label="Що бачить покупець" value="Сторінка monobank" note="Оплата карткою, Apple Pay або Google Pay. У виписці покупця — назва платформи." />
             </dl>
           </section>

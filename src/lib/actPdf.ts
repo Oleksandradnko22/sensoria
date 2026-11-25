@@ -48,17 +48,17 @@ export async function downloadActPdf(act: { data: ActData; issued_at: string }):
     },
     {
       id: "payment", title: "Оплата",
-      body: ["Оплата вартості послуг здійснена в грошовій безготівковій формі: АТ «УНІВЕРСАЛ БАНК» за дорученням Замовника спрямував частину кожного платежу Покупця на поточний рахунок Виконавця. Повернення Тарифу здійснено в безготівковій формі. Зарахування зустрічних однорідних вимог не здійснювалося. Заборгованості сторін за актом немає."],
+      body: ["Оплата вартості послуг здійснена в грошовій безготівковій формі: АТ «УНІВЕРСАЛ БАНК» за дорученням Замовника здійснив дебетові перекази з рахунку Замовника на поточний рахунок Виконавця в сумі Тарифу. Повернення Тарифу здійснено в безготівковій формі. Зарахування зустрічних однорідних вимог не здійснювалося. Заборгованості сторін за актом немає."],
     },
     {
       id: "reference", title: "Довідково",
-      body: [`Не є вартістю послуг Виконавця: загальна сума оплат Покупців за замовленнями — ${uah(d.reference.paymentsKop)} грн; комісія Банку за еквайринг, утримана Банком з частини Замовника, — ${uah(d.reference.bankFeeKop)} грн. Комісія Банку не є доходом Виконавця.`],
+      body: [`Не є вартістю послуг Виконавця: загальна сума оплат Покупців за замовленнями — ${uah(d.reference.paymentsKop)} грн.`],
     },
     {
       id: "register", title: `Додаток 1. Реєстр замовлень за ${actMonth(d.period)}`,
       body: [
         d.register.length
-          ? d.register.map((r) => `${r.n}. № ${r.order} · ${new Date(r.paidAt).toLocaleString("uk-UA", { timeZone: "Europe/Kyiv" })} · матеріал ${r.material} · чек ${r.fiscalNo ?? "—"} · ціна ${uah(r.listKop)} · знижка ${uah(r.discountKop)} · сплачено ${uah(r.paidKop)} · ${SOURCE[r.source] ?? r.source} · тариф ${r.tariffPct} % = ${uah(r.tariffKop)} · комісія Банку ${uah(r.bankFeeKop)} · зараховано Замовнику ${uah(r.creditedToAuthorKop)} · ${r.status === "paid" ? "оплачено" : r.status === "refunded" ? "повернено" : "чарджбек"}${r.returnFiscalNo ? ` · чек повернення ${r.returnFiscalNo}` : ""}`)
+          ? d.register.map((r) => `${r.n}. № ${r.order} · ${new Date(r.paidAt).toLocaleString("uk-UA", { timeZone: "Europe/Kyiv" })} · матеріал ${r.material} · чек ${r.fiscalNo ?? "—"} · ціна ${uah(r.listKop)} · знижка ${uah(r.discountKop)} · сплачено ${uah(r.paidKop)} · ${SOURCE[r.source] ?? r.source} · тариф ${r.tariffPct} % = ${uah(r.tariffKop)} · ${r.status === "paid" ? "оплачено" : r.status === "refunded" ? "повернено" : "чарджбек"}${r.returnFiscalNo ? ` · чек повернення ${r.returnFiscalNo}` : ""}`)
           : ["Замовлень у звітному місяці немає."],
       ],
     },

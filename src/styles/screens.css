@@ -196,3 +196,6 @@
 /* The signing screen (the offer / terms, ConsentGate) is a fixed window, outside the zoomed columns: scaled the same way
    on MacBook Pro 16, Full HD and 2K so it is not small there */
 @media (min-width: 1700px) { .gate-card { zoom: var(--page-zoom); } }
+
+/* Error and warning texts always wrap inside the screen (a long hint or e-mail never runs off the edge). */
+p[class*="text-red"], p[class*="text-amber"], [role="alert"] { white-space: normal; overflow-wrap: anywhere; }

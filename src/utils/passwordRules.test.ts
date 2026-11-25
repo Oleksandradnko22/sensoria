@@ -14,3 +14,10 @@ test("invalid: short, no special, non-latin, spaces", () => {
   assert.equal(isPasswordValid("abcdef 1!"), false);
   assert.equal(isPasswordValid(""), false);
 });
+
+test("any non-letter symbol counts as special (€, №, £); Cyrillic still rejected", () => {
+  assert.equal(isPasswordValid("Riss29272212€"), true);
+  assert.equal(isPasswordValid("Password№1"), true);
+  assert.equal(isPasswordValid("Пароль12345!"), false);
+  assert.equal(isPasswordValid("Riss2927 2212!"), false);
+});

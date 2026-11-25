@@ -149,7 +149,7 @@ export default function CatalogProgramCard({ program, onOpen, saved, onToggleSav
             e.stopPropagation();
             onOpen();
           }}
-          className="min-h-[44px] w-full rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-[14px] font-medium text-white transition hover:from-blue-600 hover:to-purple-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2"
+          className="min-h-[44px] w-full rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-[14px] font-semibold text-white transition hover:from-blue-600 hover:to-purple-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2"
         >
           Детальніше →
         </button>

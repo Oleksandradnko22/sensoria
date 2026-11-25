@@ -9,15 +9,16 @@ export const PRELAUNCH_OPEN: Page[] = [
   "privacy", "terms", "refunds", "author-agreement", "participant-agreement", "contacts", "crisis-help",
 ];
 
-/** Closed for this visitor now? Dev only: ?open=1 (or the device preview) opens it for the browser tab. */
+/** Closed for this visitor now? On localhost always open (?open=0 shows it closed for the browser tab). */
 export function prelaunchClosed(page: Page, signedIn: boolean, now = Date.now()): boolean {
   if (now >= LAUNCH_AT || signedIn || PRELAUNCH_OPEN.includes(page)) return false;
   if (import.meta.env.DEV) {
     try {
+      // on localhost the platform is open; ?open=0 shows the closed site as visitors see it, ?open=1 opens it again
       const q = new URLSearchParams(window.location.search).get("open");
-      if (q === "1") sessionStorage.setItem("sensoria:prelaunch-open", "1");
-      if (q === "0") sessionStorage.removeItem("sensoria:prelaunch-open");
-      if (sessionStorage.getItem("sensoria:prelaunch-open") === "1") return false;
+      if (q === "0") sessionStorage.setItem("sensoria:prelaunch-closed", "1");
+      if (q === "1") sessionStorage.removeItem("sensoria:prelaunch-closed");
+      if (sessionStorage.getItem("sensoria:prelaunch-closed") !== "1") return false;
     } catch { /* private mode */ }
   }
   return true;

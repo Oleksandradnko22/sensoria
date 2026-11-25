@@ -48,7 +48,7 @@ type Props = {
 
 const chip = (active: boolean) =>
   `min-h-[40px] rounded-full px-3.5 py-2 text-[13px] font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
-    active ? "bg-white text-[#4227d5]" : "bg-white/20 text-white hover:bg-white/30"
+    active ? "bg-white text-[#4a3fc4]" : "bg-white/20 text-white hover:bg-white/30"
   }`;
 const heading = "mb-2.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-white";
 
@@ -238,7 +238,7 @@ export default function MeditationsCatalogPage({ meditations, initialCategories 
   );
 
   return (
-    <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#5143ff] via-[#8a62ff] to-[#be93ff] pb-0 pt-[112px] text-white sm:pt-[132px] lg:pt-[150px]">
+    <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#4a47b8] via-[#6a60d2] to-[#a18fe2] pb-0 pt-[112px] text-white sm:pt-[132px] lg:pt-[150px]">
       <div className="relative z-10 mx-auto max-w-[1280px] px-4 sm:px-6">
         {/* HEADER */}
         <div className="mb-6 sm:mb-8">
@@ -248,7 +248,7 @@ export default function MeditationsCatalogPage({ meditations, initialCategories 
 
         <div className="grid gap-6 lg:grid-cols-[280px_1fr] lg:items-start lg:gap-8">
           {/* SIDEBAR (desktop) */}
-          <aside ref={panelRef} className="hidden rounded-3xl border border-white/40 bg-[#3c2bcb]/35 p-6 text-white shadow-[0_10px_30px_-12px_rgba(40,15,100,0.45)] backdrop-blur-xl lg:flex lg:flex-col">{filterControls(false, true)}</aside>
+          <aside ref={panelRef} className="hidden rounded-3xl border border-white/40 bg-[#3a3796]/30 p-6 text-white shadow-[0_10px_30px_-12px_rgba(40,30,100,0.35)] backdrop-blur-xl lg:flex lg:flex-col">{filterControls(false, true)}</aside>
 
           {/* CONTENT */}
           <div className="min-w-0">
@@ -290,7 +290,7 @@ export default function MeditationsCatalogPage({ meditations, initialCategories 
               )}
 
               <div className="hidden sm:ml-auto sm:block">
-                <CatalogSort<SortId> value={selectedSort} onChange={setSelectedSort} options={SORT_OPTIONS} className="" listClassName="bg-[#4d36e9]/95" />
+                <CatalogSort<SortId> value={selectedSort} onChange={setSelectedSort} options={SORT_OPTIONS} className="" listClassName="bg-[#4f47b8]/95" />
               </div>
             </div>
 
@@ -341,7 +341,7 @@ export default function MeditationsCatalogPage({ meditations, initialCategories 
       {drawerOpen && (
         <div className="fixed inset-0 z-[70] lg:hidden" role="dialog" aria-modal="true" aria-label="Фільтри">
           <div className="absolute inset-0 bg-black/50" onClick={() => setDrawerOpen(false)} />
-          <div className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl border border-white/30 bg-[#6146f5] p-5 pb-6 text-white shadow-2xl">
+          <div className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl border border-white/30 bg-[#5a52c8] p-5 pb-6 text-white shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <div className="text-[18px] font-semibold">Фільтри</div>
               <button ref={drawerCloseRef} type="button" onClick={() => setDrawerOpen(false)} aria-label="Закрити" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-[20px]">

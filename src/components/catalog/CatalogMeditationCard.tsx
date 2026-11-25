@@ -92,7 +92,7 @@ export default function CatalogMeditationCard({ meditation, onOpen, saved, onTog
             e.stopPropagation();
             onOpen();
           }}
-          className="min-h-[44px] w-full rounded-xl bg-gradient-to-r from-[#5232f4] to-[#774eff] text-[14px] font-semibold text-white transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#582edd] focus-visible:ring-offset-2"
+          className="min-h-[44px] w-full rounded-xl bg-gradient-to-r from-[#4a3fc4] to-[#5f52cf] text-[14px] font-semibold text-white transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4a3fc4] focus-visible:ring-offset-2"
         >
           Відкрити практику →
         </button>

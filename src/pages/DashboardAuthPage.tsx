@@ -96,7 +96,8 @@ export default function DashboardAuthPage({ role, onAuthenticated, onBackToSite 
   // Authors appear publicly under their real name: first name + surname.
   const isNameValid = role === "author" ? isFullName(name) : name.trim().length > 1;
   const isEmailValid = isValidEmail(email);
-  const isPasswordValid = isPasswordRuleValid(password);
+  // the format rule is for a NEW password only: signing in takes any password the account already has
+  const isPasswordValid = mode === "register" ? isPasswordRuleValid(password) : password.length > 0;
 
   const canSubmit =
     !submitting &&
@@ -363,8 +364,8 @@ export default function DashboardAuthPage({ role, onAuthenticated, onBackToSite 
                 </button>
               </div>
               {passwordTouched && !isPasswordValid && (
-                <p className="mt-2 px-1 text-sm text-red-300/90 whitespace-nowrap">
-                  {PASSWORD_HINT}
+                <p className="mt-2 px-1 text-sm text-red-300/90">
+                  {mode === "register" ? PASSWORD_HINT : "Введіть пароль"}
                 </p>
               )}
             </div>

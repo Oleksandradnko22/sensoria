@@ -10,7 +10,6 @@ import {
 } from "../lib/auth";
 import MfaCodeStep from "../components/auth/MfaCodeStep";
 import RestoreAccountStep from "../components/auth/RestoreAccountStep";
-import { isPasswordValid as isPasswordRuleValid, PASSWORD_HINT } from "../utils/passwordRules";
 
 type Props = {
   onAuthenticated: (profile: Profile) => void;
@@ -53,7 +52,8 @@ export default function LoginPage({ onAuthenticated, onBackToRegister }: Props) 
 
   // Same rule as RegisterPage: Latin characters only, must end in ".com".
   const isEmailValid = isValidEmail(email);
-  const isPasswordValid = isPasswordRuleValid(password);
+  // signing in takes any existing password: the format rule is only for creating one
+  const isPasswordValid = password.length > 0;
 
   const canContinue = !submitting && isEmailValid && isPasswordValid;
 
@@ -260,8 +260,8 @@ export default function LoginPage({ onAuthenticated, onBackToRegister }: Props) 
                 </button>
               </div>
               {passwordTouched && !isPasswordValid && (
-                <p className="mt-2 px-1 text-sm text-red-300/90 whitespace-nowrap">
-                  {PASSWORD_HINT}
+                <p className="mt-2 px-1 text-sm text-red-300/90">
+                  Введіть пароль
                 </p>
               )}
             </div>

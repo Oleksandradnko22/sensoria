@@ -5,6 +5,7 @@
 // Only a hash of the code is stored.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { renderBrandEmail } from "../_shared/brandEmail.ts";
+import { authorCommunityEmail } from "../_shared/authorCommunityEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -112,7 +113,22 @@ Deno.serve(async (req) => {
         await admin.from("legal_otp").update({ attempts: latest.attempts + 1 }).eq("id", latest.id);
         return json({ error: "wrong_code", message: `Невірний код. Введіть код з найновішого листа. Залишилось спроб: ${4 - latest.attempts}.` }, 400);
       }
+      // the first signed author agreement of a not-yet-approved author: invite to the authors' Telegram community
+      const { count: signedBefore } = await admin.from("legal_otp").select("id", { count: "exact", head: true })
+        .eq("user_id", user.id).eq("purpose", "author_agreement").not("verified_at", "is", null);
       await admin.from("legal_otp").update({ verified_at: new Date().toISOString() }).eq("id", match.id);
+      if (purpose === "author_agreement" && !signedBefore && user.email) {
+        const { data: prof } = await admin.from("profiles").select("name, role, author_approved_at").eq("id", user.id).maybeSingle();
+        const key = Deno.env.get("RESEND_API_KEY");
+        if (key && prof?.role === "author" && !prof.author_approved_at) {
+          const mail = authorCommunityEmail(prof.name);
+          await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ from: Deno.env.get("RESEND_FROM") ?? "Sensoria <onboarding@resend.dev>", to: user.email, ...mail }),
+          }).catch((e) => console.error("legal-otp: community letter failed", e));
+        }
+      }
       return json({ verified: true });
     }
 

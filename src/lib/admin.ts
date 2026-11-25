@@ -308,6 +308,10 @@ export async function fetchPendingAuthors(): Promise<PendingAuthor[]> {
   const { authors } = await callAdmin<{ authors: PendingAuthor[] }>("pendingAuthors");
   return authors;
 }
+export function previewCommunityEmail(): Promise<{ to: string }> {
+  return callAdmin<{ to: string }>("previewCommunityEmail");
+}
+
 export function approveAuthor(profileId: string): Promise<void> {
   return callAdmin("approveAuthor", { profileId }).then(() => undefined);
 }

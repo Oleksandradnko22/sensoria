@@ -1,7 +1,7 @@
 // Admin → «Заявки авторів» (/for-authors): read the application, send the invitation (an e-mail with the author sign-up
 // link) or decline. Owner only (admin-data refuses support).
 import { useEffect, useState } from "react";
-import { approveAuthor, decideAuthorApplication, fetchAuthorApplications, fetchPendingAuthors, type AuthorApplication, type PendingAuthor } from "../../lib/admin";
+import { approveAuthor, previewCommunityEmail, decideAuthorApplication, fetchAuthorApplications, fetchPendingAuthors, type AuthorApplication, type PendingAuthor } from "../../lib/admin";
 
 const STATUS: Record<AuthorApplication["status"], [string, string]> = {
   new: ["Нова", "bg-amber-100 text-amber-800"],
@@ -54,7 +54,8 @@ export default function AdminAuthorApplications() {
     <section>
       {/* registered by the link and signed the documents — waiting for approval */}
       <h3 className="mb-2 text-[16px] font-semibold">Чекають схвалення ({pending.length})</h3>
-      <p className="mb-3 text-[14px] text-black/60">Зареєструвалися за посиланням. «Схвалити» відкриває кабінет автора й надсилає лист.</p>
+      <p className="mb-3 text-[14px] text-black/60">Зареєструвалися за посиланням. Одразу після підписання договору автор отримує лист із запрошенням до Telegram-спільноти авторів. «Схвалити» відкриває кабінет автора й надсилає лист.</p>
+      <CommunityPreview />
       {pending.length === 0 && <p className="mb-6 text-[14px] text-black/50">Нікого немає.</p>}
       <div className="mb-8 flex flex-col gap-2">
         {pending.map((a) => (
@@ -117,5 +118,16 @@ export default function AdminAuthorApplications() {
         })}
       </div>
     </section>
+  );
+}
+
+// sends a test copy of the «спільнота авторів» letter to the admin's own address
+function CommunityPreview() {
+  const [state, setState] = useState<string | null>(null);
+  return (
+    <div className="mb-5 flex flex-wrap items-center gap-3">
+      <button type="button" disabled={state === "…"} onClick={() => { setState("…"); previewCommunityEmail().then((r) => setState(`Надіслано на ${r.to}`), (e) => setState(e instanceof Error ? e.message : "Не вдалося надіслати")); }} className="min-h-[40px] rounded-xl border border-[#d9d6f5] bg-white px-4 text-[14px] font-semibold text-[#4338ca] disabled:opacity-50">Надіслати тестовий лист «Спільнота авторів»</button>
+      {state && state !== "…" && <span className="text-[13px] text-black/60">{state}</span>}
+    </div>
   );
 }

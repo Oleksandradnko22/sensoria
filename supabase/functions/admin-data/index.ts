@@ -16,6 +16,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { brandFromText } from "../_shared/brandEmail.ts";
 import { OPERATOR } from "../_shared/operator.ts";
+import { authorCommunityEmail } from "../_shared/authorCommunityEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -715,6 +716,19 @@ Deno.serve(async (req) => {
             application: (apps ?? []).find((a) => String(a.email).toLowerCase() === String(r.email ?? "").toLowerCase()) ?? null,
           })),
         });
+      }
+
+      case "previewCommunityEmail": {
+        // a test copy of the «спільнота авторів» letter to the admin's own address
+        const to = userData.user.email;
+        if (!resendKey || !to) return json({ error: "Пошта не налаштована." }, 400);
+        const r = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ from: fromAddress, to, ...authorCommunityEmail("Олександра") }),
+        });
+        if (!r.ok) return json({ error: `Resend: ${r.status}` }, 502);
+        return json({ ok: true, to });
       }
 
       case "approveAuthor": {

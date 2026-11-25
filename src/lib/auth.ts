@@ -77,6 +77,9 @@ export async function registerAccount(
 
 export async function loginAccount(email: string, password: string): Promise<void> {
   const client = requireSupabase();
+  // A sign-in always starts from a clean state: a session left on this device (e.g. from the e-mail confirmation link)
+  // must never let anyone into the cabinet after a wrong password — the password is checked by the server or not at all.
+  await client.auth.signOut({ scope: "local" }).catch(() => undefined);
   const { error } = await client.auth.signInWithPassword({ email, password });
   if (error) throw error;
 }

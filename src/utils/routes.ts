@@ -58,6 +58,8 @@ export function pathForPage(page: Page, entityId?: string | null): string {
   if (page === "for-authors") return "/for-authors";
   if (page === "author-apply") return "/author-signup";
   if (page === "payment-result") return "/payment-result";
+  // the owner's own entrance (AdminGate): not linked anywhere, needs password + 2FA
+  if (page === "admin-dashboard") return "/admin";
   if (page === "author-profile") return authorId ? `/authors/${encodeURIComponent(authorId)}` : "/";
   if (FUNNEL.includes(page)) return "/start";
   if (ACCOUNT.includes(page)) return "/account";
@@ -97,6 +99,7 @@ function pageForPathBase(pathname: string): { page: Page; authorId: string | nul
   // the author sign-in (the link in the «кабінет відкрито» e-mail)
   if (path === "/author-login") return { page: "author-auth", authorId: null };
   if (path === "/payment-result") return { page: "payment-result", authorId: null };
+  if (path === "/admin") return { page: "admin-dashboard", authorId: null };
   if (path === "/start") return { page: "state-selection", authorId: null };
   const m = /^\/authors\/([^/]+)$/.exec(path);
   if (m) {

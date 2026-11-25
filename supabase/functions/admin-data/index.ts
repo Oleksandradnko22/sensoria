@@ -709,11 +709,13 @@ Deno.serve(async (req) => {
         const { data: apps } = emails.length
           ? await admin.from("author_applications").select("*").in("email", emails)
           : { data: [] };
+        const appOf = (r: { email?: string | null }) => (apps ?? []).find((a) => String(a.email).toLowerCase() === String(r.email ?? "").toLowerCase()) ?? null;
         return json({
-          authors: (rows ?? []).map((r) => ({
+          // a declined author is not waiting any more (the account goes with the application after 6 months)
+          authors: (rows ?? []).filter((r) => appOf(r)?.status !== "declined").map((r) => ({
             ...r,
             signed: (signed ?? []).some((c) => c.user_id === r.id),
-            application: (apps ?? []).find((a) => String(a.email).toLowerCase() === String(r.email ?? "").toLowerCase()) ?? null,
+            application: appOf(r),
           })),
         });
       }
@@ -729,6 +731,28 @@ Deno.serve(async (req) => {
         });
         if (!r.ok) return json({ error: `Resend: ${r.status}` }, 502);
         return json({ ok: true, to });
+      }
+
+      case "declineAuthor": {
+        // a registered author whose application is declined: the application is marked «declined» (deleted with the
+        // account after 6 months — author-applications-retention.sql) and the author gets a short letter
+        const id = String(payload?.profileId ?? "");
+        const reason = String(payload?.reason ?? "").trim().slice(0, 600);
+        const { data: p } = await admin.from("profiles").select("name, email, role, author_approved_at").eq("id", id).maybeSingle();
+        if (!p || p.role !== "author" || p.author_approved_at) return json({ error: "Автора, що чекає схвалення, не знайдено." }, 400);
+        const { data: app, error } = await admin.from("author_applications").update({ status: "declined" })
+          .ilike("email", String(p.email).replace(/[\\%_]/g, (c) => `\\${c}`)).select("id").maybeSingle();
+        if (error || !app) return json({ error: error?.message ?? "Анкету цього автора не знайдено." }, 400);
+        await logAction("author_declined", id, reason ? { reason } : undefined);
+        if (resendKey && p.email) {
+          const text = `Вітаємо, ${p.name}!\n\nДякуємо за інтерес до Sensoria й за час, витрачений на анкету. Ми уважно її розглянули, але наразі не можемо відкрити вам кабінет автора.${reason ? `\n\n${reason}` : ""}\n\nЯкщо щось зміниться, ви можете подати анкету повторно. Питання — відповідайте на цей лист або пишіть ${OPERATOR.email}.`;
+          await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ from: fromAddress, to: p.email, subject: "Ваша анкета автора на Sensoria", ...brandFromText("Ваша анкета автора", text, "Ви отримали цей лист, бо подали анкету автора на Sensoria.") }),
+          }).catch(() => {});
+        }
+        return json({ ok: true });
       }
 
       case "approveAuthor": {

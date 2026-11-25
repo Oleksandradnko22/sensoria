@@ -79,7 +79,7 @@ export default function AuthorModeration(_props: { content?: unknown }) {
 
       {/* 2. statuses */}
       <h2 className="mt-2 text-[13px] font-bold uppercase tracking-[0.14em] text-black/40">Ваші статуси</h2>
-      <AuthorVerification />
+      {/* identity is not asked any more: monobank verifies every author with a ФОП (owner, 25.11.2026) */}
       <AuthorVerification kind="education" />
 
       {/* 3. rules, short */}

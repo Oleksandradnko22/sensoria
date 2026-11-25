@@ -125,6 +125,7 @@ const BOOT_PATH = typeof window !== "undefined" ? window.location.pathname : "/"
 const ParticipantDashboardPage = lazy(() => import("./pages/ParticipantDashboardPage"));
 const DashboardAuthPage = lazy(() => import("./pages/DashboardAuthPage"));
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
+const AdminGate = lazy(() => import("./pages/AdminGate"));
 const MfaCodeStep = lazy(() => import("./components/auth/MfaCodeStep"));
 const RestoreAccountStep = lazy(() => import("./components/auth/RestoreAccountStep"));
 
@@ -281,12 +282,17 @@ function AppInner() {
       if (import.meta.env.DEV) {
         const q = params.get("devSession");
         try {
-          if (q === "participant" || q === "author") sessionStorage.setItem("sensoria:dev-session", q);
+          if (q === "participant" || q === "author" || q === "admin") sessionStorage.setItem("sensoria:dev-session", q);
           if (q === "0") sessionStorage.removeItem("sensoria:dev-session");
         } catch { /* private mode */ }
         let devRole: string | null = null;
         try { devRole = sessionStorage.getItem("sensoria:dev-session"); } catch { /* private mode */ }
         // only on the cabinet address: other pages in the same tab (device-preview frames share it) open normally
+        if (devRole === "admin" && (q === devRole || window.location.pathname === "/admin")) {
+          setSession({ id: "00000000-0000-0000-0000-000000000000", role: "participant", name: "Олександра Демо", email: "demo@example.com", avatarUrl: null, isAdmin: true, memberSince: "2026-11-01T00:00:00Z", deletionRequestedAt: null });
+          setPage("admin-dashboard");
+          return;
+        }
         if ((devRole === "participant" || devRole === "author") && (q === devRole || window.location.pathname === "/account")) {
           setSession({ id: "00000000-0000-0000-0000-000000000000", role: devRole, name: devRole === "author" ? "Олена Демо" : "Марія Демо", email: "demo@example.com", avatarUrl: null, isAdmin: false, memberSince: "2026-11-01T00:00:00Z", deletionRequestedAt: null });
           setPage(devRole === "author" ? "author-dashboard" : "participant-dashboard");
@@ -552,15 +558,6 @@ function AppInner() {
     window.scrollTo(0, 0);
   };
 
-  // No public entry point on purpose — reached only from the "Адмін-
-  // панель" button the dashboard shells show when profile.isAdmin is
-  // true, never from the marketing site.
-  const openAdminDashboard = () => {
-    if (session?.isAdmin) {
-      setPage("admin-dashboard");
-      window.scrollTo(0, 0);
-    }
-  };
 
   const openContacts = () => {
     setPage("contacts");
@@ -1638,6 +1635,12 @@ if (page === "participant-auth") {
   );
 }
 
+// the admin account is only for /admin: it never opens a participant or author cabinet
+if ((page === "author-dashboard" || page === "participant-dashboard") && session?.isAdmin) {
+  setPage("admin-dashboard");
+  return null;
+}
+
 if (page === "author-dashboard") {
   // Reaching this page without a valid author session (e.g. a direct
   // refresh after the session expired) sends the person back through
@@ -1667,7 +1670,7 @@ if (page === "author-dashboard") {
         profile={session}
         onProfileChange={setSession}
         onBackToSite={() => setPage("home")}
-        onOpenAdmin={session.isAdmin ? openAdminDashboard : undefined}
+        onOpenAdmin={undefined /* the admin panel is reached only at /admin, never from a cabinet */}
         onLogout={logout}
       />
     </div>
@@ -1685,7 +1688,7 @@ if (page === "participant-dashboard") {
         profile={session}
         onProfileChange={setSession}
         onBackToSite={() => setPage("home")}
-        onOpenAdmin={session.isAdmin ? openAdminDashboard : undefined}
+        onOpenAdmin={undefined /* the admin panel is reached only at /admin, never from a cabinet */}
         onRetakeAssessment={openTest}
         onOpenProgram={selectProgramById}
         onOpenGuide={selectGuideById}
@@ -1703,17 +1706,18 @@ if (page === "admin-dashboard") {
   // Not a role — is_admin is an orthogonal flag on any account (see
   // schema.sql). Anyone without it lands back on the ordinary home
   // page instead of a blank/error screen.
-  if (!session || !session.isAdmin) {
-    setPage("home");
-    return null;
-  }
+  // sensoria.courses/admin: AdminGate asks for the password and the 2FA code itself (and shows only a plain sign-in
+  // form to anyone else), so the owner never goes through a participant or author cabinet to get here.
   return (
     <div key={page} className="page-transition">
-      <AdminDashboardPage
-        profile={session}
-        onBackToSite={() => setPage("home")}
-        onLogout={logout}
-      />
+      <AdminGate session={session} onSession={(p) => { if (p) { touchSession(); touchDeviceSession(p.id); } setSession(p); }}>
+        {session?.isAdmin && (
+          <AdminDashboardPage
+            profile={session}
+            onLogout={() => { clearSessionBookkeeping(); void logoutAccount(); setSession(null); window.scrollTo(0, 0); /* stays on /admin: the sign-in form */ }}
+          />
+        )}
+      </AdminGate>
     </div>
   );
 }
@@ -1787,7 +1791,7 @@ const PAGE_TITLES: Partial<Record<Page, string>> = {
   "participant-dashboard": "Особистий кабінет",
   "author-auth": "Вхід для автора",
   "participant-auth": "Вхід",
-  "admin-dashboard": "Адмінка",
+  "admin-dashboard": "Вхід",
   "author-profile": "Автор",
   "payment-result": "Результат оплати",
 };

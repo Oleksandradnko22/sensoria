@@ -57,8 +57,8 @@ export default function AdminUserDetail({ user, onClose }: { user: AdminUserRow;
           {user.isBanned && <span className="px-3 py-1 rounded-full bg-red-50 text-red-700">Акаунт заблоковано</span>}
           {ban.active && <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-800">Чат заблоковано</span>}
           {user.role === "author" && (
-            <span className={`px-3 py-1 rounded-full ${user.verified ? "bg-emerald-50 text-emerald-800" : "bg-black/5 text-black/70"}`}>
-              {user.verified ? "Верифіковано" : "Не верифіковано"}
+            <span className={`px-3 py-1 rounded-full ${user.educationVerified ? "bg-emerald-50 text-emerald-800" : "bg-black/5 text-black/70"}`}>
+              {user.educationVerified ? "Фахівець" : "Без статусу «Фахівець»"}
             </span>
           )}
         </div>

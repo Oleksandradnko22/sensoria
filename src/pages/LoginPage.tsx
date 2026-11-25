@@ -177,6 +177,8 @@ export default function LoginPage({ onAuthenticated, onBackToRegister }: Props) 
             <div>
               <input
                 type="email"
+                name="email"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onBlur={() => setEmailTouched(true)}
@@ -211,6 +213,8 @@ export default function LoginPage({ onAuthenticated, onBackToRegister }: Props) 
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
+                  name="password"
+                  autoComplete="current-password"
                   placeholder="Пароль"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

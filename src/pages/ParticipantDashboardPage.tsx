@@ -1,3 +1,4 @@
+import { SHOW_DEMO } from "../utils/demoMode";
 import { useEffect, useRef, useState } from "react";
 import { hasPendingChat, takePendingOpen } from "../lib/pendingChat";
 import { Icon, type IconName } from "../components/ui/Icon";
@@ -230,6 +231,7 @@ function ParticipantDashboardPageInner({
   // actually clears its badge instead of it staying frozen at whatever
   // it was on mount.
   const countUnreadDemo = () => {
+    if (!SHOW_DEMO) return 0; // no sample conversations on the live site
     const readIds = loadDemoReadIds();
     return participantMessages.filter((m) =>
       readIds[m.id] !== undefined ? !readIds[m.id] : m.unread

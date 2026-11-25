@@ -303,6 +303,8 @@ export default function DashboardAuthPage({ role, onAuthenticated, onBackToSite 
             <div>
               <input
                 type="email"
+                name="email"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onBlur={() => setEmailTouched(true)}
@@ -329,6 +331,8 @@ export default function DashboardAuthPage({ role, onAuthenticated, onBackToSite 
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
+                  name="password"
+                  autoComplete={mode === "register" ? "new-password" : "current-password"}
                   placeholder="Пароль"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

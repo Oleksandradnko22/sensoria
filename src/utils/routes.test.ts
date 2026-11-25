@@ -12,7 +12,7 @@ test("page -> path", () => {
   assert.equal(pathForPage("refunds"), "/refunds");
   assert.equal(pathForPage("author-agreement"), "/author-agreement");
   assert.equal(pathForPage("payment-result"), "/payment-result");
-  assert.equal(pathForPage("admin-dashboard"), "/account");
+  assert.equal(pathForPage("admin-dashboard"), "/admin");
   assert.equal(pathForPage("author-profile", "a b"), "/authors/a%20b");
   assert.equal(pathForPage("author-profile", null), "/");
 });

@@ -17,7 +17,6 @@ import { getInitials } from "../lib/auth";
 import Avatar from "../components/ui/Avatar";
 import {
   fetchUsers,
-  setAuthorVerified,
   setUserBanned,
   liftChatBan,
   fetchRefundRequests,
@@ -49,17 +48,31 @@ import AdminRestoreAccess from "../components/admin/AdminRestoreAccess";
 import { formatAbsoluteDate } from "../utils/relativeTime";
 
 import AdminCommunity from "../components/admin/AdminCommunity";
+import AdminHome from "../components/admin/AdminHome";
+import AuthorsGuide from "../components/admin/AuthorsGuide";
+import SectionGuide, { GUIDES } from "../components/admin/SectionGuide";
 type Props = {
   profile: Profile;
-  onBackToSite: () => void;
+  onBackToSite?: () => void;
   onLogout: () => void;
 };
 
-type Tab = "stats" | "moderation" | "users" | "materials" | "announcements" | "finance" | "refunds" | "tickets" | "contentReports" | "verification" | "actions" | "authorApps";
+type Tab = "home" | "stats" | "moderation" | "users" | "materials" | "announcements" | "finance" | "refunds" | "tickets" | "contentReports" | "verification" | "actions" | "authorApps";
 
-// Refunds, support tickets and content reports are one kind of work — an
-// inbox of open items — so they share a single "Черга" tab with sub-pills.
-const QUEUE_TABS: Tab[] = ["verification", "tickets", "contentReports", "refunds", "authorApps"];
+
+// The owner's map of the panel (25.11.2026): a few sections in plain words, each with one line «що тут робити»; a
+// section with several pages shows them as tabs inside. «Головна» says what needs attention today.
+const SECTIONS: { id: string; label: string; icon: string; hint: string; tabs: [Tab, string][] }[] = [
+  { id: "home", label: "Головна", icon: "home", hint: "З чого почати сьогодні.", tabs: [["home", "Головна"]] },
+  { id: "authors", label: "Автори", icon: "idcard", hint: "Нові анкети й схвалення авторів, статус «Фахівець» за дипломом чи сертифікатом.", tabs: [["authorApps", "Анкети й схвалення"], ["verification", "Статус «Фахівець»"]] },
+  { id: "materials", label: "Матеріали", icon: "library", hint: "Усі програми, гайди й медитації: знайти, переглянути, приховати.", tabs: [["materials", "Усі матеріали"]] },
+  { id: "people", label: "Люди", icon: "community", hint: "Учасники й автори: знайти людину, відкрити акаунт, заблокувати. Порушення в чатах і спільноті.", tabs: [["users", "Усі люди"], ["moderation", "Порушення"]] },
+  { id: "requests", label: "Звернення", icon: "mail", hint: "Листи в підтримку, скарги й запити на повернення коштів — на кожне треба відповісти.", tabs: [["tickets", "Листи в підтримку"], ["contentReports", "Скарги"], ["refunds", "Повернення коштів"]] },
+  { id: "money", label: "Гроші", icon: "card", hint: "Скільки оплатили покупці, скільки тарифу отримала Sensoria, акти авторам.", tabs: [["finance", "Гроші"]] },
+  { id: "community", label: "Спільнота", icon: "megaphone", hint: "Оголошення й публікації для всіх на платформі.", tabs: [["announcements", "Спільнота"]] },
+  { id: "more", label: "Більше", icon: "settings", hint: "Статистика відвідувань і журнал усіх дій в адмінці.", tabs: [["stats", "Аналітика"], ["actions", "Журнал дій"]] },
+];
+const sectionOf = (t: Tab) => SECTIONS.find((x) => x.tabs.some(([k]) => k === t)) ?? SECTIONS[0];
 
 type UserFilter = "all" | "author" | "participant" | "banned" | "chatBanned";
 
@@ -75,8 +88,8 @@ const CONTENT_KIND_LABEL: Record<RefundRequest["contentKind"], string> = {
 // acts on it.
 const REPORT_REVIEW_THRESHOLD = 5;
 
-export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: Props) {
-  const [tab, setTab] = useState<Tab>("stats");
+export default function AdminDashboardPage({ profile, onLogout }: Props) {
+  const [tab, setTab] = useState<Tab>("home");
 
   const [users, setUsers] = useState<AdminUserRow[] | null>(null);
   const [usersError, setUsersError] = useState<string | null>(null);
@@ -244,21 +257,9 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
       setBusyVerificationId(null);
     }
   };
-  const pendingVerificationsCount = (verifications ?? []).filter((v) => v.status === "pending").length;
+  const pendingVerificationsCount = (verifications ?? []).filter((v) => v.status === "pending" && v.kind === "education").length;
 
   const openContentReportsCount = (contentReports ?? []).filter((r) => r.status === "open").length;
-
-  const toggleVerified = async (u: AdminUserRow) => {
-    setBusyUserId(u.id);
-    try {
-      await setAuthorVerified(u.id, !u.verified);
-      reloadUsers();
-    } catch (e) {
-      setUsersError(e instanceof Error ? e.message : "Не вдалося оновити.");
-    } finally {
-      setBusyUserId(null);
-    }
-  };
 
   const toggleChatBanned = async (u: AdminUserRow) => {
     setBusyUserId(u.id);
@@ -299,8 +300,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
     if (!q) return true;
     return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
   });
-  const isQueue = QUEUE_TABS.includes(tab);
-  const queueOpenTotal = openRefundsCount + openTicketsCount + openContentReportsCount + pendingVerificationsCount;
+  const sec = sectionOf(tab);
   const queueCount = (k: Tab) =>
     k === "verification" ? pendingVerificationsCount : k === "tickets" ? openTicketsCount : k === "contentReports" ? openContentReportsCount : k === "refunds" ? openRefundsCount : 0;
 
@@ -309,14 +309,11 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
       {/* TOP BAR */}
       <div className="border-b border-white/10">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 sm:py-5 flex items-center justify-between gap-2">
-          <button
-            onClick={onBackToSite}
-            className="flex items-center gap-2 min-h-[44px] text-white/80 hover:text-white transition min-w-0"
-          >
-            <span className="text-xl">←</span>
+          {/* a closed space of its own: no way from here to the site or a cabinet (owner, 25.11.2026) */}
+          <div className="flex items-center gap-2 min-h-[44px] text-white/85 min-w-0">
             <span className="font-semibold tracking-wide">SENSORIA</span>
             <span className="hidden min-[420px]:inline text-white/60 text-sm ml-1">Адмін-панель</span>
-          </button>
+          </div>
 
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <div className="flex items-center gap-3 pl-1 pr-1 sm:pr-3 py-1 rounded-full bg-white/10">
@@ -338,49 +335,43 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
       </div>
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-24">
-        {/* TABS */}
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-1 -mx-1 px-1">
-          {(
-            [
-              { key: "stats", label: "Аналітика" },
-              { key: "moderation", label: "Модерація" },
-              { key: "users", label: "Користувачі" },
-              { key: "materials", label: "Матеріали" },
-              { key: "announcements", label: "Спільнота" },
-              { key: "finance", label: "Фінанси" },
-              { key: "queue", label: "Черга" },
-              { key: "actions", label: "Журнал дій" },
-            ] as { key: Tab | "queue"; label: string }[]
-          ).map((t) => {
-            const active = t.key === "queue" ? isQueue : tab === t.key;
-            return (
-              <button
-                key={t.key}
-                onClick={() =>
-                  setTab(t.key === "queue" ? (isQueue ? tab : QUEUE_TABS.find((k) => queueCount(k) > 0) ?? "tickets") : t.key)
-                }
-                className={`relative shrink-0 whitespace-nowrap min-h-[44px] px-5 py-2.5 rounded-2xl text-[14px] font-medium transition ${
-                  active ? "bg-white text-black" : "bg-white/10 text-white/75 hover:bg-white/20"
-                }`}
-              >
-                {t.label}
-                {t.key === "queue" && queueOpenTotal > 0 && (
-                  <span className="ml-2 px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[11px] font-semibold">
-                    {queueOpenTotal}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
         {me && !me.mfaOk && (
           <div role="alert" className="mb-4 rounded-2xl bg-amber-100 text-amber-900 px-5 py-4 text-[14px]">
             Для адмін-панелі потрібна двофакторна автентифікація. Увімкніть її в налаштуваннях свого кабінету, вийдіть і
             увійдіть знову з кодом — доти дані тут не завантажуватимуться.
           </div>
         )}
+        <div className="lg:grid lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-6">
+        <nav aria-label="Розділи адмінки" className="mb-4 flex gap-2 overflow-x-auto pb-1 lg:mb-0 lg:flex-col lg:overflow-visible lg:pb-0">
+          {SECTIONS.map((x) => {
+            const active = sec.id === x.id;
+            const n = x.tabs.reduce((sum, [k]) => sum + queueCount(k), 0);
+            return (
+              <button key={x.id} type="button" onClick={() => setTab(x.tabs[0][0])} aria-current={active ? "page" : undefined}
+                className={`flex min-h-[48px] shrink-0 items-center gap-3 rounded-2xl px-4 text-left text-[15px] font-medium transition ${active ? "bg-white text-[#12172b] shadow-sm" : "text-white/85 hover:bg-white/10"}`}>
+                <Icon name={x.icon as never} size={18} />
+                <span className="flex-1 whitespace-nowrap">{x.label}</span>
+                {n > 0 && <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[12px] font-semibold text-black">{n}</span>}
+              </button>
+            );
+          })}
+        </nav>
         <div className="rounded-3xl bg-[#f6f8ff] text-black min-h-[60vh] p-4 sm:p-8">
+          {sec.id !== "home" && (
+            <header className="mb-5">
+              <h1 className="text-[24px] font-bold text-[#12172b]">{sec.label}</h1>
+              <p className="mt-1 text-[15px] text-[#5a6080]">{sec.hint}</p>
+            </header>
+          )}
+          {sec.id === "authors" && <AuthorsGuide />}
+          {GUIDES[sec.id] && <SectionGuide id={sec.id} {...GUIDES[sec.id]} />}
+          {tab === "home" && (
+            <AdminHome
+              name={profile.name}
+              counts={{ tickets: openTicketsCount, verification: pendingVerificationsCount, reports: openContentReportsCount, refunds: openRefundsCount }}
+              onGo={(t) => setTab(t)}
+            />
+          )}
           {tab === "stats" && (
             <AdminAnalytics
               onOpenUsers={() => setTab("users")}
@@ -394,32 +385,13 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
             />
           )}
 
-          {isQueue && (
-            <div className="flex flex-wrap gap-2 mb-6" role="tablist" aria-label="Тип звернень">
-              {(
-                [
-                  { key: "verification", label: "Верифікація" },
-                  { key: "tickets", label: "Звернення" },
-                  { key: "contentReports", label: "Скарги" },
-                  { key: "refunds", label: "Повернення" },
-                  { key: "authorApps", label: "Заявки авторів" },
-                ] as { key: Tab; label: string }[]
-              ).map((p) => (
-                <button
-                  key={p.key}
-                  role="tab"
-                  aria-selected={tab === p.key}
-                  onClick={() => setTab(p.key)}
-                  className={`min-h-[44px] px-4 rounded-xl text-[14px] font-medium border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb] ${
-                    tab === p.key ? "bg-[#eef0fd] text-[#4338ca] border-[#4338ca]/35" : "bg-white border-black/10 hover:border-black/20"
-                  }`}
-                >
-                  {p.label}
-                  {queueCount(p.key) > 0 && (
-                    <span className="ml-2 px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[11px] font-semibold">
-                      {queueCount(p.key)}
-                    </span>
-                  )}
+          {sec.tabs.length > 1 && (
+            <div className="flex flex-wrap gap-2 mb-6" role="tablist" aria-label={sec.label}>
+              {sec.tabs.map(([k, label]) => (
+                <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+                  className={`min-h-[44px] px-4 rounded-xl text-[14px] font-medium border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb] ${tab === k ? "bg-[#eef0fd] text-[#4338ca] border-[#4338ca]/35" : "bg-white border-black/10 hover:border-black/20"}`}>
+                  {label}
+                  {queueCount(k) > 0 && <span className="ml-2 px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[11px] font-semibold">{queueCount(k)}</span>}
                 </button>
               ))}
             </div>
@@ -441,11 +413,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
           {tab === "users" && (
             <div>
               {me?.role === "owner" && <AdminRestoreAccess />}
-              <h1 className="text-2xl font-bold mb-1">Користувачі</h1>
-              <p className="text-black/50 text-[13px] mb-6">
-                Останні 200 акаунтів. Верифікація стосується лише авторів; блокування миттєво
-                завершує сесію користувача.
-              </p>
+              <p className="text-black/55 text-[14px] mb-4">Показано останні 200 акаунтів. Щоб знайти когось іншого — скористайтеся пошуком.</p>
 
               <input
                 value={userSearch}
@@ -484,9 +452,9 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
               )}
 
               {users && (
-                <div className="rounded-2xl bg-white border border-black/5 overflow-hidden">
-                  <table className="w-full text-[13px]">
-                    <thead>
+                <div>
+                  <table className="block w-full text-[14px]">
+                    <thead className="hidden">
                       <tr className="text-left text-black/40 border-b border-black/5">
                         <th className="px-4 py-3 font-medium">Ім'я</th>
                         <th className="px-4 py-3 font-medium">Роль</th>
@@ -494,40 +462,29 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
                         <th className="px-4 py-3 font-medium">Дії</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="grid gap-3">
                       {filteredUsers.map((u) => (
-                        <tr key={u.id} className="border-b border-black/5 last:border-0">
-                          <td className="px-4 py-3">
-                            <div className="font-medium">
+                        <tr key={u.id} className="grid gap-3 rounded-2xl bg-white p-4 ring-1 ring-black/5 md:grid-cols-[minmax(0,1.5fr)_minmax(0,0.6fr)_minmax(0,1fr)_minmax(0,1.5fr)] md:items-start">
+                          <td className="block min-w-0">
+                            <div className="font-semibold text-[15px] break-words">
                               {u.name} {u.isAdmin && <span className="text-black/30">· адмін</span>}
                             </div>
-                            <div className="text-black/40 text-[12px]">{u.email}</div>
+                            <div className="text-black/55 text-[13px] break-all">{u.email}</div>
                             <div className="text-black/40 text-[12px]">Реєстрація: {formatAbsoluteDate(u.createdAt)}</div>
                           </td>
-                          <td className="px-4 py-3 text-black/60">
+                          <td className="block min-w-0 text-black/60">
                             {u.role === "author" ? "Автор" : "Учасник"}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="block min-w-0">
                             <div className="flex flex-col gap-1">
                               {u.isBanned && (
-                                <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[11px] font-medium w-fit">
+                                <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[12px] font-medium w-fit">
                                   Заблоковано
                                 </span>
                               )}
                               {u.role === "author" && (
                                 <span
-                                  className={`px-2 py-0.5 rounded-full text-[11px] font-medium w-fit ${
-                                    u.verified
-                                      ? "bg-emerald-50 text-emerald-700"
-                                      : "bg-black/5 text-black/50"
-                                  }`}
-                                >
-                                  {u.verified ? "Верифіковано" : "Не верифіковано"}
-                                </span>
-                              )}
-                              {u.role === "author" && (
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-[11px] font-medium w-fit ${
+                                  className={`px-2 py-0.5 rounded-full text-[12px] font-medium w-fit ${
                                     u.educationVerified ? "bg-indigo-50 text-indigo-700" : "bg-black/5 text-black/50"
                                   }`}
                                 >
@@ -536,7 +493,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
                               )}
                               {u.reportCount >= REPORT_REVIEW_THRESHOLD && (
                                 <span
-                                  className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-medium w-fit"
+                                  className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[12px] font-medium w-fit"
                                   title="Накопичено багато скарг — варто розглянути питання блокування"
                                 >
                                   <Icon name="warning" size={12} className="inline-block align-[-1px] mr-1" />{u.reportCount} скарг — на розгляд
@@ -551,7 +508,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="block min-w-0">
                             <div className="flex flex-wrap gap-2">
                               <button
                                 onClick={() => setDetailUser(u)}
@@ -559,20 +516,11 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
                               >
                                 Деталі
                               </button>
-                              {u.role === "author" && (
-                                <button
-                                  onClick={() => toggleVerified(u)}
-                                  disabled={busyUserId === u.id}
-                                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-black/5 hover:bg-black/10 transition disabled:opacity-50"
-                                >
-                                  {u.verified ? "Зняти верифікацію" : "Верифікувати"}
-                                </button>
-                              )}
                               {u.role === "author" && u.educationVerified && me?.role === "owner" && (
                                 <button
                                   onClick={() => setEduRevoke(u)}
                                   disabled={busyUserId === u.id}
-                                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-black/5 hover:bg-black/10 transition disabled:opacity-50"
+                                  className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-black/5 hover:bg-black/10 transition disabled:opacity-50"
                                 >
                                   Зняти статус «Фахівець»
                                 </button>
@@ -581,7 +529,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
                                 <button
                                   onClick={() => setEduGrant(u)}
                                   disabled={busyUserId === u.id}
-                                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-black/5 hover:bg-black/10 transition disabled:opacity-50"
+                                  className="px-3 py-1.5 rounded-lg text-[13px] font-medium bg-black/5 hover:bg-black/10 transition disabled:opacity-50"
                                 >
                                   Надати статус «Фахівець»
                                 </button>
@@ -641,8 +589,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
             <div>
               <h1 className="text-2xl font-bold mb-1">Запити на повернення коштів</h1>
               <p className="text-black/50 text-[13px] mb-6">
-                Повернення можливе лише протягом 14 днів після покупки. Сам переказ коштів
-                робиться вручну через банк/платіжку — тут лише статус розгляду запиту.
+                Покупець може попросити повернення протягом 14 днів після покупки. Схваліть або відхиліть запит; саме повернення після схвалення проводиться в розділі «Гроші».
               </p>
 
               {refundsError && <div className="text-red-500 text-[14px] mb-3">{refundsError}</div>}
@@ -745,30 +692,31 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
 
           {tab === "tickets" && (
             <div>
-              <h1 className="text-2xl font-bold mb-1">Звернення в підтримку</h1>
-              <p className="text-black/50 text-[13px] mb-6">
-                Подані через «Повідомити про проблему» на сторінці Допомога — учасники й автори.
-                Відповідь (необов'язкова) видно людині у «Ваші звернення».
-              </p>
 
               {ticketsError && <div className="text-red-500 text-[14px] mb-3">{ticketsError}</div>}
               {!tickets && !ticketsError && (
                 <div className="text-black/40 text-[14px]">Завантаження…</div>
               )}
               {tickets && tickets.length === 0 && (
-                <div className="text-black/40 text-[14px]">Поки що порожньо.</div>
+                <div className="rounded-2xl bg-white p-6 text-[15px] text-black/55 ring-1 ring-black/5">Листів поки немає. Коли хтось напише — лист з'явиться тут, а вам прийде сповіщення на пошту.</div>
               )}
 
               {tickets && tickets.length > 0 && (
                 <div className="flex flex-col gap-3">
-                  {tickets.map((t) => (
+                  {[...tickets].sort((a, b) => (a.status === "open" ? 0 : 1) - (b.status === "open" ? 0 : 1)).map((t, i, list) => (
+                    <div key={t.id} className="contents">
+                    {(i === 0 || list[i - 1].status !== t.status) && (
+                      <h2 className="mt-2 text-[16px] font-semibold text-[#12172b]">
+                        {t.status === "open" ? `Чекають відповіді (${list.filter((x) => x.status === "open").length})` : "Відповідані"}
+                      </h2>
+                    )}
                     <div
                       key={t.id}
                       className="rounded-2xl bg-white border border-black/5 p-5 flex flex-col gap-3"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <div className="font-medium text-[14px]">
+                          <div className="font-semibold text-[15px] break-words">
                             {t.userName} · {t.userEmail}
                             {t.userRole && (
                               <span className="text-black/30">
@@ -792,7 +740,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
                         </span>
                       </div>
 
-                      <p className="text-[13px] text-black/70 leading-relaxed">{t.description}</p>
+                      <p className="text-[15px] text-black/80 leading-relaxed whitespace-pre-wrap break-words">{t.description}</p>
 
                       {t.status === "resolved" && t.adminResponse && (
                         <div className="rounded-xl bg-black/[0.03] px-4 py-3 text-[13px] text-black/60">
@@ -807,14 +755,14 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
                           onChange={(e) =>
                             setTicketDrafts((prev) => ({ ...prev, [t.id]: e.target.value }))
                           }
-                          placeholder="Відповідь людині (необов'язково)…"
-                          rows={2}
-                          className="w-full px-4 py-2.5 rounded-xl border border-black/10 text-[13px] focus:outline-none focus:border-black/30 resize-none"
+                          placeholder="Ваша відповідь — людина побачить її у своєму кабінеті, розділ «Ваші звернення»"
+                          rows={3}
+                          className="w-full px-4 py-3 rounded-xl border border-black/10 text-[15px] focus:outline-none focus:border-[#6d5cf0] resize-y"
                         />
                       )}
 
                       <div className="flex items-center justify-between">
-                        <div className="text-[11px] text-black/35">
+                        <div className="text-[13px] text-black/45">
                           Подано {formatAbsoluteDate(t.createdAt)}
                           {t.resolvedAt && ` · вирішено ${formatAbsoluteDate(t.resolvedAt)}`}
                         </div>
@@ -822,12 +770,13 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
                           <button
                             onClick={() => resolveThisTicket(t)}
                             disabled={busyTicketId === t.id}
-                            className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-black/5 hover:bg-black/10 transition disabled:opacity-50"
+                            className="min-h-[44px] px-5 rounded-xl text-[14px] font-semibold text-white bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] transition disabled:opacity-50"
                           >
-                            Вирішено
+                            {(ticketDrafts[t.id] ?? "").trim() ? "Надіслати відповідь і закрити" : "Закрити без відповіді"}
                           </button>
                         )}
                       </div>
+                    </div>
                     </div>
                   ))}
                 </div>
@@ -864,6 +813,7 @@ export default function AdminDashboardPage({ profile, onBackToSite, onLogout }: 
               }}
             />
           )}
+        </div>
         </div>
       </div>
       {detailUser && (

@@ -1,3 +1,4 @@
+import { DEMO_CONTENT } from "./demoSwitch";
 // Mock data for the participant cabinet (src/pages/ParticipantDashboardPage.tsx
 // and src/components/participant/*). Same approach as authorDashboard.ts:
 // a client-only prototype with no backend, so this is realistic
@@ -46,7 +47,7 @@ export const participantProfile = {
 // keeping the same in-progress item first on both pages tells one
 // coherent story instead of two dashboards disagreeing about what
 // Олена should do next.
-export const enrollments: Enrollment[] = [
+const demo_enrollments: Enrollment[] = [
   {
     contentId: "mindfulness-course",
     kind: "program",
@@ -314,7 +315,7 @@ export type MyReview = {
   authorReply?: string;
 };
 
-export const myReviews: MyReview[] = [
+const demo_myReviews: MyReview[] = [
   {
     id: "rev1",
     contentId: "stress-course",
@@ -349,7 +350,7 @@ export type MyAuthorReview = {
   date: string;
 };
 
-export const myAuthorReviews: MyAuthorReview[] = [
+const demo_myAuthorReviews: MyAuthorReview[] = [
   {
     id: "arev1",
     authorName: "Андрій Коваленко",
@@ -375,7 +376,7 @@ export type MyReportDemo = {
   deletable?: boolean;
 };
 
-export const myReportsDemo: MyReportDemo[] = [
+const demo_myReportsDemo: MyReportDemo[] = [
   {
     id: "rep1",
     reportedName: "Олексій Мельник",
@@ -412,7 +413,7 @@ export type ParticipantMessage = {
   authorId?: string;
 };
 
-export const participantMessages: ParticipantMessage[] = [
+const demo_participantMessages: ParticipantMessage[] = [
   {
     id: "pm0",
     authorName: "Маша Лопотова",
@@ -599,3 +600,9 @@ export const participantFaqCategories: FaqCategory[] = [
     ],
   },
 ];
+
+export const enrollments: Enrollment[] = DEMO_CONTENT ? demo_enrollments : [];
+export const myReviews: MyReview[] = DEMO_CONTENT ? demo_myReviews : [];
+export const myAuthorReviews: MyAuthorReview[] = DEMO_CONTENT ? demo_myAuthorReviews : [];
+export const myReportsDemo: MyReportDemo[] = DEMO_CONTENT ? demo_myReportsDemo : [];
+export const participantMessages: ParticipantMessage[] = DEMO_CONTENT ? demo_participantMessages : [];

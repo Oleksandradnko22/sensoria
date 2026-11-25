@@ -130,6 +130,15 @@ export default function AuthorHelp() {
         <p className="mt-1 text-[15px] text-black/55">Відповіді на часті питання, відеоінструкції й зв’язок із командою Sensoria.</p>
       </div>
 
+      {/* the closed authors' community: joined by this link from the cabinet (lawyer, 25.11.2026 — join requests approved by hand) */}
+      <section className="flex flex-col gap-3 rounded-[22px] bg-white p-5 ring-1 ring-[#ece8fb] sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-[17px] font-semibold text-[#12172b]">Спільнота авторів у Telegram</h2>
+          <p className="mt-1 text-[14px] leading-relaxed text-black/60">Новини платформи, інструкції, допомога з першими матеріалами й освітні зустрічі. Участь добровільна; важливі повідомлення ми надсилаємо лише в кабінеті й на пошту.</p>
+        </div>
+        <a href="https://t.me/+7sdccrmZrvsyOTE6" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-6 text-[15px] font-semibold text-white">Приєднатися</a>
+      </section>
+
       {/* search */}
       <section className="rounded-[28px] bg-gradient-to-br from-[#eef0fd] via-white to-[#f6f1ff] p-6 ring-1 ring-[#e4def9] sm:p-8">
         <h2 className="text-[20px] font-bold text-[#12172b]">Що сталося? Знайдемо відповідь</h2>

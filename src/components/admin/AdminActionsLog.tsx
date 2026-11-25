@@ -7,6 +7,8 @@ export const ACTION_LABELS: Record<string, string> = {
   ban_account: "Заблоковано акаунт",
   unban_account: "Розблоковано акаунт",
   verify_author: "Верифіковано автора",
+  author_approved: "Схвалено автора",
+  author_declined: "Відхилено анкету автора",
   unverify_author: "Знято верифікацію автора",
   ticket_resolved: "Розглянуто звернення",
   refund_reviewed: "Розглянуто запит на повернення",

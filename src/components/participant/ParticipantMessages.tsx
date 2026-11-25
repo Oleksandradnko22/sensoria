@@ -6,7 +6,10 @@
 // are kept as before and are echo-only.
 import { Icon } from "../ui/Icon";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { participantMessages as messagesData } from "../../data/participantDashboard";
+import { participantMessages as demoMessagesData } from "../../data/participantDashboard";
+import { SHOW_DEMO } from "../../utils/demoMode";
+// sample conversations only while the demo is on (never on the live site: .env.production)
+const messagesData = SHOW_DEMO ? demoMessagesData : [];
 import { guides } from "../../data/guides";
 import { meditations } from "../../data/meditations";
 import ChatBanNotice from "../ChatBanNotice";

@@ -391,7 +391,8 @@ export async function enrollMfa(): Promise<MfaEnrollment> {
   }
   const { data, error } = await client.auth.mfa.enroll({
     factorType: "totp",
-    friendlyName: `Sensoria ${new Date().toISOString().slice(0, 19)}`,
+    // unique even for two calls in the same second (React StrictMode runs effects twice in dev)
+    friendlyName: `Sensoria ${new Date().toISOString().slice(0, 19)} ${Math.random().toString(36).slice(2, 6)}`,
   });
   if (error) throw error;
   return { factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret };

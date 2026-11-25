@@ -312,6 +312,10 @@ export function previewCommunityEmail(): Promise<{ to: string }> {
   return callAdmin<{ to: string }>("previewCommunityEmail");
 }
 
+export function declineAuthor(profileId: string, reason: string): Promise<void> {
+  return callAdmin("declineAuthor", { profileId, reason }).then(() => undefined);
+}
+
 export function approveAuthor(profileId: string): Promise<void> {
   return callAdmin("approveAuthor", { profileId }).then(() => undefined);
 }

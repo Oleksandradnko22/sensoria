@@ -162,44 +162,56 @@ export default function AdminFinance() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-2xl font-bold">Фінанси</h2>
-        <p className="text-black/55 text-[14px] mt-1">
-          Журнал операцій не редагується: помилки виправляються новими операціями. Кожна дія потребує причини й потрапляє в журнал аудиту.
-        </p>
-      </div>
-
       {ov?.mode === "test" && (
-        <div className="rounded-xl bg-amber-50 text-amber-900 border border-amber-100 px-4 py-3 text-[13px]">
-          Тестовий режим: реальні гроші не рухаються. Платежі підтверджує адміністратор вручну ({ov.testPayments} тестових платежів у журналі).
+        <div className="rounded-xl bg-amber-50 text-amber-900 border border-amber-100 px-4 py-3 text-[14px]">
+          Зараз тестовий режим: справжні гроші не рухаються ({ov.testPayments} тестових оплат).
         </div>
       )}
-      {error && <div className="rounded-xl bg-rose-50 text-rose-700 px-4 py-3 text-[13px]">{error}</div>}
-      {info && <div className="rounded-xl bg-emerald-50 text-emerald-700 px-4 py-3 text-[13px]">{info}</div>}
+      {error && <div className="rounded-xl bg-rose-50 text-rose-700 px-4 py-3 text-[14px]">{error}</div>}
+      {info && <div className="rounded-xl bg-emerald-50 text-emerald-700 px-4 py-3 text-[14px]">{info}</div>}
 
       {ov && (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Stat label="Загальний оборот" value={k(ov.totals.turnover_kop)} />
-            <Stat label="Нараховано авторам (нетто)" value={k(ov.totals.earned_kop)} />
-            <Stat label="Тариф Sensoria" value={k(ov.totals.sensoria_revenue_kop)} />
-            <Stat label="Виплачено авторам" value={k(ov.totals.paid_out_kop)} />
-            <Stat label="Повернено покупцям" value={k(ov.totals.refunded_kop)} />
-            <Stat label="Резерви" value={k(ov.totals.author_reserved_kop)} />
-            <Stat label="Заборгованість авторів" value={k(ov.totals.author_debt_kop)} tone={Number(ov.totals.author_debt_kop) > 0 ? "bad" : undefined} />
-            <Stat label="Очікують на виплату" value={`${ov.pendingPayouts}`} />
-            <Stat label="Авторів із боргом" value={`${ov.authorsWithDebt}`} />
-            <Stat label="Авторів із призупиненими продажами" value={`${ov.authorsSuspended}`} />
-            <Stat label="Утримується (14 днів)" value={k(ov.totals.author_pending_kop)} />
-            <Stat label="Комісія банку до розрахунку за випискою" value={k(ov.totals.bank_fee_owed_kop)} />
-            <Stat label="Рахунків авторів на перевірці" value={`${ov.pendingBankAccounts}`} />
-            <Stat label="Доступно авторам" value={k(ov.totals.author_available_kop)} />
-          </div>
-          <div className={`rounded-xl px-4 py-3 text-[13px] ${Number(ov.totals.gap_kop) === 0 && ov.mismatches.length === 0 ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}>
+          {/* the four numbers that matter, each explained in one line */}
+          <section aria-labelledby="fin-main">
+            <h2 id="fin-main" className="text-[18px] font-semibold text-[#12172b]">Головне за весь час</h2>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {([
+                ["Заплатили покупці", ov.totals.turnover_kop, "Уся сума оплат за матеріали. Ці гроші йдуть на рахунки авторів."],
+                ["Тариф Sensoria — ваш дохід", ov.totals.sensoria_revenue_kop, "30% (або 15% за посиланням автора), які банк перерахував з рахунків авторів вам."],
+                ["Повернено покупцям", ov.totals.refunded_kop, "Гроші, які повернули покупцям за схваленими запитами."],
+                ["Заробили автори", ov.totals.earned_kop, "Що лишилося авторам після тарифу Sensoria."],
+              ] as [string, string | number, string][]).map(([label, v, why]) => (
+                <div key={label} className="rounded-2xl bg-white p-5 ring-1 ring-[#e6e3fb]">
+                  <div className="text-[14px] font-medium text-[#5a6080]">{label}</div>
+                  <div className="mt-1 text-[26px] font-bold tabular-nums text-[#12172b]">{k(v)}</div>
+                  <p className="mt-2 text-[13px] leading-relaxed text-[#6b7190]">{why}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div className={`rounded-xl px-4 py-3 text-[14px] ${Number(ov.totals.gap_kop) === 0 && ov.mismatches.length === 0 ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}>
             {Number(ov.totals.gap_kop) === 0 && ov.mismatches.length === 0
-              ? "Звірка: журнал збалансований, баланси авторів збігаються з журналом."
-              : `Розбіжність! Різниця журналу: ${k(ov.totals.gap_kop)}, неузгоджених балансів: ${ov.mismatches.length}. Не проводьте виплат, поки не з'ясовано причину.`}
+              ? "Усе сходиться: записи про гроші перевірено автоматично, розбіжностей немає."
+              : `Знайдено розбіжність у записах про гроші (${k(ov.totals.gap_kop)}). Нічого не змінюйте й напишіть розробнику.`}
           </div>
+
+          <details className="rounded-2xl bg-white ring-1 ring-[#e6e3fb]">
+            <summary className="cursor-pointer list-none px-5 py-4 text-[15px] font-semibold text-[#12172b]">Детальні показники — для бухгалтера <span className="font-normal text-[#4338ca]">(показати)</span></summary>
+            <div className="grid grid-cols-2 gap-3 px-5 pb-5 lg:grid-cols-4">
+              <Stat label="Виплачено авторам" value={k(ov.totals.paid_out_kop)} />
+              <Stat label="Резерви" value={k(ov.totals.author_reserved_kop)} />
+              <Stat label="Заборгованість авторів" value={k(ov.totals.author_debt_kop)} tone={Number(ov.totals.author_debt_kop) > 0 ? "bad" : undefined} />
+              <Stat label="Очікують на виплату" value={`${ov.pendingPayouts}`} />
+              <Stat label="Авторів із боргом" value={`${ov.authorsWithDebt}`} />
+              <Stat label="Авторів із призупиненими продажами" value={`${ov.authorsSuspended}`} />
+              <Stat label="Утримується (14 днів)" value={k(ov.totals.author_pending_kop)} />
+              <Stat label="Комісія банку до розрахунку за випискою" value={k(ov.totals.bank_fee_owed_kop)} />
+              <Stat label="Рахунків авторів на перевірці" value={`${ov.pendingBankAccounts}`} />
+              <Stat label="Доступно авторам" value={k(ov.totals.author_available_kop)} />
+            </div>
+          </details>
         </>
       )}
 

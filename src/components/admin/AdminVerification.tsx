@@ -19,8 +19,10 @@ export default function AdminVerification({
 }) {
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [reason, setReason] = useState("");
-  const pending = (requests ?? []).filter((r) => r.status === "pending");
-  const done = (requests ?? []).filter((r) => r.status !== "pending");
+  // only the «Фахівець» (education) requests: identity is verified by monobank for every author with a ФОП
+  const edu = (requests ?? []).filter((r) => r.kind === "education");
+  const pending = edu.filter((r) => r.status === "pending");
+  const done = edu.filter((r) => r.status !== "pending");
 
   return (
     <div>

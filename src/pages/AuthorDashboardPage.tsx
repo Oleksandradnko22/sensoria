@@ -199,6 +199,7 @@ export default function AuthorDashboardPage({
   // it was on mount. Same fix already applied to
   // ParticipantDashboardPage.tsx.
   const countUnreadDemo = () => {
+    if (!SHOW_AUTHOR_DEMO) return 0; // no sample conversations on the live site
     const readIds = loadDemoReadIds();
     return messages.filter((m) =>
       readIds[m.id] !== undefined ? !readIds[m.id] : m.unread

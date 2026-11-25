@@ -1,7 +1,7 @@
 // Admin → «Заявки авторів» (/for-authors): read the application, send the invitation (an e-mail with the author sign-up
 // link) or decline. Owner only (admin-data refuses support).
 import { useEffect, useState } from "react";
-import { approveAuthor, previewCommunityEmail, decideAuthorApplication, fetchAuthorApplications, fetchPendingAuthors, type AuthorApplication, type PendingAuthor } from "../../lib/admin";
+import { approveAuthor, declineAuthor, decideAuthorApplication, fetchAuthorApplications, fetchPendingAuthors, type AuthorApplication, type PendingAuthor } from "../../lib/admin";
 
 const STATUS: Record<AuthorApplication["status"], [string, string]> = {
   new: ["Нова", "bg-amber-100 text-amber-800"],
@@ -23,6 +23,21 @@ export default function AdminAuthorApplications() {
     setError(null);
     try {
       await approveAuthor(a.id);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не вдалося.");
+    } finally {
+      setBusy(null);
+    }
+  };
+  // decline a registered author: an optional reason goes into the letter to the author
+  const decline = async (a: PendingAuthor) => {
+    const reason = window.prompt(`Відхилити анкету ${a.name}? Автор отримає лист.\n\nЯкщо хочете, напишіть причину — її буде в листі (можна лишити порожнім):`, "");
+    if (reason === null) return;
+    setBusy(a.id);
+    setError(null);
+    try {
+      await declineAuthor(a.id, reason);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не вдалося.");
@@ -55,7 +70,6 @@ export default function AdminAuthorApplications() {
       {/* registered by the link and signed the documents — waiting for approval */}
       <h3 className="mb-2 text-[16px] font-semibold">Чекають схвалення ({pending.length})</h3>
       <p className="mb-3 text-[14px] text-black/60">Зареєструвалися за посиланням. Одразу після підписання договору автор отримує лист із запрошенням до Telegram-спільноти авторів. «Схвалити» відкриває кабінет автора й надсилає лист.</p>
-      <CommunityPreview />
       {pending.length === 0 && <p className="mb-6 text-[14px] text-black/50">Нікого немає.</p>}
       <div className="mb-8 flex flex-col gap-2">
         {pending.map((a) => (
@@ -83,6 +97,7 @@ export default function AdminAuthorApplications() {
               )}
             </div>
             <button type="button" disabled={busy === a.id || !a.signed} onClick={() => void approve(a)} title={a.signed ? undefined : "Спершу автор має підписати оферту"} className="min-h-[44px] rounded-xl bg-gradient-to-r from-[#3b6df0] to-[#7c5cf0] px-4 text-[14px] font-semibold text-white disabled:opacity-40">Схвалити</button>
+            <button type="button" disabled={busy === a.id} onClick={() => void decline(a)} className="min-h-[44px] rounded-xl border border-black/10 bg-white px-4 text-[14px] font-semibold text-[#b42318] disabled:opacity-40">Відхилити</button>
           </div>
         ))}
       </div>
@@ -121,13 +136,3 @@ export default function AdminAuthorApplications() {
   );
 }
 
-// sends a test copy of the «спільнота авторів» letter to the admin's own address
-function CommunityPreview() {
-  const [state, setState] = useState<string | null>(null);
-  return (
-    <div className="mb-5 flex flex-wrap items-center gap-3">
-      <button type="button" disabled={state === "…"} onClick={() => { setState("…"); previewCommunityEmail().then((r) => setState(`Надіслано на ${r.to}`), (e) => setState(e instanceof Error ? e.message : "Не вдалося надіслати")); }} className="min-h-[40px] rounded-xl border border-[#d9d6f5] bg-white px-4 text-[14px] font-semibold text-[#4338ca] disabled:opacity-50">Надіслати тестовий лист «Спільнота авторів»</button>
-      {state && state !== "…" && <span className="text-[13px] text-black/60">{state}</span>}
-    </div>
-  );
-}

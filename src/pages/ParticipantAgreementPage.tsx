@@ -1,3 +1,4 @@
+import { DOC_EDITIONS } from "../data/legalOperator";
 import LegalLayout, { type LegalSection } from "../components/legal/LegalLayout";
 import RelatedDocs from "../components/legal/RelatedDocs";
 
@@ -158,7 +159,8 @@ export default function ParticipantAgreementPage({ onOpenTerms, onOpenPrivacy, o
       lead="Умови користування Sensoria для учасників: доступ до матеріалів, оплата й повернення, дані про емоційний стан, спільнота та що бачить автор."
       metaTitle="Угода учасника — Sensoria"
       metaDescription="Угода учасника Sensoria: освітній характер матеріалів, вік, доступ і заборона копіювання, продавець і оплата через monobank, повернення коштів, персональні дані."
-      edition="1.1"
+      edition={DOC_EDITIONS.participant_agreement.edition}
+      effectiveDate={DOC_EDITIONS.participant_agreement.effectiveDate}
       sections={SECTIONS}
       footer={<RelatedDocs current="participant" onOpenTerms={onOpenTerms} onOpenPrivacy={onOpenPrivacy} onOpenRefunds={onOpenRefunds} />}
     />

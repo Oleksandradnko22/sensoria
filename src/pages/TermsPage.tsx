@@ -1,3 +1,4 @@
+import { DOC_EDITIONS } from "../data/legalOperator";
 import LegalLayout, { type LegalSection } from "../components/legal/LegalLayout";
 import RelatedDocs from "../components/legal/RelatedDocs";
 
@@ -453,6 +454,8 @@ export default function TermsPage({ onOpenPrivacy, onOpenRefunds, onOpenAuthorAg
       lead="Правила користування Sensoria для учасників і авторів."
       metaTitle="Умови використання — Sensoria"
       metaDescription="Умови використання Sensoria: акаунти, контент, покупка та повернення коштів, правила спілкування й модерація."
+      edition={DOC_EDITIONS.terms.edition}
+      effectiveDate={DOC_EDITIONS.terms.effectiveDate}
       sections={SECTIONS}
       footer={<RelatedDocs current="terms" onOpenPrivacy={onOpenPrivacy} onOpenRefunds={onOpenRefunds} onOpenAuthorAgreement={onOpenAuthorAgreement} />}
     />

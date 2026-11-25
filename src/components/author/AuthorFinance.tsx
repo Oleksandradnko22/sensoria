@@ -614,7 +614,7 @@ function MonoConnectCard() {
     void load();
   }, []);
 
-  const problem = legalName.trim().length < 5 ? "Вкажіть назву ФОП або ТОВ повністю, як у документах." : legalAddress.trim().length < 10 ? "Вкажіть місцезнаходження, як у Єдиному державному реєстрі." : !/^(\d{8}|\d{10})$/.test(ipn) ? "РНОКПП ФОП — 10 цифр, ЄДРПОУ ТОВ — 8 цифр." : !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(buyerEmail.trim()) ? "Вкажіть робочий email для покупців." : !/^(\+?38)?0\d{9}$/.test(buyerPhone.replace(/[\s()-]/g, "")) ? "Вкажіть робочий телефон для покупців у форматі +380XXXXXXXXX." : !singlePartner ? "Підтвердіть, що не приймаєте оплати з розподілом платежу через іншу платформу — партнера monobank." : null;
+  const problem = legalName.trim().length < 5 ? "Вкажіть назву ФОП або ТОВ повністю, як у документах." : legalAddress.trim().length < 10 ? "Вкажіть місцезнаходження, як у Єдиному державному реєстрі." : !/^(\d{8}|\d{10})$/.test(ipn) ? "РНОКПП ФОП — 10 цифр, ЄДРПОУ ТОВ — 8 цифр." : !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(buyerEmail.trim()) ? "Вкажіть робочий email для покупців." : !/^(\+?38)?0\d{9}$/.test(buyerPhone.replace(/[\s()-]/g, "")) ? "Вкажіть робочий телефон для покупців у форматі +380XXXXXXXXX." : !singlePartner ? "Підтвердіть, що не приймаєте оплати через сервіс інформаційної взаємодії monobank з іншою платформою." : null;
   const save = async () => {
     if (problem) return setError(problem);
     if (!paidOk && !a6) return setError("Підтвердьте умови платних продажів.");
@@ -687,7 +687,7 @@ function MonoConnectCard() {
           <p className="rounded-xl bg-[#faf9ff] px-4 py-3 text-[13px] leading-relaxed text-black/65 ring-1 ring-[#efeafd]">Тримайте на рахунку ФОП у monobank залишок не менше 600 ₴ — цього вимагає банк для повернень коштів покупцям і спірних платежів. Якщо банк не провів повернення через брак коштів, поповніть рахунок не пізніше наступного робочого дня.</p>
           <label className={`flex cursor-pointer items-start gap-3 rounded-xl p-2 ${singlePartner ? "bg-[#eef0fd]" : ""}`}>
             <input type="checkbox" checked={singlePartner} onChange={(e) => setSinglePartner(e.target.checked)} className="mt-[3px] h-[18px] w-[18px] shrink-0 accent-[#4338ca]" />
-            <span className="text-[14px] leading-relaxed text-[#12172b]">Я не приймаю оплати з розподілом платежу через іншу платформу — партнера monobank. <a href="/author-agreement#technical-services" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Чому це важливо</a></span>
+            <span className="text-[14px] leading-relaxed text-[#12172b]">Я не приймаю оплати через сервіс інформаційної взаємодії monobank з іншою платформою. <a href="/author-agreement#technical-services" target="_blank" rel="noopener" className="font-semibold text-[#4338ca] underline underline-offset-2">Чому це важливо</a></span>
           </label>
           {status === "active" && <p className="text-[13px] text-amber-800">Після зміни даних продажі зупиняться, доки банк не підключить новий рахунок.</p>}
           {!paidOk && (

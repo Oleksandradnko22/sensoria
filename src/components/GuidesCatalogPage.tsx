@@ -1,3 +1,4 @@
+import { DEMO_CONTENT } from "../data/demoSwitch";
 import { useEffect, useMemo, useRef, useState } from "react";
 import GuidePreviewModal from "./GuidesPreviewModal";
 import CatalogGuideCard from "./catalog/CatalogGuideCard";
@@ -35,7 +36,7 @@ const stateCategories = [
 const PAGE_SIZE = 6;
 
 // Development build only: empty preview cards next to the real guides (see data/guidesDemo.ts).
-const withDemo = (list: Guide[]): Guide[] => (import.meta.env.DEV ? [...list, ...demoGuides] : list);
+const withDemo = (list: Guide[]): Guide[] => (import.meta.env.DEV && DEMO_CONTENT ? [...list, ...demoGuides] : list);
 const isDemo = (guide: Guide) => guide.id.startsWith(DEMO_GUIDE_PREFIX);
 
 // The toolbar shows at most this many applied filters; the rest collapse into «+N».

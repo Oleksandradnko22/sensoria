@@ -1,3 +1,4 @@
+import { DEMO_CONTENT } from "../data/demoSwitch";
 import { useEffect, useMemo, useRef, useState } from "react";
 import MeditationDetailModal from "./MeditationDetailModal";
 import CatalogMeditationCard from "./catalog/CatalogMeditationCard";
@@ -54,7 +55,7 @@ const heading = "mb-2.5 text-[12px] font-semibold uppercase tracking-[0.08em] te
 
 export default function MeditationsCatalogPage({ meditations, initialCategories = [], initialSelectedId, session, onRequireLogin, onStart }: Props) {
   const materialsVersion = useMaterialsVersion();
-  const catalog = useMemo<Meditation[]>(() => (import.meta.env.DEV ? [...meditations, ...demoMeditations] : [...meditations]), [meditations, materialsVersion]);
+  const catalog = useMemo<Meditation[]>(() => (import.meta.env.DEV && DEMO_CONTENT ? [...meditations, ...demoMeditations] : [...meditations]), [meditations, materialsVersion]);
   const [search, setSearch] = useState("");
   const [selectedSort, setSelectedSort] = useState<SortId>("default");
   const [duration, setDuration] = useState(DEFAULTS.duration);
